@@ -7,7 +7,20 @@ import type {
 } from './types';
 
 const PRECOLLEGE_SEMESTER = 'precollege';
-const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
+const BACKEND_BASE_URL =
+  (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:5000';
+
+async function parseJsonResponse<T>(response: Response, resourceName: string): Promise<T> {
+  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  if (!contentType.includes('application/json')) {
+    const preview = (await response.text()).slice(0, 120).replace(/\s+/g, ' ');
+    throw new Error(
+      `Expected JSON for ${resourceName}, got '${contentType || 'unknown'}'. Response starts with: ${preview}`
+    );
+  }
+
+  return (await response.json()) as T;
+}
 
 function parseCourseNameWithCredits(courseEntry: string): {
   baseCourse: string;
@@ -112,8 +125,14 @@ export async function loadSchedulerData(): Promise<SchedulerData> {
     throw new Error('Failed to load course catalog data.');
   }
 
-  const scheduleData = (await scheduleResponse.json()) as ScheduleFile;
-  const catalogData = (await catalogResponse.json()) as CourseCatalog;
+  const scheduleData = await parseJsonResponse<ScheduleFile>(
+    scheduleResponse,
+    'default schedule'
+  );
+  const catalogData = await parseJsonResponse<CourseCatalog>(
+    catalogResponse,
+    'course catalog'
+  );
 
   const semesterKeys = Object.keys(scheduleData.semesters);
   const semesterOrder = semesterKeys.filter((semester) => semester !== PRECOLLEGE_SEMESTER);
