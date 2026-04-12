@@ -1,32 +1,63 @@
 #!/bin/bash
 
 exec > >(tee /dev/console | tee -a /var/log/startup-script.log) 2>&1
+set -euo pipefail
 
 echo "===== Startup Script Begin ====="
 
-echo "[0/6] Pre-Setup"
+echo "[0/10] Pre-Setup"
 export DEBIAN_FRONTEND=noninteractive
 apt-get remove -y man-db
 apt-get autoremove -y
 
-echo "[1/6] Updating packages..."
+echo "[1/10] Updating packages..."
 sudo apt-get update -yq
 
-echo "[2/6] Installing dependencies..."
-sudo apt-get install -yq build-essential python3-pip python3-venv rsync git tmux nginx
+echo "[2/10] Installing base dependencies..."
+sudo apt-get install -yq \
+	build-essential \
+	python3-pip \
+	python3-venv \
+	rsync \
+	git \
+	tmux \
+	nginx \
+	curl \
+ca-certificates \
+	gnupg
 
-echo "[3/6] Cloning Flask app..."
-git clone https://github.com/DefiantBurger/PersonalWebsite ${app_path}
-cd ${app_path}
+echo "[3/10] Using default system Python from Debian image..."
 
-echo "[4/6] Setting up virtual environment and installing requirements..."
+echo "[4/10] Installing Node.js and enabling pnpm..."
+curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+sudo apt-get install -yq nodejs
+corepack enable
+corepack prepare pnpm@10.12.1 --activate
+
+echo "[5/10] Cloning application repository..."
+rm -rf ${app_path}
+git clone --branch ${repo_branch} --single-branch ${repo_url} ${app_path}
+
+echo "[6/10] Setting up backend virtual environment from pyproject..."
+cd ${app_path}/backend
 python3 -m venv venv
 source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install .
+deactivate
 
-echo "[5/6] Creating systemd service for Flask app..."
-#echo "${flaskapp_service}" | tee /etc/systemd/system/flaskapp.service
+echo "[7/10] Building frontend assets..."
+cd ${app_path}/frontend
+VITE_BACKEND_URL="https://${domain}" pnpm install --frozen-lockfile
+VITE_BACKEND_URL="https://${domain}" pnpm build
+
+echo "[8/10] Creating backend runtime user and permissions..."
+if ! id -u flaskapp >/dev/null 2>&1; then
+	useradd --system --no-create-home --shell /usr/sbin/nologin flaskapp
+fi
+chown -R flaskapp:flaskapp ${app_path}/backend
+
+echo "[9/10] Creating systemd service for Flask app..."
 printf "%s" "${flaskapp_service}" | base64 --decode > /etc/systemd/system/flaskapp.service
 
 echo "Enabling and starting flaskapp.service..."
@@ -34,13 +65,15 @@ systemctl daemon-reload
 systemctl enable flaskapp
 systemctl start flaskapp
 
-echo "[6/6] Setting up Nginx reverse proxy..."
+echo "[10/10] Setting up Nginx reverse proxy..."
 mkdir ${app_path}/certs
 printf "%s" "${cloudflare_cert}" | base64 --decode > ${app_path}/certs/cloudflare.crt 2>/dev/null
 printf "%s" "${cloudflare_key}" | base64 --decode > ${app_path}/certs/cloudflare.key 2>/dev/null
+chmod 600 ${app_path}/certs/cloudflare.key
 
 printf "%s" "${nginx_conf}" | base64 --decode > /etc/nginx/sites-available/default
 
+nginx -t
 systemctl restart nginx
 
 

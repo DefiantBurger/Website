@@ -7,7 +7,7 @@ import type {
 } from './types';
 
 const PRECOLLEGE_SEMESTER = 'precollege';
-const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:5000';
+const BACKEND_BASE_URL = (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? '';
 
 function parseCourseNameWithCredits(courseEntry: string): {
   baseCourse: string;
