@@ -18,6 +18,7 @@
   let currentSlug = '';
   let isMounted = false;
   let pendingMermaidRender = false;
+  let currentMermaidTheme = '';
   let debugEnabled = false;
   let debugInfo: {
     slug: string;
@@ -39,11 +40,24 @@
     mermaidRunError: ''
   };
 
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: 'strict',
-    theme: 'default'
-  });
+  function resolveMermaidTheme(): 'dark' | 'default' {
+    const appTheme = document.documentElement.getAttribute('data-theme');
+    return appTheme === 'dark' ? 'dark' : 'default';
+  }
+
+  function configureMermaidForCurrentTheme() {
+    const nextTheme = resolveMermaidTheme();
+    if (nextTheme === currentMermaidTheme) {
+      return;
+    }
+
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: nextTheme
+    });
+    currentMermaidTheme = nextTheme;
+  }
 
   async function loadPage() {
     loading = true;
@@ -95,6 +109,8 @@
       return;
     }
 
+    configureMermaidForCurrentTheme();
+
     const nodes = Array.from(articleEl.querySelectorAll<HTMLElement>('.mermaid'));
     const codeNodes = Array.from(
       articleEl.querySelectorAll<HTMLElement>('pre > code.language-mermaid')
@@ -109,6 +125,15 @@
 
     if (nodes.length > 0) {
       try {
+        for (const node of nodes) {
+          if (!node.dataset.mermaidSource) {
+            node.dataset.mermaidSource = node.textContent?.trim() ?? '';
+          }
+
+          node.removeAttribute('data-processed');
+          node.textContent = node.dataset.mermaidSource;
+        }
+
         await mermaid.run({
           nodes
         });
@@ -141,12 +166,29 @@
 
   onMount(() => {
     isMounted = true;
+    configureMermaidForCurrentTheme();
+
+    const observer = new MutationObserver(async () => {
+      const nextTheme = resolveMermaidTheme();
+      if (nextTheme !== currentMermaidTheme && articleEl && !loading && !error) {
+        await renderMermaidIntoArticle();
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme']
+    });
 
     const slug = $routeParams.slug;
     if (slug && slug !== currentSlug) {
       currentSlug = slug;
       void loadPage();
     }
+
+    return () => {
+      observer.disconnect();
+    };
   });
 
   $: {
