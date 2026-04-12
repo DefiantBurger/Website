@@ -1,0 +1,52 @@
+{
+	"semesters": {
+		"precollege": ["MATH 221", "E C E 210"],
+		"fall24": [
+			"MATH 222",
+			"CHEM 103",
+			"COMP SCI 220",
+			"HIST SCI 150",
+			"SOC 196"
+		],
+		"spring25": [
+			"MATH 234",
+			"E C E 252",
+			"COMP SCI 402",
+			"COMP SCI 300",
+			"PHYSICS 201",
+			"INTL ST 110"
+		],
+		"fall25": [
+			"E C E 352",
+			"COMP SCI 240",
+			"COMP SCI 400",
+			"PHYSICS 202",
+			"E C E 203"
+		],
+		"spring26": [
+			"E C E 230",
+			"E C E 270",
+			"E C E 354",
+			"E C E 235",
+			"SOC 220[4]"
+		],
+		"summer26": ["E C E 340"],
+		"fall26": [
+			"E C E 222",
+			"E C E 353",
+			"E C E 315",
+			"E C E 551",
+			"PHYSICS 311",
+			"E C E 271"
+		],
+		"spring27": [
+			"INTEREGR 397",
+			"E C E 335",
+			"PHYSICS 322",
+			"STAT 311",
+			"E C E 305"
+		],
+		"fall27": ["PHYSICS 321", "E C E 555", "PHYSICS 448", "COMP SCI 537"],
+		"spring28": ["E C E 453", "E C E 549", "E C E 556", "E C E 313"]
+	}
+}

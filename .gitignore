@@ -1,0 +1,61 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# Python backend
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node / frontend (Svelte + Vite)
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+frontend/node_modules/
+frontend/.svelte-kit/
+frontend/dist/
+frontend/.vite/
+frontend/.cache/
+
+# Terraform deployment
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Misc caches
+.cache/
+.tmp/
