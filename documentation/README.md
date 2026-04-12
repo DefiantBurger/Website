@@ -10,6 +10,7 @@ This folder documents the current state of the repository across frontend, backe
 - [Backend Documentation](./backend.md)
 - [Scheduler Utility Documentation](./scheduler.md)
 - [Deployment Documentation](./deployment.md)
+- [VM Update Playbook](./vm-update.md)
 - [Known Gaps and Technical Debt](./known-gaps.md)
 
 ## Scope
@@ -29,3 +30,4 @@ They intentionally describe:
 2. Follow [Local Development Guide](./development.md).
 3. Dive into [Scheduler Utility Documentation](./scheduler.md) if that feature is your focus.
 4. Use [Deployment Documentation](./deployment.md) when modifying or operating infra.
+5. Use [VM Update Playbook](./vm-update.md) for redeploy/rebuild workflows.

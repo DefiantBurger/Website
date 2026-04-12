@@ -97,6 +97,8 @@ terraform plan
 terraform apply
 ```
 
+For day-to-day redeploy and VM refresh procedures, see `vm-update.md`.
+
 ## Operational Notes
 
 - VM startup is stateful and performs clone/build at boot.
