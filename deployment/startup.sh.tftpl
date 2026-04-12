@@ -16,23 +16,25 @@ sudo apt-get update -yq
 echo "[2/10] Installing base dependencies..."
 sudo apt-get install -yq \
 	build-essential \
+	python3.11 \
+	python3.11-venv \
 	python3-pip \
-	python3-venv \
 	rsync \
 	git \
 	tmux \
 	nginx \
 	curl \
-ca-certificates \
+	ca-certificates \
 	gnupg
 
-echo "[3/10] Using default system Python from Debian image..."
+echo "[3/10] Verifying Python 3.11 runtime..."
+python3.11 --version
 
 echo "[4/10] Installing Node.js and enabling pnpm..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 sudo apt-get install -yq nodejs
 corepack enable
-corepack prepare pnpm@10.12.1 --activate
+corepack prepare pnpm@latest-10 --activate
 
 echo "[5/10] Cloning application repository..."
 rm -rf ${app_path}
@@ -40,7 +42,7 @@ git clone --branch ${repo_branch} --single-branch ${repo_url} ${app_path}
 
 echo "[6/10] Setting up backend virtual environment from pyproject..."
 cd ${app_path}/backend
-python3 -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install .
