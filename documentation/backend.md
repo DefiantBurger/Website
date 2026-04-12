@@ -38,6 +38,10 @@ Packaging and dependency metadata are in `backend/pyproject.toml`.
   - returns `course_data.json` from `backend/app/static/json/`.
 - `GET /api/scheduler/default-schedule`
   - returns `physics_courses.json` from `backend/app/static/json/`.
+- `GET /api/projects`
+  - returns published project metadata parsed from markdown frontmatter.
+- `GET /api/projects/<slug>`
+  - returns one published project payload including markdown body.
 - `GET /static/<path:filename>`
   - sends static assets from backend static folder.
 
@@ -54,10 +58,13 @@ Packaging and dependency metadata are in `backend/pyproject.toml`.
   - seeded schedule object:
     - `semesters`: map of semester key to course entry list
     - supports optional credit suffix like `SOC 220[4]`
+- `backend/app/content/projects/*.md`
+  - markdown files with YAML frontmatter used for project list/detail APIs.
 
 ## API Contract Notes
 
-- Responses are JSON files served from disk.
+- Scheduler responses are JSON files served from disk.
+- Project responses are JSON payloads built by parsing markdown + frontmatter.
 - Frontend enforces `Content-Type` containing `application/json`.
 - Non-JSON responses trigger frontend parsing errors with diagnostic previews.
 

@@ -18,6 +18,7 @@ flowchart LR
     Nginx -->|/| FE[Svelte static build]
     Nginx -->|/api/*| Flask[Flask app on :5000]
     Flask --> JSON[Static JSON scheduler data]
+    Flask --> MD[Markdown project content]
 ```
 
 ## Repository Structure
@@ -51,10 +52,13 @@ Defined in frontend routing:
 
 - `/`
 - `/projects`
+- `/projects/:slug`
 - `/about`
 - `/contact`
 - `/utilities`
 - `/utilities/scheduler` (and trailing slash variant)
+
+The `/projects/:slug` route is rendered from backend-served markdown content at runtime.
 
 ## Key Feature: Class Scheduler
 

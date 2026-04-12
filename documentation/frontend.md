@@ -20,6 +20,7 @@ Dependencies are defined in `frontend/package.json`.
 
 - `/` -> Home
 - `/projects` -> Projects
+- `/projects/:slug` -> ProjectDetail
 - `/about` -> About
 - `/contact` -> Contact
 - `/utilities` -> Utilities
@@ -29,6 +30,7 @@ Router state is exposed via stores:
 
 - `currentPage`
 - `currentRoute`
+- `routeParams`
 
 ## App Shell
 
@@ -51,7 +53,9 @@ Router state is exposed via stores:
 - `Home.svelte`
   - hero, quick links, and placeholder featured projects.
 - `Projects.svelte`
-  - placeholder project cards.
+  - runtime-loaded project cards from backend API.
+- `ProjectDetail.svelte`
+  - runtime markdown project rendering with Mermaid support.
 - `About.svelte`, `Contact.svelte`
   - placeholder content.
 - `Utilities.svelte`
@@ -82,6 +86,26 @@ Router state is exposed via stores:
 
 - defines scheduler data contracts for catalog records, course instances, requirements, and graph edges.
 
+## Project Content Integration
+
+`frontend/src/lib/projects/api.ts`:
+
+- fetches project list and project detail endpoints,
+- validates response content type and surfaces parsing errors.
+
+`frontend/src/lib/projects/renderMarkdown.ts`:
+
+- parses markdown with GFM support,
+- generates heading IDs and anchor links,
+- transforms mermaid code fences to render targets,
+- sanitizes generated HTML before rendering.
+
+`frontend/src/pages/ProjectDetail.svelte`:
+
+- loads project by slug route param,
+- renders markdown to HTML,
+- executes Mermaid rendering after DOM updates.
+
 ## Styling Notes
 
 Main styles are in `frontend/src/app.css` and component-scoped styles.
@@ -95,7 +119,7 @@ This duplicate style region should be cleaned up to prevent confusion and accide
 
 ## Suggested Frontend Improvements
 
-1. Replace placeholder page content with real profile/project data.
-2. Add route-level 404 fallback in SPA router.
-3. Consolidate `app.css` to a single coherent stylesheet.
-4. Add component tests for scheduler interactions and import/export validation.
+1. Add route-level 404 fallback in SPA router.
+2. Consolidate `app.css` to a single coherent stylesheet.
+3. Add component tests for scheduler interactions and import/export validation.
+4. Add markdown renderer tests for sanitize and Mermaid transformation behavior.

@@ -18,6 +18,9 @@
     if (path === '/utilities') {
       return $currentRoute.startsWith('/utilities');
     }
+    if (path === '/projects') {
+      return $currentRoute.startsWith('/projects');
+    }
     return $currentRoute === path;
   }
 

@@ -1,48 +1,27 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { navigate } from '../lib/router';
+  import { loadProjects } from '../lib/projects/api';
+  import type { ProjectSummary } from '../lib/projects/types';
 
-  interface Project {
-    title: string;
-    description: string;
-    link?: string;
-  }
-
-  let projects: Project[] = [];
+  let projects: ProjectSummary[] = [];
   let loading = false;
   let error: string | null = null;
 
   onMount(async () => {
     loading = true;
     try {
-      // Placeholder: will connect to API later
-      projects = [
-        {
-          title: 'Personal Website',
-          description: 'A minimal green terminal aesthetic website built with Flask and Svelte.',
-          link: '#'
-        },
-        {
-          title: 'Project 2',
-          description: 'Description coming soon...',
-          link: '#'
-        },
-        {
-          title: 'Project 3',
-          description: 'Another exciting project awaiting details.',
-          link: '#'
-        },
-        {
-          title: 'Project 4',
-          description: 'More work samples coming soon.',
-          link: '#'
-        }
-      ];
+      projects = await loadProjects();
     } catch (e) {
       error = 'Failed to load projects';
     } finally {
       loading = false;
     }
   });
+
+  function openProject(slug: string) {
+    navigate(`/projects/${slug}`);
+  }
 </script>
 
 <div class="projects">
@@ -60,10 +39,26 @@
       {#each projects as project}
         <div class="project-item terminal-box">
           <h3>{project.title}</h3>
-          <p>{project.description}</p>
-          {#if project.link}
-            <a href={project.link} class="project-link">> View Project →</a>
+          <p>{project.summary || 'Project details coming soon.'}</p>
+
+          {#if project.tags.length > 0}
+            <div class="tag-list">
+              {#each project.tags as tag}
+                <span class="tag">{tag}</span>
+              {/each}
+            </div>
           {/if}
+
+          <a
+            href={`/projects/${project.slug}`}
+            class="project-link"
+            on:click={(e) => {
+              e.preventDefault();
+              openProject(project.slug);
+            }}
+          >
+            > View Project →
+          </a>
         </div>
       {/each}
     </div>
@@ -132,6 +127,21 @@
   .project-link {
     display: inline-block;
     align-self: flex-start;
+  }
+
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .tag {
+    border: 1px solid var(--color-text-primary);
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    opacity: 0.95;
   }
 
   .loading {
