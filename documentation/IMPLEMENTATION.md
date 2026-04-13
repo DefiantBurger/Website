@@ -50,13 +50,12 @@ pnpm run dev
 
 1. Start backend on port 5000.
 2. Start frontend dev server.
-3. Load scheduler route first to validate API wiring.
+3. Load any utility route to validate API wiring.
 
 ### Quick Health Checks
 
 ```bash
-curl http://localhost:5000/api/scheduler/default-schedule
-curl http://localhost:5000/api/scheduler/course-data
+curl http://localhost:5000/api/projects
 ```
 
 ```bash
@@ -96,16 +95,14 @@ Packaging/dependency metadata lives in `backend/pyproject.toml`.
 
 Implemented in `backend/app/views.py`:
 
-- `GET /api/scheduler/course-data`
-- `GET /api/scheduler/default-schedule`
+- `GET /api/scheduler/*` utility endpoints
 - `GET /api/projects`
 - `GET /api/projects/:slug`
 - `GET /static/<path:filename>`
 
 ### Data Sources
 
-- `backend/app/static/json/course_data.json`: course catalog map keyed by course code.
-- `backend/app/static/json/physics_courses.json`: seeded schedule by semester.
+- `backend/app/static/json/*.json`: utility data files.
 - `backend/app/content/projects/*.md`: project metadata/body via frontmatter + Markdown.
 
 ## Frontend
@@ -129,7 +126,7 @@ Entry point is `frontend/src/main.ts`; global styles are in `frontend/src/app.cs
 - `/about`
 - `/contact`
 - `/utilities`
-- `/utilities/scheduler` and `/utilities/scheduler/`
+- utility-specific routes under `/utilities/*`
 
 Stores:
 
@@ -139,7 +136,7 @@ Stores:
 
 ### App Shell and Navigation
 
-`frontend/src/App.svelte` initializes router and switches to wider layout for scheduler route.
+`frontend/src/App.svelte` initializes router and supports wider layout for utility-heavy routes.
 
 `frontend/src/lib/components/Nav.svelte` provides:
 
@@ -155,71 +152,9 @@ Stores:
 - `About.svelte`
 - `Contact.svelte`
 - `Utilities.svelte`
-- `UtilityScheduler.svelte`
+- utility-specific pages (for example `UtilityScheduler.svelte`)
 
-## Scheduler Feature
-
-### Purpose
-
-Interactive semester planning with prerequisite validation and dependency graph visualization.
-
-Route: `/utilities/scheduler`
-
-### Data Loading and Model
-
-Source APIs:
-
-- `GET /api/scheduler/default-schedule`
-- `GET /api/scheduler/course-data`
-
-Loader behavior (`frontend/src/lib/scheduler/data.ts`):
-
-- validates JSON content type,
-- parses optional credit suffix notation (`COURSE[4]`),
-- expands entries into unique instance IDs,
-- builds prerequisite requirements per instance.
-
-Catalog records support:
-
-- fixed `credits` or variable `min_credits`/`max_credits`,
-- `prereqs` OR-groups,
-- `concurrent_prereqs` OR-groups.
-
-### Core Logic
-
-`frontend/src/lib/scheduler/logic.ts` computes:
-
-- edge status: `valid`, `invalid`, `concurrent`,
-- requirement progress per course,
-- optional repeated barycenter sweeps for detangling order.
-
-Progress model:
-
-$$
-\text{progress} = \frac{\text{satisfied requirement groups}}{\text{expected requirement groups}}
-$$
-
-### Interaction Model
-
-- drag and drop across semesters,
-- drop-above reordering,
-- move earlier/later controls,
-- remove selected course,
-- clear-all with confirmation,
-- import/export schedule JSON with validation.
-
-Validation behavior:
-
-- malformed credit syntax raises explicit errors,
-- invalid/out-of-range credits are rejected,
-- unknown imported course codes fail import.
-
-### Visual Layer
-
-- SVG edges between course cards,
-- invalid edges emphasized,
-- selection highlights related edges,
-- redraw batching via `requestAnimationFrame`.
+Utility-specific behavior, contracts, and API checks are documented in `UTILITIES.md`.
 
 ## Project Content Rendering
 
@@ -250,48 +185,6 @@ Validation behavior:
 - Production: `https://<your-domain>`
 
 Frontend expects JSON endpoints to return `Content-Type` including `application/json`.
-
-### Scheduler Endpoints
-
-#### GET `/api/scheduler/default-schedule`
-
-Returns seeded schedule keyed by semester.
-
-```bash
-curl -s http://localhost:5000/api/scheduler/default-schedule | jq .
-```
-
-Response shape:
-
-```json
-{
-  "semesters": {
-    "precollege": ["MATH 221", "E C E 210"],
-    "fall24": ["MATH 222", "CHEM 103"]
-  }
-}
-```
-
-#### GET `/api/scheduler/course-data`
-
-Returns catalog records keyed by course code.
-
-```bash
-curl -s http://localhost:5000/api/scheduler/course-data | jq .
-```
-
-Response shape:
-
-```json
-{
-  "PHYS 211": {
-    "title": "University Physics: Mechanics",
-    "credits": 4,
-    "prereqs": [["MATH 221"]],
-    "concurrent_prereqs": []
-  }
-}
-```
 
 ### Project Endpoints
 
@@ -330,7 +223,9 @@ published: true
 
 1. Unknown slug returns 404.
 2. Non-JSON responses should be treated as client errors.
-3. Scheduler file failures return non-2xx and surface in UI.
+3. Utility endpoint failures return non-2xx and surface in UI.
+
+For utility-specific endpoint contracts and examples, see `UTILITIES.md`.
 
 ## Implementation Gaps and Next Fixes
 

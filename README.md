@@ -6,6 +6,7 @@ This documentation set has been compacted into five canonical documents to reduc
 
 - [Architecture](./documentation/ARCHITECTURE.md)
 - [Implementation](./documentation/IMPLEMENTATION.md)
+- [Utilities](./documentation/UTILITIES.md)
 - [Deployment](./documentation/DEPLOYMENT.md)
 - [Runbook](./documentation/RUNBOOK.md)
 
@@ -15,6 +16,7 @@ These docs describe the current repository state on `main`, including:
 
 - system behavior and architecture,
 - local development and implementation details,
+- utility-specific behavior and data contracts,
 - deployment and VM refresh workflow,
 - operations procedures, incidents, and known issues.
 
@@ -24,7 +26,7 @@ These docs describe the current repository state on `main`, including:
 
 1. Read [Architecture](./documentation/ARCHITECTURE.md).
 2. Read [Implementation](./documentation/IMPLEMENTATION.md#local-development).
-3. Use [Implementation API Reference](./documentation/IMPLEMENTATION.md#api-reference) for integration details.
+3. Use [Utilities](./documentation/UTILITIES.md) for utility behavior and utility APIs.
 
 ### Deployment / Infra Changes
 

@@ -138,7 +138,7 @@ terraform apply -replace=google_compute_instance.default
 
 ```bash
 curl -I https://josephcicalese.com
-curl https://josephcicalese.com/api/scheduler/default-schedule
+curl https://josephcicalese.com/api/projects
 ```
 
 On VM:

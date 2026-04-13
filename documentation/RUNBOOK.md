@@ -31,8 +31,8 @@ For full infrastructure refresh paths, use the deployment guide.
 
 1. `systemctl status flaskapp`
 2. `systemctl status nginx`
-3. Check scheduler and project API endpoints with curl.
-4. Load root, projects, and scheduler routes in browser.
+3. Check project and utility API endpoints with curl.
+4. Load root, projects, and utilities routes in browser.
 
 ## Incident Playbook
 
@@ -62,13 +62,15 @@ Actions:
 3. Confirm `published: true`.
 4. Re-test project detail API endpoint.
 
-### Scheduler Data Load Failure
+### Utility Data Load Failure
 
 Actions:
 
-1. Confirm both scheduler endpoints return 200 JSON.
-2. Validate scheduler JSON files are present/readable.
+1. Confirm utility endpoints return 200 JSON.
+2. Validate utility data files are present/readable.
 3. Verify frontend backend URL target is correct.
+
+Utility-specific checks are documented in `UTILITIES.md`.
 
 ## Known Issues and Recommended Fixes
 
@@ -89,17 +91,13 @@ Actions:
    Fix: replace with final content and metadata.
 3. Project cards include placeholder/hard-coded content in some pages.
    Fix: render from canonical data source.
-4. No frontend scheduler/UI test suite.
+4. No frontend utility/UI test suite.
    Fix: add Vitest + Testing Library tests.
 
-### Scheduler
+### Utilities
 
-1. Seed data may be incomplete/inaccurate.
-   Fix: define update workflow and show data version/date.
-2. User edits are in-memory unless exported manually.
-   Fix: add `localStorage` persistence.
-3. No persistence API or user profile support.
-   Fix: define minimal persistence/auth model for phased rollout.
+1. Utility-specific data and behavior risks are tracked in `UTILITIES.md`.
+   Fix: keep each utility section current with known gaps and mitigations.
 
 ### Infrastructure
 
@@ -134,13 +132,13 @@ Use this list when updating docs:
 
 - [ ] Route list matches router behavior.
 - [ ] API contracts match backend responses.
-- [ ] Scheduler states/algorithm details are correct.
+- [ ] Utility-specific states and behavior details are correct.
 - [ ] Deployment flow matches Terraform/startup behavior.
 
 ### Evidence and Artifacts
 
 - [ ] Architecture diagram is present/readable.
-- [ ] Scheduler examples include valid and invalid prerequisite states.
+- [ ] Utility examples are present for affected features.
 - [ ] Runtime Markdown + Mermaid flow is documented.
 - [ ] At least one real project Markdown example is represented.
 

@@ -7,14 +7,14 @@ This repository is a full-stack personal website with:
 - a Svelte + Vite frontend,
 - a Flask backend API,
 - Terraform-managed deployment on a single GCP VM behind Cloudflare,
-- an interactive class scheduler utility as the primary product feature.
+- a utilities area for interactive tools.
 
 A major architectural improvement moved project write-ups to backend-hosted Markdown so project content can be updated without rebuilding frontend assets.
 
 ## Goals
 
 1. Present a clear, public portfolio and project narrative.
-2. Ship a technically substantial interactive tool (scheduler).
+2. Support multiple utilities under a shared site platform.
 3. Keep operations simple and low-cost.
 4. Support content-only updates without frontend rebuild/redeploy.
 
@@ -26,7 +26,7 @@ flowchart LR
     CF --> Nginx[Nginx on GCE VM]
     Nginx -->|/| FE[Svelte static build]
     Nginx -->|/api/*| Flask[Flask app on :5000]
-    Flask --> JSON[Scheduler JSON files]
+    Flask --> JSON[Utility JSON files]
     Flask --> MD[Project Markdown files]
 ```
 
@@ -42,7 +42,7 @@ flowchart LR
 Responsibilities:
 
 1. Render site routes and page content.
-2. Run scheduler UX and prerequisite graph behavior.
+2. Host utility experiences under `/utilities/*` routes.
 3. Fetch and render runtime Markdown project content.
 
 ### Backend
@@ -53,7 +53,7 @@ Responsibilities:
 
 Responsibilities:
 
-1. Serve scheduler JSON APIs.
+1. Serve project and utility APIs.
 2. Serve published project metadata and Markdown body content.
 3. Enforce required environment configuration (`SECRET_KEY`).
 
@@ -66,8 +66,8 @@ Responsibilities:
 
 ## Repository Layout
 
-- `frontend/`: SPA shell, router, scheduler logic, project rendering pipeline.
-- `backend/`: API routes, scheduler data, project content files.
+- `frontend/`: SPA shell, router, utility logic, project rendering pipeline.
+- `backend/`: API routes, utility/project data, project content files.
 - `deployment/`: Terraform and startup/service templates.
 - `documentation/`: architecture, implementation, deployment, and runbook docs.
 
@@ -76,15 +76,15 @@ Responsibilities:
 ### Page Navigation
 
 1. Router maps URL to page component.
-2. Data-heavy routes (scheduler/project detail) trigger async loads.
+2. Data-heavy routes (utility/project detail) trigger async loads.
 3. Components switch among loading, error, and ready states.
 
-### Scheduler Flow
+### Utility Flow
 
-1. Frontend fetches `/api/scheduler/default-schedule` and `/api/scheduler/course-data` in parallel.
-2. Loader builds in-memory course instances.
-3. Scheduler logic computes edge status and requirement progress.
-4. UI updates cards, progress indicators, and graph overlays.
+1. Frontend loads utility-specific data and state based on the route.
+2. Utility logic runs in-browser for responsive interactions.
+3. UI updates utility cards, controls, and visual overlays.
+4. Utility-specific details and contracts are documented in `UTILITIES.md`.
 
 ### Project Content Flow
 
@@ -95,11 +95,11 @@ Responsibilities:
 
 ## Data and Content Strategy
 
-### Scheduler Data
+### Utility Data
 
-- Source of truth is JSON in backend static directory.
-- Frontend consumes data on demand via API.
-- No server-side persistence for user schedule changes yet.
+- Utility datasets and contracts are versioned per utility.
+- Frontend consumes utility data on demand via API.
+- Utility-specific persistence support is documented per utility.
 
 ### Project Write-Ups
 
@@ -118,18 +118,18 @@ Responsibilities:
 
 1. Single VM simplicity vs managed-service scalability.
 2. Runtime Markdown flexibility vs additional client rendering complexity.
-3. Frontend-heavy scheduler logic for responsive UX vs missing server-side persistence.
+3. Frontend-heavy utility logic for responsive UX vs increased client complexity.
 
 ## Constraints
 
 1. Single-VM topology is a single failure domain.
-2. Scheduler data is static and may drift from real-world updates.
-3. No account model or saved server-side scheduler state.
+2. Some utility datasets may be static and drift without a refresh workflow.
+3. Utility persistence/auth is not yet standardized across tools.
 4. Test coverage is limited across backend and frontend.
 
 ## Next Iterations
 
 1. Add `/api/health` and basic uptime monitoring.
 2. Add backend and frontend automated tests for critical flows.
-3. Introduce persistent schedule storage.
+3. Introduce a shared persistence pattern for applicable utilities.
 4. Improve Terraform state/secrets posture for production hardening.
