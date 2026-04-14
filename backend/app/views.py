@@ -1,8 +1,14 @@
 from pathlib import Path
+from datetime import datetime, timezone
+import ipaddress
+import json
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 
 import yaml
 
-from flask import Blueprint, abort, jsonify, send_from_directory
+from flask import Blueprint, abort, jsonify, request, send_from_directory
 
 views = Blueprint('views', __name__)
 
@@ -10,6 +16,102 @@ _SCHEDULER_DATA_DIR = (
 	Path(__file__).resolve().parent / 'static' / 'json'
 )
 _PROJECTS_CONTENT_DIR = Path(__file__).resolve().parent / 'content' / 'projects'
+
+
+def _resolve_client_ip() -> tuple[str, str]:
+	cf_connecting_ip = request.headers.get('CF-Connecting-IP', '').strip()
+	if cf_connecting_ip:
+		return cf_connecting_ip, 'CF-Connecting-IP'
+
+	x_forwarded_for = request.headers.get('X-Forwarded-For', '').strip()
+	if x_forwarded_for:
+		first_ip = x_forwarded_for.split(',')[0].strip()
+		if first_ip:
+			return first_ip, 'X-Forwarded-For'
+
+	x_real_ip = request.headers.get('X-Real-IP', '').strip()
+	if x_real_ip:
+		return x_real_ip, 'X-Real-IP'
+
+	return (request.remote_addr or '').strip(), 'remote_addr'
+
+
+def _mask_ip(raw_ip: str) -> str:
+	if not raw_ip:
+		return 'Unavailable'
+
+	try:
+		parsed = ipaddress.ip_address(raw_ip)
+	except ValueError:
+		return 'Unavailable'
+
+	if isinstance(parsed, ipaddress.IPv4Address):
+		parts = raw_ip.split('.')
+		if len(parts) == 4:
+			return f'{parts[0]}.{parts[1]}.{parts[2]}.x'
+		return 'Unavailable'
+
+	hextets = parsed.exploded.split(':')
+	return f'{hextets[0]}:{hextets[1]}:{hextets[2]}:xxxx:xxxx:xxxx:xxxx:xxxx'
+
+
+def _is_public_ip(raw_ip: str) -> bool:
+	if not raw_ip:
+		return False
+
+	try:
+		parsed = ipaddress.ip_address(raw_ip)
+	except ValueError:
+		return False
+
+	return not (
+		parsed.is_private
+		or parsed.is_loopback
+		or parsed.is_link_local
+		or parsed.is_multicast
+		or parsed.is_reserved
+		or parsed.is_unspecified
+	)
+
+
+def _lookup_ip_geolocation(raw_ip: str) -> dict:
+	if not _is_public_ip(raw_ip):
+		return {
+			'available': False,
+			'reason': 'IP is not public or unavailable.',
+		}
+
+	url = f"https://ipapi.co/{urllib_parse.quote(raw_ip)}/json/"
+
+	try:
+		with urllib_request.urlopen(url, timeout=2.0) as response:
+			payload = response.read().decode('utf-8')
+			data = json.loads(payload)
+	except (urllib_error.URLError, urllib_error.HTTPError, TimeoutError, json.JSONDecodeError):
+		return {
+			'available': False,
+			'reason': 'Geolocation lookup failed.',
+		}
+
+	if isinstance(data, dict) and data.get('error'):
+		return {
+			'available': False,
+			'reason': str(data.get('reason') or 'Geolocation provider returned an error.'),
+		}
+
+	return {
+		'available': True,
+		'provider': 'ipapi.co',
+		'country': str(data.get('country_name') or ''),
+		'region': str(data.get('region') or ''),
+		'city': str(data.get('city') or ''),
+		'postal': str(data.get('postal') or ''),
+		'timezone': str(data.get('timezone') or ''),
+		'latitude': data.get('latitude'),
+		'longitude': data.get('longitude'),
+		'asn': str(data.get('asn') or ''),
+		'org': str(data.get('org') or ''),
+	}
 
 
 def _parse_project_markdown(file_path: Path) -> tuple[dict, str]:
@@ -87,3 +189,35 @@ def project_detail(slug: str):
 			return jsonify(project)
 
 	abort(404)
+
+
+@views.route('/api/about-you/request-context', methods=['GET'])
+def about_you_request_context():
+	raw_ip, ip_source = _resolve_client_ip()
+	geolocation = _lookup_ip_geolocation(raw_ip)
+
+	has_forwarded_headers = any(
+		bool(request.headers.get(header_name, '').strip())
+		for header_name in ['CF-Connecting-IP', 'X-Forwarded-For', 'X-Real-IP', 'Forwarded']
+	)
+
+	return jsonify({
+		'timestamp': datetime.now(timezone.utc).isoformat(),
+		'request': {
+			'method': request.method,
+			'path': request.path,
+		},
+		'network': {
+			'clientIp': raw_ip or 'Unavailable',
+			'clientIpMasked': _mask_ip(raw_ip),
+			'ipSource': ip_source,
+			'hasForwardedHeaders': has_forwarded_headers,
+		},
+		'geolocation': geolocation,
+		'headers': {
+			'userAgent': request.headers.get('User-Agent', ''),
+			'acceptLanguage': request.headers.get('Accept-Language', ''),
+			'referer': request.headers.get('Referer', ''),
+			'doNotTrack': request.headers.get('DNT', ''),
+		},
+	})

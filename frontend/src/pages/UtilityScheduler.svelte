@@ -316,6 +316,29 @@
 		return item.min_credits ?? 0;
 	}
 
+	function getValidCredits(courseName: string): number[] {
+		const item = courseCatalog[courseName];
+		if (!item) {
+			return [];
+		}
+
+		if (typeof item.credits === "number") {
+			return [item.credits];
+		}
+
+		return Array.from(
+			{
+				length: Math.max(
+					1,
+					(item.max_credits ?? item.min_credits ?? 0) -
+						(item.min_credits ?? 0) +
+						1,
+				),
+			},
+			(_, idx) => (item.min_credits ?? 0) + idx,
+		);
+	}
+
 	function validateCourseCredits(
 		courseName: string,
 		requestedCredits?: number,
@@ -327,20 +350,7 @@
 			);
 		}
 
-		const validCredits =
-			typeof item.credits === "number"
-				? [item.credits]
-				: Array.from(
-						{
-							length: Math.max(
-								1,
-								(item.max_credits ?? item.min_credits ?? 0) -
-									(item.min_credits ?? 0) +
-									1,
-							),
-						},
-						(_, idx) => (item.min_credits ?? 0) + idx,
-					);
+		const validCredits = getValidCredits(courseName);
 
 		if (requestedCredits === undefined) {
 			return validCredits[0];
@@ -791,6 +801,13 @@
 		? (prereqsByCourseId[selectedCourseId] ?? [])
 		: [];
 
+	$: selectedCourseValidCredits = selectedCourseResolved
+		? getValidCredits(selectedCourseResolved.name)
+		: [];
+
+	$: hasVariableCredits =
+		selectedCourseValidCredits.length > 1;
+
 	function moveSelectedCourse(direction: -1 | 1): void {
 		if (!selectedCourseId) {
 			return;
@@ -884,6 +901,35 @@
 		addCourseError = null;
 
 		void recalculateLayout(false);
+	}
+
+	function updateSelectedCourseCredits(newCredits: number): void {
+		if (!selectedCourseId) {
+			return;
+		}
+
+		const course = coursesById[selectedCourseId];
+		if (!course) {
+			return;
+		}
+
+		const validCredits = getValidCredits(course.name);
+		if (!validCredits.includes(newCredits)) {
+			return;
+		}
+
+		const updatedCourse = {
+			...course,
+			credits: newCredits,
+		};
+
+		coursesById = {
+			...coursesById,
+			[selectedCourseId]: updatedCourse,
+		};
+
+		selectedCourseData = updatedCourse;
+		refreshSemesterCredits();
 	}
 
 	onMount(() => {
@@ -1154,7 +1200,29 @@
 						<h3>Selected Course</h3>
 						<p><strong>{course?.name}</strong></p>
 						<p>{course?.title}</p>
-						<p>{course?.credits} credits</p>
+						<div class="credits-row">
+							<span>{course?.credits} credits</span>
+							{#if hasVariableCredits}
+								<select
+									value={course?.credits}
+									on:change={(e) =>
+										updateSelectedCourseCredits(
+											Number.parseInt(
+												e.currentTarget.value,
+												10,
+											),
+										)
+									}
+									title="Change course credits"
+								>
+									{#each selectedCourseValidCredits as creditOption}
+										<option value={creditOption}>
+											{creditOption}
+										</option>
+									{/each}
+								</select>
+							{/if}
+						</div>
 						<p>Semester: {course?.semester}</p>
 						{#if selectedCourseId && typeof requirementProgressByCourseId[selectedCourseId] === "number"}
 							<p>
@@ -1443,6 +1511,28 @@
 
 	.selected-course-box p {
 		font-size: 0.9rem;
+	}
+
+	.credits-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.9rem;
+	}
+
+	.credits-row select {
+		background: var(--color-bg-dark);
+		color: var(--color-text-primary);
+		border: 1px solid var(--color-primary-opacity-30);
+		border-radius: 3px;
+		padding: 0.3rem 0.4rem;
+		font-family: inherit;
+		font-size: 0.85rem;
+		cursor: pointer;
+	}
+
+	.credits-row select:hover {
+		border-color: var(--color-text-primary);
 	}
 
 	.remove-course-button {

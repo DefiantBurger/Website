@@ -9,6 +9,7 @@
     type MarkdownRenderDebug
   } from '../lib/projects/renderMarkdown';
   import type { ProjectDetail as ProjectDetailType } from '../lib/projects/types';
+  import { recordProjectView } from '../lib/aboutYou/interactionStore';
 
   let loading = true;
   let error: string | null = null;
@@ -76,6 +77,7 @@
 
     try {
       project = await loadProjectBySlug(slug);
+      recordProjectView(slug);
 
       debugInfo = {
         slug,
