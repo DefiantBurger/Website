@@ -165,17 +165,17 @@ def static_files(filename):
 	return send_from_directory('static', filename)
 
 
-@views.route('/api/scheduler/course-data', methods=['GET'])
+@views.route('/api/scheduler/course-data/', methods=['GET'])
 def scheduler_course_data():
 	return send_from_directory(_JSON_DATA_DIR, 'course_data.json')
 
 
-@views.route('/api/scheduler/default-schedule', methods=['GET'])
+@views.route('/api/scheduler/default-schedule/', methods=['GET'])
 def scheduler_default_schedule():
 	return send_from_directory(_JSON_DATA_DIR, 'physics_courses.json')
 
 
-@views.route('/api/projects', methods=['GET'])
+@views.route('/api/projects/', methods=['GET'])
 def projects_list():
 	projects: list[dict] = []
 
@@ -190,7 +190,7 @@ def projects_list():
 	return jsonify(projects)
 
 
-@views.route('/api/projects/<slug>', methods=['GET'])
+@views.route('/api/projects/<slug>/', methods=['GET'])
 def project_detail(slug: str):
 	for file_path in _PROJECTS_CONTENT_DIR.glob('*.md'):
 		project = _project_payload_from_file(file_path)
@@ -202,13 +202,13 @@ def project_detail(slug: str):
 	abort(404)
 
 
-@views.route('/api/fileshare/status', methods=['GET'])
+@views.route('/api/fileshare/status/', methods=['GET'])
 def fileshare_status():
 	cleanup_expired_records()
 	return jsonify(get_storage_status())
 
 
-@views.route('/api/fileshare/upload', methods=['POST'])
+@views.route('/api/fileshare/upload/', methods=['POST'])
 def fileshare_upload():
 	uploaded_file = request.files.get('file')
 	password = request.form.get('password', '')
@@ -229,11 +229,11 @@ def fileshare_upload():
 		'sizeBytes': record.size_bytes,
 		'uploadedAt': record.uploaded_at,
 		'expiresAt': record.expires_at,
-		'downloadEndpoint': '/api/fileshare/access',
+		'downloadEndpoint': '/api/fileshare/access/',
 	})
 
 
-@views.route('/api/fileshare/access', methods=['POST'])
+@views.route('/api/fileshare/access/', methods=['POST'])
 def fileshare_access():
 	password = request.form.get('password', '')
 	occurrence_index_str = request.form.get('occurrenceIndex', '1')
@@ -261,7 +261,7 @@ def fileshare_access():
 	)
 
 
-@views.route('/api/fileshare/list', methods=['POST'])
+@views.route('/api/fileshare/list/', methods=['POST'])
 def fileshare_list():
 	password = request.form.get('password', '')
 	
@@ -283,7 +283,7 @@ def fileshare_list():
 	})
 
 
-@views.route('/api/about-you/request-context', methods=['GET'])
+@views.route('/api/about-you/request-context/', methods=['GET'])
 def about_you_request_context():
 	raw_ip, ip_source = _resolve_client_ip()
 	geolocation = _lookup_ip_geolocation(raw_ip)

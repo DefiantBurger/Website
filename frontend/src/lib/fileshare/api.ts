@@ -68,7 +68,7 @@ export function formatBytes(bytes: number): string {
 }
 
 export async function fetchFileShareStatus(): Promise<FileShareStatus> {
-	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/status`);
+	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/status/`);
 	if (!response.ok) {
 		throw new Error(await readErrorMessage(response));
 	}
@@ -91,7 +91,7 @@ export async function uploadFileShare(
 		formData.append('password', password);
 		formData.append('clearExisting', isFirst ? 'true' : 'false');
 
-		const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/upload`, {
+		const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/upload/`, {
 			method: 'POST',
 			body: formData,
 		});
@@ -116,7 +116,7 @@ export async function downloadFileShare(
 	formData.append('password', password);
 	formData.append('occurrenceIndex', occurrenceIndex.toString());
 
-	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/access`, {
+	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/access/`, {
 		method: 'POST',
 		body: formData,
 	});
@@ -145,7 +145,7 @@ export async function listFileShareFiles(password: string): Promise<FileShareLis
 	const formData = new FormData();
 	formData.append('password', password);
 
-	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/list`, {
+	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/list/`, {
 		method: 'POST',
 		body: formData,
 	});

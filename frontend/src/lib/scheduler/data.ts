@@ -114,8 +114,8 @@ function toRequirements(catalog: CourseCatalog, courseName: string): Requirement
 
 export async function loadSchedulerData(): Promise<SchedulerData> {
   const [scheduleResponse, catalogResponse] = await Promise.all([
-    fetch(`${BACKEND_BASE_URL}/api/scheduler/default-schedule`),
-    fetch(`${BACKEND_BASE_URL}/api/scheduler/course-data`)
+    fetch(`${BACKEND_BASE_URL}/api/scheduler/default-schedule/`),
+    fetch(`${BACKEND_BASE_URL}/api/scheduler/course-data/`)
   ]);
 
   if (!scheduleResponse.ok) {

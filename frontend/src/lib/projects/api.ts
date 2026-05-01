@@ -16,7 +16,7 @@ async function parseJsonResponse<T>(response: Response, resourceName: string): P
 }
 
 export async function loadProjects(): Promise<ProjectSummary[]> {
-  const response = await fetch(`${BACKEND_BASE_URL}/api/projects`);
+  const response = await fetch(`${BACKEND_BASE_URL}/api/projects/`);
   if (!response.ok) {
     throw new Error('Failed to load projects.');
   }
@@ -25,7 +25,7 @@ export async function loadProjects(): Promise<ProjectSummary[]> {
 }
 
 export async function loadProjectBySlug(slug: string): Promise<ProjectDetail> {
-  const response = await fetch(`${BACKEND_BASE_URL}/api/projects/${slug}`);
+  const response = await fetch(`${BACKEND_BASE_URL}/api/projects/${slug}/`);
   if (response.status === 404) {
     throw new Error('Project not found.');
   }
