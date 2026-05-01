@@ -103,6 +103,10 @@ Implemented in `backend/app/views.py`:
 - `GET /api/projects/:slug`
 - `GET /static/<path:filename>`
 
+The file share routes rely on `backend/app/fileshare.py` for deterministic access-key
+labels, encrypted-at-rest payload storage, 10-minute expiry cleanup, and oldest-file
+eviction when the live-storage cap is reached.
+
 ### Data Sources
 
 - `backend/app/static/json/*.json`: utility data files.

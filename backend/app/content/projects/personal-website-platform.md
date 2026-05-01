@@ -1,7 +1,7 @@
 ---
 title: "Personal Website Platform"
 slug: "personal-website-platform"
-summary: "A full-stack personal site with a Svelte frontend, Flask APIs, Terraform-based deployment, and a graph-driven scheduler utility."
+summary: "A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform deployment, and dynamic Markdown content. Hosts multiple interactive utilities and demonstrates end-to-end architecture from infrastructure to UX."
 date: "2026-04-11"
 tags:
   - "Svelte"
@@ -17,20 +17,19 @@ published: true
 
 ## Overview
 
-This project is my full-stack personal website and ongoing engineering sandbox.
+This project is a full-stack personal website platform built as an engineering sandbox and portfolio vehicle.
 
-I built it to do more than host static pages. It includes:
+It goes beyond static pages by combining:
 
-- a typed frontend application with route-driven UI,
-- a Flask backend with API endpoints for dynamic data,
-- infrastructure-as-code deployment on Google Cloud,
-- and a feature-rich scheduler utility that uses graph logic to validate prerequisites.
+- a typed Svelte frontend with route-driven UI and client-side rendering,
+- a Flask backend with API endpoints for dynamic content and utilities,
+- infrastructure-as-code deployment on Google Cloud with Terraform,
+- runtime-rendered Markdown project content decoupled from frontend builds,
+- and multiple interactive utilities that demonstrate different problem domains.
 
-Over time, the repository evolved from a static portfolio into a practical system where I can design features, ship infrastructure changes, and document the architecture in one place.
+The repository serves as one cohesive system where I can design features, iterate on architecture, ship infrastructure changes, and maintain comprehensive documentation—all in one place.
 
-The most recent iteration added runtime-rendered project write-ups. This means I can publish and update project content by editing Markdown files on the backend without rebuilding frontend assets.
-
-That change reduced editorial friction and made the site feel more like a lightweight content platform instead of a hardcoded front-end build artifact.
+A key architectural decision was replacing hardcoded project content with API-backed Markdown. This decouples content updates from frontend releases, making the site feel like a lightweight content platform rather than a static build artifact.
 
 ## Why I Built It
 
@@ -64,8 +63,8 @@ flowchart LR
     CF --> NX[Nginx on GCP VM]
     NX -->|/| FE[Svelte static build]
     NX -->|/api/*| BE[Flask API]
-    BE --> SD[Scheduler JSON data]
-    BE --> PC[Project Markdown content]
+    BE --> UT[Utility APIs]
+    BE --> PC[Project Content API]
 ```
 
 ### Request Lifecycle
@@ -77,7 +76,7 @@ At a high level, user requests follow two paths:
 
 For project detail pages, the browser first loads the SPA route, then fetches project content from the API. Markdown is transformed and rendered client-side.
 
-For scheduler usage, the frontend loads a seeded schedule plus full course catalog data and computes prerequisite state transitions in-browser.
+For utility routes, the frontend loads utility-specific data and logic runs in-browser to keep interactions responsive without backend overhead.
 
 This split keeps backend logic simple while still enabling complex user interaction in the UI.
 
@@ -94,8 +93,7 @@ This split keeps backend logic simple while still enabling complex user interact
 
 - Route rendering and navigation state
 - Loading/error boundaries for API-backed pages
-- Scheduler interaction model (drag-and-drop, selection, reordering)
-- Graph edge rendering and requirement progress display
+- Utility-specific interaction models and state management
 - Theme persistence and global visual system
 
 #### Markdown Rendering Pipeline
@@ -121,10 +119,10 @@ I intentionally moved logic toward the client for responsiveness and lower backe
 
 #### Backend Responsibilities
 
-- Serve scheduler data files with consistent JSON responses
+- Serve utility data files with consistent JSON responses
 - Parse project markdown frontmatter and return API payloads
 - Filter unpublished project entries
-- Provide stable contracts consumed by frontend pages
+- Provide stable API contracts consumed by frontend pages
 
 #### Project Content Contract
 
@@ -176,96 +174,64 @@ Infrastructure and app bootstrapping are codified so rebuilds and VM replacement
 - Manual discipline needed for secret/state hygiene
 - Less elasticity than managed multi-service environments
 
-## Feature Spotlight: Scheduler Utility
+## Utilities
 
-The scheduler is the most technical user-facing feature in this project.
+The platform hosts multiple interactive utilities that showcase different engineering challenges:
 
-Core capabilities:
+- **Class Scheduler** (`/utilities/scheduler`): Semester-based drag-and-drop planning with prerequisite validation and dependency graph visualization.
+- **File Share** (`/utilities/fileshare`): Password-labeled local file sharing with automatic expiration and backend-enforced storage limits.
 
-- Semester-based drag-and-drop planning
-- Prerequisite validation states (`valid`, `invalid`, `concurrent`)
-- Requirement completion progress indicators
-- Import/export schedule JSON
+Each utility is self-contained under its own route, with frontend logic in `frontend/src/lib/<utility>/` and optional backend endpoints under `/api/<utility>/`.
 
-Graph behavior is recalculated as users move courses across semesters.
-
-```mermaid
-flowchart TD
-    A[Load default schedule + catalog] --> B[Build in-memory course instances]
-    B --> C[Compute prerequisite edges]
-    C --> D[Assign edge status valid/invalid/concurrent]
-    D --> E[Render cards + graph overlays]
-    E --> F[User edits schedule]
-    F --> C
-```
-
-  ### Scheduler Data Model
-
-  The scheduler combines two backend-provided datasets:
-
-  1. A default semester plan
-  2. A course catalog with credits and prerequisite groups
-
-  Course entries can encode variable credit requests (for example, COURSE[4]) and are validated during parsing. Catalog records support OR-group prerequisites and concurrent prerequisite groups.
-
-  ### Scheduler Logic Details
-
-  When a schedule is loaded or changed, the frontend:
-
-  1. builds unique in-memory course instances,
-  2. maps each course instance to its semester index,
-  3. evaluates each requirement group against the current plan,
-  4. emits edge states and progress metrics,
-  5. re-renders cards and graph overlays.
-
-  Progress for each course reflects satisfied requirement groups divided by expected requirement groups.
-
-  The visual feedback loop is immediate, so users can test schedule moves and understand which prerequisites they break or satisfy.
-
-  ### UX Behaviors
-
-  - deterministic drag-and-drop placement,
-  - move earlier/later controls for fine adjustments,
-  - add/remove course actions,
-  - bulk clear workflow,
-  - import/export for portability and backup.
-
-  This feature is intentionally practical, not just decorative, and it demonstrates stateful UI + graph reasoning in a portfolio setting.
+Utility-specific data models, API contracts, and behavior are documented in `documentation/UTILITIES.md`. This pattern makes utilities easy to add, test, and reason about independently while keeping the platform itself generic.
 
 ## Dynamic Project Content System
 
-A recent improvement was replacing hardcoded project cards/details with API-backed Markdown content.
-
-Current flow:
-
-1. Project files live in backend content directory as Markdown with frontmatter.
-2. `/api/projects` returns published metadata for list rendering.
-3. `/api/projects/:slug` returns metadata + markdown body.
-4. Frontend renders markdown at runtime and executes Mermaid diagrams.
-
-This made project updates much faster because content edits no longer require a frontend rebuild.
+A core architectural decision was replacing hardcoded project cards/details with API-backed Markdown content.
 
 ### Why This Matters
 
-Before this change, editing project content required changing frontend source and rebuilding the app.
+Before this change, editing project write-ups required changing frontend source code and rebuilding the SPA.
 
-Now, content changes are decoupled from frontend build artifacts. That improves workflow in production:
+Now, content changes are fully decoupled from frontend build artifacts:
 
-1. edit Markdown,
-2. verify API response,
-3. refresh page.
+1. Edit Markdown file in backend content directory.
+2. Verify API response (`/api/projects/:slug`).
+3. Refresh page in browser.
+4. Changes are live.
 
-It also made project write-ups significantly richer because diagrams and long-form structure can be authored directly in Markdown.
+This workflow dramatically reduces editorial friction and makes the site behave more like a content platform than a static build artifact.
 
-### Reliability Lessons Learned
+### Technical Implementation
 
-Implementing this surfaced a few subtle integration issues:
+Content flow:
 
-- sanitize schema needed explicit support for Mermaid container tags,
-- lifecycle timing needed to ensure Mermaid runs after rendered content mounts,
-- debug instrumentation was useful to isolate each stage (input, transform, DOM, render).
+1. Project files live in `backend/app/content/projects/` as Markdown with YAML frontmatter.
+2. Frontmatter includes metadata: title, slug, summary, date, tags, repo URL, published flag.
+3. `/api/projects` returns published metadata for card/index views.
+4. `/api/projects/:slug` returns full metadata plus Markdown body.
+5. Frontend fetches, parses, and renders at runtime.
 
-Those lessons are now encoded into the implementation and made the pipeline more robust.
+The rendering pipeline:
+
+1. Parse Markdown with GitHub Flavored Markdown (GFM) support.
+2. Generate anchor IDs for headings and inject links.
+3. Convert Mermaid code fences into placeholder targets.
+4. Sanitize HTML to prevent injection attacks.
+5. Mount DOM content.
+6. Execute Mermaid rendering for diagrams.
+
+This pipeline enables rich technical write-ups (lists, tables, code blocks, diagrams) without trusting raw HTML from content files.
+
+### Reliability Lessons
+
+Implementing this surfaced subtle integration issues:
+
+- Sanitization schema needed explicit support for Mermaid container tags to preserve diagram placeholders.
+- Lifecycle timing required ensuring Mermaid executes after rendered content mounted to the DOM.
+- Instrumentation at each stage (input validation, parse, sanitize, render) was essential for debugging.
+
+Those lessons are now encoded into the implementation.
 
 ## Challenges and Tradeoffs
 
@@ -275,7 +241,7 @@ A single VM keeps operations straightforward, but it also concentrates failure r
 
 ### 2) Rich client behavior vs complexity
 
-The scheduler delivers a responsive UX in-browser, but this increases frontend state and graph-logic complexity.
+Utilities compute logic in-browser for responsiveness, but this increases frontend state management and complexity.
 
 ### 3) Fast content publishing vs rendering surface area
 
@@ -289,23 +255,29 @@ The project favors iteration speed and practical architecture over enterprise-gr
 
 Owning frontend, backend, and infrastructure in one repo improves learning and control, but increases maintenance burden. Clear docs and conventions are essential to keep this sustainable.
 
+## Portfolio Value
+
+This project demonstrates full-stack architecture in a cohesive, deployable system:
+
+**Frontend Architecture**: Shows route-driven SPA design, state management across multiple utilities, safe HTML rendering with sanitization, and runtime Markdown parsing with diagram support.
+
+**Backend Design**: Demonstrates API-first thinking, frontmatter-based content modeling, contract-driven development, and clean separation between data services and presentation logic.
+
+**Infrastructure as Code**: Illustrates single-responsibility VM topology, deterministic bootstrapping with startup scripts, infrastructure versioning, and the tradeoffs between simplicity and scalability.
+
+**Content Platform**: Illustrates how to decouple content updates from code deployments—a practical pattern for portfolio sites, blogs, documentation, and product platforms.
+
+**Integration**: Shows how to connect frontend, backend, and infrastructure into a working system that can be deployed, iterated on, and understood end-to-end.
+
+The project prioritizes clarity and coherence over feature breadth. Every component has a clear responsibility, making it straightforward to understand how a request flows from user browser to running service.
+
 ## Results
 
-- One cohesive repository that demonstrates frontend, backend, and infrastructure capability.
+- One cohesive repository demonstrating frontend, backend, and infrastructure capability.
 - A working deployment pipeline from Terraform to running app.
-- A scheduler feature that shows algorithmic UI behavior beyond static portfolio content.
-- A Markdown-based content workflow for project pages that reduces content update friction.
-
-### Practical Outcome Summary
-
-From an engineering perspective, the project now supports:
-
-- dynamic content publishing for project pages,
-- a feature-complete interactive utility with non-trivial logic,
-- reproducible infrastructure provisioning,
-- and documentation that captures architecture, operations, and known gaps.
-
-From a portfolio perspective, it communicates both system design and implementation detail, rather than only visual presentation.
+- Multiple interactive utilities showcasing different problem domains and interaction patterns.
+- A content platform where write-ups can be published by editing Markdown, without rebuilding the frontend.
+- Clear documentation capturing architecture, operations, and future directions.
 
 ## Performance and Operational Notes
 

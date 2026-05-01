@@ -10,6 +10,11 @@
   }
 </script>
 
+<svelte:head>
+  <title>Utilities</title>
+  <meta name="description" content="Interactive tools and experiments, including a class scheduler and file sharing utility." />
+</svelte:head>
+
 <div class="page">
   <header class="page-header">
     <h1>> Utilities</h1>

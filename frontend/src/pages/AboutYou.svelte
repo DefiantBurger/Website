@@ -144,6 +144,11 @@
   });
 </script>
 
+<svelte:head>
+  <title>About You</title>
+  <meta name="description" content="See what your browser and requests reveal during your visit. Read-only, no analytics profile created." />
+</svelte:head>
+
 <div class="page">
   <header class="page-header">
     <h1>> About You</h1>

@@ -24,6 +24,11 @@
   }
 </script>
 
+<svelte:head>
+  <title>Projects</title>
+  <meta name="description" content="A collection of projects I'm proud of." />
+</svelte:head>
+
 <div class="projects">
   <header class="page-header">
     <h1>> Projects</h1>

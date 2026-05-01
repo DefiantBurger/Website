@@ -10,7 +10,7 @@
 		type FileShareListItem,
 	} from '../lib/fileshare/api';
 
-	const MAX_FILE_BYTES = 50 * 1_000_000;
+	const MAX_FILE_BYTES = 100 * 1_000_000;
 
 	let status: FileShareStatus | null = null;
 	let statusError: string | null = null;
@@ -64,7 +64,7 @@
 
 		const oversizedFiles = uploadFiles.filter((f) => f.size > MAX_FILE_BYTES);
 		if (oversizedFiles.length > 0) {
-			uploadError = `Files must be 50 MB or smaller. ${oversizedFiles.length} file(s) exceeded the limit.`;
+			uploadError = `Files must be ${formatBytes(MAX_FILE_BYTES)} or smaller. ${oversizedFiles.length} file(s) exceeded the limit.`;
 			return;
 		}
 
@@ -154,7 +154,7 @@
 </script>
 
 <svelte:head>
-	<title>File Share Utility</title>
+	<title>File Share</title>
 	<meta
 		name="description"
 		content="Upload files, protect them with an access key-derived label, and retrieve them through the same access key."
@@ -166,21 +166,10 @@
 		<div>
 			<h1>> File Share</h1>
 			<p>
-				Upload one or more files with an access key. The access key is hashed into the file label, and anyone
-				with the same access key can retrieve all files until they expire.
+				Upload one or more files with an access key. The access key is hashed into the file label, and the
+				stored file contents are encrypted at rest with a key derived from that same access key.
+				Anyone with the same access key can retrieve all files until they expire.
 			</p>
-		</div>
-		<div class:paused={status?.uploadsPaused} class="status-badge terminal-box">
-			<strong>{status?.uploadsPaused ? 'Uploads paused' : 'Uploads open'}</strong>
-			<span>
-				{#if statusLoading}
-					Loading status...
-				{:else if status}
-					{formatBytes(status.usedBytes)} used of {formatBytes(status.maxTotalBytes)}
-				{:else}
-					Status unavailable
-				{/if}
-			</span>
 		</div>
 	</header>
 
@@ -192,8 +181,10 @@
 		<form class="terminal-box panel" on:submit|preventDefault={handleUploadSubmit}>
 			<h2>> Upload Files</h2>
 			<p>
-				Limit: 50 MB per file. Files expire after 10 minutes. Uploads pause once active storage
-				hits 1 GB. Uploading with an existing access key will replace all previous files.
+				Limit: 100 MB per file. Files expire after 10 minutes. When active storage approaches the 1 GB
+				cap, the backend evicts oldest files to free space before accepting new uploads. Uploading with an
+				existing access key will replace all previous files for that key, and the new files will be encrypted
+				before they are written to disk.
 			</p>
 
 			<label>
@@ -295,11 +286,13 @@
 			<div><strong>Active files</strong><span>{status?.activeFileCount ?? 0}</span></div>
 			<div><strong>Retention</strong><span>{formatSeconds(status?.retentionSeconds ?? 600)}</span></div>
 			<div><strong>Per-file cap</strong><span>{formatBytes(MAX_FILE_BYTES)}</span></div>
-			<div><strong>Total cap</strong><span>{status ? formatBytes(status.maxTotalBytes) : '1 GB'}</span></div>
+			<div><strong>Storage usage</strong><span>{status ? formatBytes(status.usedBytes) : '0 B'} used of {formatBytes(status?.maxTotalBytes ?? 1073741824)}</span></div>
 		</div>
+		<br />
 		<p>
 			Each access key hashes to one label. Uploading with an existing access key will override all
-			previous files for that key. All files expire together after 10 minutes of inactivity.
+			previous files for that key. All files expire together after 10 minutes of inactivity, and the payloads
+			remain encrypted on disk using a key derived from the same access key.
 		</p>
 	</section>
 </div>
@@ -333,19 +326,6 @@
 		margin-bottom: 0.5rem;
 	}
 
-	.status-badge {
-		min-width: 280px;
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-		padding: 1rem;
-	}
-
-	.status-badge.paused {
-		border-color: var(--color-error);
-		box-shadow: 0 0 10px var(--color-error-opacity-05);
-	}
-
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -366,7 +346,6 @@
 
 	input[type='file'],
 	input[type='text'],
-	input[type='password'],
 	select {
 		padding: 0.85rem 0.9rem;
 		border: 1px solid var(--color-text-primary);
@@ -467,11 +446,6 @@
 		.stats {
 			grid-template-columns: 1fr;
 			flex-direction: column;
-		}
-
-		.status-badge {
-			min-width: 0;
-			width: 100%;
 		}
 	}
 

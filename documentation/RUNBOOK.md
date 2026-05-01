@@ -72,20 +72,20 @@ Actions:
 
 Utility-specific checks are documented in `UTILITIES.md`.
 
-### File Share Uploads Paused
+### File Share Storage Saturation
 
 Symptoms:
 
 - upload requests return a 503 response,
-- UI shows uploads paused,
-- storage status reports live usage at or above 1 GB.
+- storage status reports live usage at or near 1 GB after eviction.
 
 Actions:
 
 1. Call `GET /api/fileshare/status` to confirm live usage.
-2. Wait for expired files to age out, or manually clear stale files from the backend instance fileshare directory if you need to recover capacity immediately.
-3. Re-check status until used storage falls below 1 GB.
-4. Retry the upload.
+2. Confirm the backend has already evicted the oldest active files.
+3. Wait for expired files to age out, or manually clear stale files from the backend instance fileshare directory if you need to recover capacity immediately.
+4. Re-check status until used storage falls below 1 GB.
+5. Retry the upload.
 
 ### File Share Missing File
 

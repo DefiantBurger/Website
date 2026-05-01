@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime, timezone
+from io import BytesIO
 import ipaddress
 import json
 from urllib import error as urllib_error
@@ -13,10 +14,10 @@ from flask import Blueprint, abort, jsonify, request, send_file, send_from_direc
 from .fileshare import (
 	FileShareError,
 	cleanup_expired_records,
+	decrypt_record_payload,
 	get_record_for_password,
 	get_all_records_for_password,
 	get_storage_status,
-	resolve_download_path,
 	save_upload,
 )
 
@@ -247,12 +248,12 @@ def fileshare_access():
 		return jsonify({'error': 'No active file matched that password.'}), 404
 
 	try:
-		file_path = resolve_download_path(record)
+		plaintext = decrypt_record_payload(record, password)
 	except FileShareError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
 	return send_file(
-		file_path,
+		BytesIO(plaintext),
 		as_attachment=True,
 		download_name=record.original_filename,
 		mimetype=record.mime_type,
@@ -266,7 +267,7 @@ def fileshare_list():
 	
 	records = get_all_records_for_password(password)
 	if not records:
-		return jsonify({'error': 'No active files matched that password.'}), 404
+		return jsonify({'error': 'No active files matched that access key.'}), 404
 	
 	return jsonify({
 		'files': [

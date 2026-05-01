@@ -1,6 +1,11 @@
 <script lang="ts">
 </script>
 
+<svelte:head>
+  <title>Contact</title>
+  <meta name="description" content="Get in touch with me." />
+</svelte:head>
+
 <div class="page">
   <header class="page-header">
     <h1>> Contact</h1>

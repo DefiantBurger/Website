@@ -80,9 +80,12 @@ Provisioning reads from Google Secret Manager:
 The file share utility stores uploaded payloads and metadata on the backend instance path under a local `fileshare/` directory.
 
 - uploads are request-validated and stored by the Flask app,
+- payloads are encrypted at rest with a key derived from the same access key used for lookup,
 - expired files are removed on file-share API requests,
-- storage is bounded by a 50 MB per-file cap and a 1 GB live-storage cap,
-- quota recovery depends on expired files being cleaned up or manually removed on the VM.
+- storage is bounded by a 100 MB per-file cap and a 1 GB live-storage cap,
+- quota recovery is handled automatically: when accepting an upload would exceed the
+  live-storage cap the backend will evict oldest active files to free space; expired
+  files are also removed on subsequent file-share API requests.
 
 ## Key Variables
 

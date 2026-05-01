@@ -2,6 +2,11 @@
   import { navigate } from '../lib/router';
 </script>
 
+<svelte:head>
+  <title>About</title>
+  <meta name="description" content="Learn more about the developer behind this website." />
+</svelte:head>
+
 <div class="page">
   <header class="page-header">
     <h1>> About Me</h1>

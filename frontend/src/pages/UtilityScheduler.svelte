@@ -973,6 +973,11 @@
 	});
 </script>
 
+<svelte:head>
+	<title>Scheduler</title>
+	<meta name="description" content="Interactive course scheduler with prerequisite validation and dependency visualization." />
+</svelte:head>
+
 <div class="page">
 	<header class="page-header">
 		<h1>> Utilities / Class Scheduler</h1>

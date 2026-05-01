@@ -143,7 +143,8 @@ When adding another utility:
 
 ### Summary
 
-Password-labeled local file sharing with automatic expiration and backend-enforced storage limits.
+Access-key-labeled local file sharing with automatic expiration, encryption at rest,
+and backend-enforced storage limits.
 
 ### Route
 
@@ -196,19 +197,28 @@ Status response shape:
 
 `backend/app/fileshare.py`:
 
-- hashes passwords with SHA-256 to derive a deterministic active label,
+- hashes access keys with SHA-256 to derive a deterministic active label,
+- derives a per-file encryption key from the same access key using a random salt and
+  a memory-hard KDF,
+- encrypts payload bytes with an authenticated cipher before writing them to disk,
 - stores uploads on local disk under the backend instance path,
-- rejects duplicate active labels instead of replacing files,
-- enforces a 50 MB per-file cap,
+- supports multiple files per label and will replace previous files when an upload
+  is performed with the same access key (first file in a batch clears prior files),
+- enforces a 100 MB per-file cap,
 - deletes expired files older than 10 minutes,
-- pauses uploads when live storage reaches 1 GB or more.
+- when accepting an upload would exceed the 1 GB live-storage cap the backend will
+  evict oldest active files (by upload time) until enough space is freed; if eviction
+  cannot free sufficient space the upload is rejected.
 
 ### Interaction Model
 
-- upload a file and password together,
-- retrieve a file by entering the same password,
-- show live storage status and pause state in the UI,
-- surface backend errors for expired files, duplicate labels, and quota limits.
+- upload one or more files with an access key together,
+- retrieve files by entering the same access key,
+- keep payloads encrypted at rest while still allowing label-based lookup by access key,
+- show live storage status in the UI; the backend will evict oldest files as needed
+  to accommodate new uploads when storage is near capacity,
+- surface backend errors for expired files and quota failures when eviction cannot
+  free enough space.
 
 ### API Checks
 
@@ -225,5 +235,5 @@ curl -s http://localhost:5000/api/fileshare/status | jq .
 ### Next Improvements
 
 1. Add scheduled background cleanup so expiration does not depend on traffic.
-2. Add backend tests for upload limits, duplicate-label rejection, and quota pause/resume.
+2. Add backend tests for upload limits, eviction behavior, and quota recovery.
 3. Consider a future shared storage backend if multi-VM deployment becomes necessary.

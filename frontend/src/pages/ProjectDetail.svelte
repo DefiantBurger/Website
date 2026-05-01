@@ -208,6 +208,11 @@
   }
 </script>
 
+<svelte:head>
+  <title>{project?.title || 'Project Details'}</title>
+  <meta name="description" content={project?.summary || 'Explore this project in detail.'} />
+</svelte:head>
+
 <div class="project-detail">
   <button class="back-button" on:click={goBackToProjects}>&lt; Back to Projects</button>
 
@@ -343,6 +348,13 @@
   .project-content :global(ol) {
     margin-left: 1.2rem;
     margin-bottom: 1rem;
+  }
+
+  .project-content :global(ul > li) {
+    margin-left: .5rem;
+  }
+  .project-content :global(ol > li) {
+    margin-left: 1.5rem;
   }
 
   .project-content :global(table) {

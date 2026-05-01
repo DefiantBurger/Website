@@ -33,6 +33,11 @@
   });
 </script>
 
+<svelte:head>
+  <title>Home</title>
+  <meta name="description" content="Personal portfolio and projects by a developer." />
+</svelte:head>
+
 <div class="home">
   <header class="hero">
     <h1>> Welcome</h1>
