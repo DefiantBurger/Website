@@ -73,6 +73,7 @@ printf "%s" "${cloudflare_cert}" | base64 --decode > ${app_path}/certs/cloudflar
 printf "%s" "${cloudflare_key}" | base64 --decode > ${app_path}/certs/cloudflare.key 2>/dev/null
 chmod 600 ${app_path}/certs/cloudflare.key
 
+printf "%s" "${nginx_api_proxy_params}" | base64 --decode > /etc/nginx/api_proxy_params.conf
 printf "%s" "${nginx_conf}" | base64 --decode > /etc/nginx/sites-available/default
 
 nginx -t

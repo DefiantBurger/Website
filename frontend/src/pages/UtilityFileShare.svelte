@@ -58,7 +58,7 @@
 		}
 
 		if (!uploadPassword.trim()) {
-			uploadError = 'Enter a password for the file label.';
+			uploadError = 'Enter an access key for the file.';
 			return;
 		}
 
@@ -87,9 +87,10 @@
 		event.preventDefault();
 		accessError = null;
 		accessFiles = [];
+		accessSuccess = null;
 
 		if (!accessPassword.trim()) {
-			accessError = 'Enter the password to retrieve files.';
+			accessError = 'Enter the access key to retrieve files.';
 			return;
 		}
 
@@ -99,12 +100,14 @@
 			accessFiles = result.files;
 			if (accessFiles.length > 0) {
 				selectedFileIndex = 1;
-				accessSuccess = `Found ${accessFiles.length} file(s) for this password.`;
+				accessSuccess = `Found ${accessFiles.length} file(s) for this access key.`;
 			} else {
-				accessError = 'No files found for this password.';
+				accessError = 'No files found for this access key.';
+				accessSuccess = null;
 			}
 		} catch (error) {
 			accessError = error instanceof Error ? error.message : 'Failed to list files.';
+			accessSuccess = null;
 		} finally {
 			accessBusy = false;
 		}
@@ -115,7 +118,7 @@
 		accessSuccess = null;
 
 		if (!accessPassword.trim()) {
-			accessError = 'Enter the password to retrieve the file.';
+			accessError = 'Enter the access key to retrieve the file.';
 			return;
 		}
 
@@ -204,7 +207,7 @@
 				<input
 					type="text"
 					bind:value={uploadPassword}
-					placeholder="Label access key"
+					placeholder="Access key to unlock files"
 					maxlength="128"
 					autocomplete="off"
 				/>
