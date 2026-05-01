@@ -35,7 +35,7 @@
 
 <svelte:head>
   <title>Home</title>
-  <meta name="description" content="Personal portfolio and projects by a developer." />
+  <meta name="description" content="Personal portfolio and projects by me." />
 </svelte:head>
 
 <div class="home">

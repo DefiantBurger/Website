@@ -240,4 +240,4 @@ For utility-specific endpoint contracts and examples, see `UTILITIES.md`.
 2. Add route-level SPA 404 handling.
 3. Clean duplicate legacy region in `frontend/src/app.css`.
 4. Add backend pytest route tests and frontend Vitest/Svelte Testing Library coverage.
-5. Decide whether to integrate or remove currently unused `MONGODB_URI` injection.
+5. Remove any unused secret injections (e.g., DB URIs) from deployment configuration.

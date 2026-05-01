@@ -32,10 +32,13 @@ locals {
   })
   nginx_api_proxy_params = templatefile("${path.module}/nginx_api_proxy_params.conf.tftpl", {})
   flaskapp_service = templatefile("${path.module}/flaskapp.service.tftpl", {
-    app_path     = var.app_path
-    flask_secret = data.google_secret_manager_secret_version.flask-secret.secret_data
-    mongodb_uri  = data.google_secret_manager_secret_version.mongodb-uri.secret_data
+    app_path = var.app_path
   })
+}
+
+resource "google_service_account" "vm_runtime" {
+  account_id   = "flask-vm-runtime"
+  display_name = "Flask VM runtime service account"
 }
 
 
@@ -53,15 +56,19 @@ resource "google_compute_instance" "default" {
   }
 
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
-    domain           = var.domain
-    app_path         = var.app_path
-    repo_url         = var.repo_url
-    repo_branch      = var.repo_branch
-    flaskapp_service = base64encode(local.flaskapp_service)
-    cloudflare_cert  = base64encode(data.google_secret_manager_secret_version.cloudflare-origin-certificate.secret_data)
-    cloudflare_key   = base64encode(data.google_secret_manager_secret_version.cloudflare-private-key.secret_data)
-    nginx_conf       = base64encode(local.nginx_conf)
-    nginx_api_proxy_params = base64encode(local.nginx_api_proxy_params)
+    domain                                       = var.domain
+    app_path                                     = var.app_path
+    repo_url                                     = var.repo_url
+    repo_branch                                  = var.repo_branch
+    flaskapp_service                             = base64encode(local.flaskapp_service)
+    nginx_conf                                   = base64encode(local.nginx_conf)
+    nginx_api_proxy_params                       = base64encode(local.nginx_api_proxy_params)
+    secret_name_flask                            = var.secret_name_flask
+    secret_name_cloudflare_origin_certificate    = var.secret_name_cloudflare_origin_certificate
+    secret_name_cloudflare_private_key           = var.secret_name_cloudflare_private_key
+    secret_version_flask                         = var.secret_version_flask
+    secret_version_cloudflare_origin_certificate = var.secret_version_cloudflare_origin_certificate
+    secret_version_cloudflare_private_key        = var.secret_version_cloudflare_private_key
   })
 
 
@@ -72,6 +79,17 @@ resource "google_compute_instance" "default" {
       # Include this section to give the VM an external IP address
     }
   }
+
+  service_account {
+    email  = google_service_account.vm_runtime.email
+    scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.vm_flask_secret_accessor,
+    google_secret_manager_secret_iam_member.vm_cloudflare_origin_cert_secret_accessor,
+    google_secret_manager_secret_iam_member.vm_cloudflare_private_key_secret_accessor,
+  ]
 }
 
 # Allows SSH access via GCP website

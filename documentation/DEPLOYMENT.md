@@ -44,14 +44,45 @@ From `deployment/versions.tf`:
 
 ## Secrets
 
-Provisioning reads from Google Secret Manager:
+Provisioning no longer injects plaintext secret values through Terraform templates.
+The VM fetches secret values from Google Secret Manager at startup using its runtime service account and least-privilege IAM.
+
+Secret names/versions configured in Terraform variables:
 
 - `cloudflare-origin-certificate`
 - `cloudflare-private-key`
-- `cloudflare-api-token`
-- `cloudflare-zone-id`
 - `flask-secret`
-- `mongodb-uri`
+
+
+Cloudflare configuration:
+
+- `cloudflare_zone_id` is provided as a Terraform variable.
+- `deployment/tf.sh` fetches `CLOUDFLARE_API_TOKEN` directly from Google Secret Manager using `gcloud`.
+
+### Cloudflare Token Lookup
+
+`deployment/tf.sh` now always retrieves the Cloudflare API token from Secret Manager before invoking Terraform.
+
+Lookup defaults:
+
+- secret name: `cloudflare-api-token`
+- secret version: `latest`
+- project resolution order:
+  1. `GSM_CLOUDFLARE_TOKEN_PROJECT`
+  2. `TF_VAR_project_id`
+  3. `gcloud` default project
+
+Optional overrides:
+
+- `GSM_CLOUDFLARE_TOKEN_SECRET`
+- `GSM_CLOUDFLARE_TOKEN_VERSION`
+- `GSM_CLOUDFLARE_TOKEN_PROJECT`
+
+Prerequisites:
+
+1. `gcloud` is installed.
+2. You are authenticated (`gcloud auth login` or workload identity/ADC).
+3. Your identity has `roles/secretmanager.secretAccessor` for the token secret.
 
 ## Startup Bootstrap Flow
 
@@ -103,9 +134,9 @@ From `deployment/variables.tf`:
 
 ```bash
 cd deployment
-terraform init
-terraform plan
-terraform apply
+./tf.sh init
+./tf.sh plan
+./tf.sh apply
 ```
 
 ## VM Update Playbook
@@ -124,9 +155,9 @@ Use standard apply:
 
 ```bash
 cd deployment
-terraform init
-terraform plan
-terraform apply
+./tf.sh init
+./tf.sh plan
+./tf.sh apply
 ```
 
 ### Scenario B: Code-Only Refresh
@@ -135,8 +166,8 @@ Force VM replacement to rerun startup bootstrap:
 
 ```bash
 cd deployment
-terraform plan -replace=google_compute_instance.default
-terraform apply -replace=google_compute_instance.default
+./tf.sh plan -replace=google_compute_instance.default
+./tf.sh apply -replace=google_compute_instance.default
 ```
 
 ### Expected Behavior During Replacement

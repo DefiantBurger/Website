@@ -18,6 +18,7 @@ sudo apt-get install -yq \
 	build-essential \
 	python3.11 \
 	python3.11-venv \
+	python3 \
 	python3-pip \
 	rsync \
 	git \
@@ -62,6 +63,26 @@ chown -R flaskapp:flaskapp ${app_path}/backend
 echo "[9/10] Creating systemd service for Flask app..."
 printf "%s" "${flaskapp_service}" | base64 --decode > /etc/systemd/system/flaskapp.service
 
+echo "[9.1/10] Fetching runtime secrets from Secret Manager..."
+METADATA_HEADER="Metadata-Flavor: Google"
+ACCESS_TOKEN="$(curl -fsS -H "$METADATA_HEADER" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
+
+fetch_secret_value() {
+	local secret_name="$1"
+	local secret_version="$2"
+	local project_id_local
+	project_id_local="$(curl -fsS -H "$METADATA_HEADER" "http://metadata.google.internal/computeMetadata/v1/project/project-id")"
+	local url="https://secretmanager.googleapis.com/v1/projects/$project_id_local/secrets/$${secret_name}/versions/$${secret_version}:access"
+	curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "$url" | python3 -c 'import base64,json,sys; print(base64.b64decode(json.load(sys.stdin)["payload"]["data"]).decode("utf-8"), end="")'
+}
+
+mkdir -p /etc/personalwebsite
+{
+	echo "SECRET_KEY=$(fetch_secret_value "${secret_name_flask}" "${secret_version_flask}")"
+} > /etc/personalwebsite/secrets.env
+chown root:flaskapp /etc/personalwebsite/secrets.env
+chmod 640 /etc/personalwebsite/secrets.env
+
 echo "Enabling and starting flaskapp.service..."
 systemctl daemon-reload
 systemctl enable flaskapp
@@ -69,8 +90,8 @@ systemctl start flaskapp
 
 echo "[10/10] Setting up Nginx reverse proxy..."
 mkdir ${app_path}/certs
-printf "%s" "${cloudflare_cert}" | base64 --decode > ${app_path}/certs/cloudflare.crt 2>/dev/null
-printf "%s" "${cloudflare_key}" | base64 --decode > ${app_path}/certs/cloudflare.key 2>/dev/null
+fetch_secret_value "${secret_name_cloudflare_origin_certificate}" "${secret_version_cloudflare_origin_certificate}" > ${app_path}/certs/cloudflare.crt
+fetch_secret_value "${secret_name_cloudflare_private_key}" "${secret_version_cloudflare_private_key}" > ${app_path}/certs/cloudflare.key
 chmod 600 ${app_path}/certs/cloudflare.key
 
 printf "%s" "${nginx_api_proxy_params}" | base64 --decode > /etc/nginx/api_proxy_params.conf

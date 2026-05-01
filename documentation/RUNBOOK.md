@@ -106,8 +106,8 @@ Actions:
 
 1. 404 template is referenced but missing.
    Fix: add `backend/app/templates/404.html`.
-2. `MONGODB_URI` is injected but currently unused.
-   Fix: either integrate it or remove it until needed.
+2. Any unused secret injections (e.g., old DB URIs) should be removed.
+   Fix: remove unused secret config from deployment and rotate exposed values.
 3. No automated backend tests.
    Fix: add pytest startup smoke + route tests.
 
@@ -144,6 +144,8 @@ Actions:
 2. Rotate any exposed secret immediately.
 3. Re-run relevant deployment/app restart procedure after rotation.
 4. Keep service permissions and network access least-privileged.
+5. Provide `CLOUDFLARE_API_TOKEN` only through shell or CI secret environment for Terraform runs.
+6. Keep runtime secrets in Secret Manager and grant VM access only to required secrets.
 
 ## Documentation QA Checklist
 

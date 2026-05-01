@@ -39,3 +39,45 @@ variable "project_zone" {
   type        = string
   default     = "us-central1-a"
 }
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare zone ID for DNS record management"
+  type        = string
+  default = "9d742195068bb58a363dfdf2e17ec7e5"
+}
+
+variable "secret_name_flask" {
+  description = "Secret Manager secret name for Flask SECRET_KEY"
+  type        = string
+  default     = "flask-secret"
+}
+
+variable "secret_name_cloudflare_origin_certificate" {
+  description = "Secret Manager secret name for Cloudflare origin certificate"
+  type        = string
+  default     = "cloudflare-origin-certificate"
+}
+
+variable "secret_name_cloudflare_private_key" {
+  description = "Secret Manager secret name for Cloudflare private key"
+  type        = string
+  default     = "cloudflare-private-key"
+}
+
+variable "secret_version_flask" {
+  description = "Secret version for Flask secret"
+  type        = string
+  default     = "latest"
+}
+
+variable "secret_version_cloudflare_origin_certificate" {
+  description = "Secret version for Cloudflare origin certificate"
+  type        = string
+  default     = "latest"
+}
+
+variable "secret_version_cloudflare_private_key" {
+  description = "Secret version for Cloudflare private key"
+  type        = string
+  default     = "latest"
+}
