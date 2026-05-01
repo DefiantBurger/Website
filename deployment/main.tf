@@ -84,7 +84,7 @@ resource "google_compute_firewall" "allow_iap_ssh" {
     ports    = ["22"]
   }
 
-  source_ranges = ["35.235.240.0/20"]
+  source_ranges = ["35.235.240.0/20"] # Google's IAP TCP forwarding IP range
   target_tags   = ["ssh"]
 
   depends_on = [google_compute_network.vpc_network]
@@ -124,5 +124,3 @@ output "Web-server-URL" {
   description = "The IP for the website"
   value       = google_compute_instance.default.network_interface[0].access_config[0].nat_ip
 }
-
-# TODO: run the flask app as a dedicated user for security

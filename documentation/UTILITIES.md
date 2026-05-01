@@ -7,6 +7,7 @@ This document tracks utility-specific behavior, APIs, and operational notes.
 Current utility:
 
 - Class Scheduler (`/utilities/scheduler`)
+- File Share (`/utilities/fileshare`)
 
 As more utilities are added, each utility should get its own section under this document.
 
@@ -137,3 +138,92 @@ When adding another utility:
 3. Add utility library folder in `frontend/src/lib/<name>/`.
 4. Add backend endpoints under `/api/<name>/...` when needed.
 5. Add a new section in this file documenting data contracts, behavior, and checks.
+
+## File Share
+
+### Summary
+
+Password-labeled local file sharing with automatic expiration and backend-enforced storage limits.
+
+### Route
+
+- `/utilities/fileshare`
+
+### Data Sources
+
+Backend APIs:
+
+- `GET /api/fileshare/status`
+- `POST /api/fileshare/upload`
+- `POST /api/fileshare/access`
+
+### Data Model
+
+Upload request fields:
+
+```text
+file: multipart file payload
+password: share password
+```
+
+Upload response shape:
+
+```json
+{
+  "label": "sha256 password hash",
+  "originalFilename": "report.pdf",
+  "sizeBytes": 123456,
+  "uploadedAt": "2026-05-01T12:00:00+00:00",
+  "expiresAt": "2026-05-01T12:10:00+00:00",
+  "downloadEndpoint": "/api/fileshare/access"
+}
+```
+
+Status response shape:
+
+```json
+{
+  "activeFileCount": 3,
+  "usedBytes": 8451200,
+  "maxFileBytes": 50000000,
+  "maxTotalBytes": 1000000000,
+  "retentionSeconds": 600,
+  "uploadsPaused": false
+}
+```
+
+### Core Behavior
+
+`backend/app/fileshare.py`:
+
+- hashes passwords with SHA-256 to derive a deterministic active label,
+- stores uploads on local disk under the backend instance path,
+- rejects duplicate active labels instead of replacing files,
+- enforces a 50 MB per-file cap,
+- deletes expired files older than 10 minutes,
+- pauses uploads when live storage reaches 1 GB or more.
+
+### Interaction Model
+
+- upload a file and password together,
+- retrieve a file by entering the same password,
+- show live storage status and pause state in the UI,
+- surface backend errors for expired files, duplicate labels, and quota limits.
+
+### API Checks
+
+```bash
+curl -s http://localhost:5000/api/fileshare/status | jq .
+```
+
+### Known Gaps
+
+1. Storage is local to the VM and is not shared across instances.
+2. Expiration cleanup is request-driven, so inactive files are removed on the next file-share API call.
+3. No authentication or user-scoped ownership model exists yet.
+
+### Next Improvements
+
+1. Add scheduled background cleanup so expiration does not depend on traffic.
+2. Add backend tests for upload limits, duplicate-label rejection, and quota pause/resume.
+3. Consider a future shared storage backend if multi-VM deployment becomes necessary.

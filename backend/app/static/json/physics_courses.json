@@ -44,9 +44,10 @@
 			"E C E 335",
 			"PHYSICS 322",
 			"STAT 311",
-			"E C E 305"
+			"E C E 305",
+			"E C E 313"
 		],
-		"fall27": ["PHYSICS 321", "E C E 555", "PHYSICS 448", "COMP SCI 537"],
-		"spring28": ["E C E 453", "E C E 549", "E C E 556", "E C E 313"]
+		"fall27": ["PHYSICS 321", "E C E 555", "PHYSICS 531", "E C E 506"],
+		"spring28": ["E C E 453", "E C E 549", "E C E 556", "PHYSICS 361"]
 	}
 }

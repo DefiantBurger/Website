@@ -75,6 +75,15 @@ Provisioning reads from Google Secret Manager:
 - Nginx proxies `/api/` to `http://localhost:5000`.
 - HTTP redirects to HTTPS.
 
+### File Share Storage
+
+The file share utility stores uploaded payloads and metadata on the backend instance path under a local `fileshare/` directory.
+
+- uploads are request-validated and stored by the Flask app,
+- expired files are removed on file-share API requests,
+- storage is bounded by a 50 MB per-file cap and a 1 GB live-storage cap,
+- quota recovery depends on expired files being cleaned up or manually removed on the VM.
+
 ## Key Variables
 
 From `deployment/variables.tf`:

@@ -72,6 +72,34 @@ Actions:
 
 Utility-specific checks are documented in `UTILITIES.md`.
 
+### File Share Uploads Paused
+
+Symptoms:
+
+- upload requests return a 503 response,
+- UI shows uploads paused,
+- storage status reports live usage at or above 1 GB.
+
+Actions:
+
+1. Call `GET /api/fileshare/status` to confirm live usage.
+2. Wait for expired files to age out, or manually clear stale files from the backend instance fileshare directory if you need to recover capacity immediately.
+3. Re-check status until used storage falls below 1 GB.
+4. Retry the upload.
+
+### File Share Missing File
+
+Symptoms:
+
+- password lookup returns 404,
+- upload label already exists for another active file.
+
+Actions:
+
+1. Confirm the password is correct.
+2. Confirm the upload has not already expired after 10 minutes.
+3. If duplicate-label rejection is expected, choose a different password.
+
 ## Known Issues and Recommended Fixes
 
 ### Backend

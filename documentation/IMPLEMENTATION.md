@@ -96,6 +96,9 @@ Packaging/dependency metadata lives in `backend/pyproject.toml`.
 Implemented in `backend/app/views.py`:
 
 - `GET /api/scheduler/*` utility endpoints
+- `GET /api/fileshare/status`
+- `POST /api/fileshare/upload`
+- `POST /api/fileshare/access`
 - `GET /api/projects`
 - `GET /api/projects/:slug`
 - `GET /static/<path:filename>`

@@ -18,7 +18,7 @@
       projects = [
         {
           title: 'Personal Website',
-          description: 'A minimal green terminal aesthetic website built with Flask and Svelte.'
+          description: 'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.'
         },
         {
           title: 'Project 2',

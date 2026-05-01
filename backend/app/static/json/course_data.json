@@ -19650,16 +19650,15 @@
   "CBE 255": {
     "credits": 3,
     "title": "Introduction To Chemical Process Modeling",
-    "prereqs": [
+    "prereqs": [],
+    "concurrent_prereqs": [
+      [
+        "CBE 250"
+      ],
       [
         "MATH 319",
         "MATH 320",
         "MATH 376"
-      ]
-    ],
-    "concurrent_prereqs": [
-      [
-        "CBE 250"
       ]
     ]
   },

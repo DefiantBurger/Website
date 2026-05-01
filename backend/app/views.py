@@ -8,11 +8,21 @@ from urllib import request as urllib_request
 
 import yaml
 
-from flask import Blueprint, abort, jsonify, request, send_from_directory
+from flask import Blueprint, abort, jsonify, request, send_file, send_from_directory
+
+from .fileshare import (
+	FileShareError,
+	cleanup_expired_records,
+	get_record_for_password,
+	get_all_records_for_password,
+	get_storage_status,
+	resolve_download_path,
+	save_upload,
+)
 
 views = Blueprint('views', __name__)
 
-_SCHEDULER_DATA_DIR = (
+_JSON_DATA_DIR = (
 	Path(__file__).resolve().parent / 'static' / 'json'
 )
 _PROJECTS_CONTENT_DIR = Path(__file__).resolve().parent / 'content' / 'projects'
@@ -156,12 +166,12 @@ def static_files(filename):
 
 @views.route('/api/scheduler/course-data', methods=['GET'])
 def scheduler_course_data():
-	return send_from_directory(_SCHEDULER_DATA_DIR, 'course_data.json')
+	return send_from_directory(_JSON_DATA_DIR, 'course_data.json')
 
 
 @views.route('/api/scheduler/default-schedule', methods=['GET'])
 def scheduler_default_schedule():
-	return send_from_directory(_SCHEDULER_DATA_DIR, 'physics_courses.json')
+	return send_from_directory(_JSON_DATA_DIR, 'physics_courses.json')
 
 
 @views.route('/api/projects', methods=['GET'])
@@ -189,6 +199,87 @@ def project_detail(slug: str):
 			return jsonify(project)
 
 	abort(404)
+
+
+@views.route('/api/fileshare/status', methods=['GET'])
+def fileshare_status():
+	cleanup_expired_records()
+	return jsonify(get_storage_status())
+
+
+@views.route('/api/fileshare/upload', methods=['POST'])
+def fileshare_upload():
+	uploaded_file = request.files.get('file')
+	password = request.form.get('password', '')
+	clear_existing_str = request.form.get('clearExisting', 'false')
+	clear_existing = clear_existing_str.lower() == 'true'
+
+	if uploaded_file is None:
+		return jsonify({'error': 'A file is required.'}), 400
+
+	try:
+		record = save_upload(uploaded_file, password, clear_existing=clear_existing)
+	except FileShareError as exc:
+		return jsonify({'error': exc.message}), exc.status_code
+
+	return jsonify({
+		'label': record.label,
+		'originalFilename': record.original_filename,
+		'sizeBytes': record.size_bytes,
+		'uploadedAt': record.uploaded_at,
+		'expiresAt': record.expires_at,
+		'downloadEndpoint': '/api/fileshare/access',
+	})
+
+
+@views.route('/api/fileshare/access', methods=['POST'])
+def fileshare_access():
+	password = request.form.get('password', '')
+	occurrence_index_str = request.form.get('occurrenceIndex', '1')
+	
+	try:
+		occurrence_index = int(occurrence_index_str)
+	except ValueError:
+		return jsonify({'error': 'Invalid occurrence index.'}), 400
+	
+	record = get_record_for_password(password, occurrence_index)
+	if record is None:
+		return jsonify({'error': 'No active file matched that password.'}), 404
+
+	try:
+		file_path = resolve_download_path(record)
+	except FileShareError as exc:
+		return jsonify({'error': exc.message}), exc.status_code
+
+	return send_file(
+		file_path,
+		as_attachment=True,
+		download_name=record.original_filename,
+		mimetype=record.mime_type,
+		max_age=0,
+	)
+
+
+@views.route('/api/fileshare/list', methods=['POST'])
+def fileshare_list():
+	password = request.form.get('password', '')
+	
+	records = get_all_records_for_password(password)
+	if not records:
+		return jsonify({'error': 'No active files matched that password.'}), 404
+	
+	return jsonify({
+		'files': [
+			{
+				'occurrenceIndex': idx,
+				'originalFilename': record.original_filename,
+				'sizeBytes': record.size_bytes,
+				'uploadedAt': record.uploaded_at,
+				'expiresAt': record.expires_at,
+			}
+			for idx, record in enumerate(records, start=1)
+		],
+	})
 
 
 @views.route('/api/about-you/request-context', methods=['GET'])

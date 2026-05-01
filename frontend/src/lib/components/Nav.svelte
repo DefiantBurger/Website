@@ -25,7 +25,7 @@
   }
 
   type Theme = 'dark' | 'light';
-  let theme: Theme = 'dark';
+  let theme: Theme = 'light';
 
   function applyTheme(nextTheme: Theme): void {
     theme = nextTheme;
@@ -44,7 +44,7 @@
       return;
     }
 
-    applyTheme('dark');
+    applyTheme('light');
   });
 </script>
 

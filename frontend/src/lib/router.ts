@@ -9,6 +9,7 @@ import AboutYou from '../pages/AboutYou.svelte';
 import Contact from '../pages/Contact.svelte';
 import Utilities from '../pages/Utilities.svelte';
 import UtilityScheduler from '../pages/UtilityScheduler.svelte';
+import UtilityFileShare from '../pages/UtilityFileShare.svelte';
 import { recordRouteVisit } from './aboutYou/interactionStore';
 
 export const currentPage = writable<any>(Home);
@@ -77,6 +78,20 @@ export function initRouter() {
     currentRoute.set('/utilities/scheduler/');
     routeParams.set({});
     recordRouteVisit('/utilities/scheduler/');
+  });
+
+  page('/utilities/fileshare', () => {
+    currentPage.set(UtilityFileShare);
+    currentRoute.set('/utilities/fileshare');
+    routeParams.set({});
+    recordRouteVisit('/utilities/fileshare');
+  });
+
+  page('/utilities/fileshare/', () => {
+    currentPage.set(UtilityFileShare);
+    currentRoute.set('/utilities/fileshare/');
+    routeParams.set({});
+    recordRouteVisit('/utilities/fileshare/');
   });
 
   page.start();
