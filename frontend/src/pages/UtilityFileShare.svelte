@@ -29,6 +29,11 @@
 	let accessFiles: FileShareListItem[] = [];
 	let selectedFileIndex = 1;
 
+	interface DownloadFailure {
+		filename: string;
+		error: string;
+	}
+
 	function formatSeconds(seconds: number): string {
 		const minutes = Math.floor(seconds / 60);
 		const remainingSeconds = seconds % 60;
@@ -113,6 +118,24 @@
 		}
 	}
 
+	async function downloadByIndex(
+		occurrenceIndex: number,
+		expectedFilename?: string,
+	): Promise<string> {
+		const { blob, filename } = await downloadFileShare(
+			accessPassword.trim(),
+			occurrenceIndex,
+			expectedFilename,
+		);
+		const objectUrl = URL.createObjectURL(blob);
+		const anchor = document.createElement('a');
+		anchor.href = objectUrl;
+		anchor.download = filename;
+		anchor.click();
+		URL.revokeObjectURL(objectUrl);
+		return filename;
+	}
+
 	async function handleDownload(): Promise<void> {
 		accessError = null;
 		accessSuccess = null;
@@ -127,28 +150,69 @@
 			return;
 		}
 
+		const selectedFile = accessFiles.find((f) => f.occurrenceIndex === selectedFileIndex);
+		const expectedFilename = selectedFile?.originalFilename;
+
 		accessBusy = true;
 		try {
-			const selectedFile = accessFiles.find((f) => f.occurrenceIndex === selectedFileIndex);
-			const expectedFilename = selectedFile?.originalFilename;
-			
-			const { blob, filename } = await downloadFileShare(
-				accessPassword.trim(),
-				selectedFileIndex,
-				expectedFilename,
-			);
-			const objectUrl = URL.createObjectURL(blob);
-			const anchor = document.createElement('a');
-			anchor.href = objectUrl;
-			anchor.download = filename;
-			anchor.click();
-			URL.revokeObjectURL(objectUrl);
+			const filename = await downloadByIndex(selectedFileIndex, expectedFilename);
 			accessSuccess = `Started download for ${filename}.`;
 		} catch (error) {
 			accessError = error instanceof Error ? error.message : 'Download failed.';
 		} finally {
 			accessBusy = false;
 		}
+	}
+
+	async function handleDownloadAll(): Promise<void> {
+		accessError = null;
+		accessSuccess = null;
+
+		if (!accessPassword.trim()) {
+			accessError = 'Enter the access key to retrieve files.';
+			return;
+		}
+
+		if (accessFiles.length === 0) {
+			accessError = 'No files available for download.';
+			return;
+		}
+
+		const originalSelectedFileIndex = selectedFileIndex;
+		let succeeded = 0;
+		const failures: DownloadFailure[] = [];
+
+		accessBusy = true;
+		try {
+			for (const file of accessFiles) {
+				try {
+					await downloadByIndex(file.occurrenceIndex, file.originalFilename);
+					succeeded += 1;
+				} catch (error) {
+					failures.push({
+						filename: file.originalFilename,
+						error: error instanceof Error ? error.message : 'Download failed.',
+					});
+				}
+			}
+		} finally {
+			selectedFileIndex = originalSelectedFileIndex;
+			accessBusy = false;
+		}
+
+		const failedCount = failures.length;
+		const summaryHeader = `${succeeded} succeeded, ${failedCount} failed`;
+
+		if (failedCount > 0) {
+			const failedList = failures.map((failure) => `- ${failure.filename}: ${failure.error}`).join('\n');
+			accessError = `${summaryHeader}:\n${failedList}`;
+			if (succeeded > 0) {
+				accessSuccess = `Started ${succeeded} download(s).`;
+			}
+			return;
+		}
+
+		accessSuccess = `${summaryHeader}.`;
 	}
 
 	onMount(() => {
@@ -167,7 +231,7 @@
 <div class="page">
 	<header class="page-header">
 		<div>
-			<h1>> File Share</h1>
+			<h1>> Utilities / File Share</h1>
 			<p>
 				Upload one or more files with an access key. The access key is hashed into the file label, and the
 				stored file contents are encrypted at rest with a key derived from that same access key.
@@ -217,7 +281,7 @@
 				<p class="file-meta">Selected: {uploadFiles.length} file(s)</p>
 				<ul class="file-list">
 					{#each uploadFiles as file (file.name)}
-						<li>{file.name} ({formatBytes(file.size)})</li>
+						<li class="overflow-break-word">{file.name} ({formatBytes(file.size)})</li>
 					{/each}
 				</ul>
 			{/if}
@@ -230,7 +294,7 @@
 				<div class="error">> {uploadError}</div>
 			{/if}
 			{#if uploadSuccess}
-				<div class="success">> {uploadSuccess}</div>
+				<div class="success overflow-break-word">> {uploadSuccess}</div>
 			{/if}
 		</form>
 
@@ -271,11 +335,14 @@
 					<button type="button" on:click={handleDownload} disabled={accessBusy}>
 						{accessBusy ? 'Fetching...' : 'Download'}
 					</button>
+					<button type="button" on:click={handleDownloadAll} disabled={accessBusy}>
+						{accessBusy ? 'Fetching...' : 'Download All'}
+					</button>
 				</div>
 			{/if}
 
 			{#if accessError}
-				<div class="error">> {accessError}</div>
+				<div class="error overflow-break-word message-preline">> {accessError}</div>
 			{/if}
 			{#if accessSuccess}
 				<div class="success">> {accessSuccess}</div>
@@ -397,6 +464,14 @@
 
 	.file-meta {
 		opacity: 0.85;
+	}
+
+	.overflow-break-word {
+		overflow-wrap: break-word;
+	}
+
+	.message-preline {
+		white-space: pre-line;
 	}
 
 	.file-selector {

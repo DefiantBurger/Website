@@ -1,3 +1,5 @@
+limit_req_zone $http_cf_connecting_ip zone=limit:10m rate=10r/s;
+
 server {
 	listen 443 ssl;
 	server_name ${domain} *.${domain};
@@ -9,13 +11,21 @@ server {
 
 	client_max_body_size 1M;
 
+	limit_req zone=limit burst=10 delay=5;
+
 	location /api/ {
 		include api_proxy_params.conf;
 	}
 
-	location /api/fileshare/upload/ {
-		client_max_body_size 100M;
+	location /api/fileshare/ {
 		include api_proxy_params.conf;
+		limit_req zone=limit burst=10 nodelay;
+	}
+
+	location /api/fileshare/upload/ {
+		include api_proxy_params.conf;
+		limit_req zone=limit burst=10 nodelay;
+		client_max_body_size 100M;
 	}
 
 	location / {
