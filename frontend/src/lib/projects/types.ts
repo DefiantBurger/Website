@@ -2,7 +2,6 @@ export interface ProjectSummary {
   slug: string;
   title: string;
   summary: string;
-  date: string;
   tags: string[];
   repo: string;
   demo: string;

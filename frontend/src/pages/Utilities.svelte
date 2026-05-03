@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navigate } from '../lib/router';
+  import PageHeader from '../lib/components/PageHeader.svelte';
 
   function openScheduler(): void {
     navigate('/utilities/scheduler/');
@@ -15,11 +16,11 @@
   <meta name="description" content="Interactive tools and experiments, including a class scheduler and file sharing utility." />
 </svelte:head>
 
-<div class="page">
-  <header class="page-header">
-    <h1>> Utilities</h1>
-    <p>Small tools and experiments that are useful beyond portfolio projects.</p>
-  </header>
+<div class="page page-frame">
+  <PageHeader
+    title="Utilities"
+    description="Small tools and experiments that are useful beyond portfolio projects."
+  />
 
   <section class="terminal-box utility-card">
     <h2>Class Scheduler</h2>
@@ -41,31 +42,6 @@
 </div>
 
 <style>
-  .page {
-    animation: fadeIn 0.5s ease-in;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0.5;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px dashed var(--color-text-primary);
-    grid-column: 1 / -1;
-  }
-
-  .page-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-  }
-
   .page {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -92,11 +68,5 @@
   .utility-card button {
     margin-top: 0.5rem;
     width: 100%;
-  }
-
-  @media (max-width: 768px) {
-    .page-header h1 {
-      font-size: 1.8rem;
-    }
   }
 </style>

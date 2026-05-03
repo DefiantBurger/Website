@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { navigate } from '../lib/router';
   import { loadProjects } from '../lib/projects/api';
+  import PageHeader from '../lib/components/PageHeader.svelte';
+  import StatusMessage from '../lib/components/StatusMessage.svelte';
   import type { ProjectSummary } from '../lib/projects/types';
 
   let projects: ProjectSummary[] = [];
@@ -29,16 +31,13 @@
   <meta name="description" content="A collection of projects I'm proud of." />
 </svelte:head>
 
-<div class="projects">
-  <header class="page-header">
-    <h1>> Projects</h1>
-    <p>A collection of work I'm proud of</p>
-  </header>
+<div class="projects page-frame">
+  <PageHeader title="Projects" description="A collection of work I'm proud of" />
 
   {#if loading}
-    <div class="loading">> Loading projects...</div>
+    <StatusMessage kind="loading" message="Loading projects..." />
   {:else if error}
-    <div class="error">> {error}</div>
+    <StatusMessage kind="error" message={error} />
   {:else}
     <div class="projects-grid">
       {#each projects as project}
@@ -71,35 +70,6 @@
 </div>
 
 <style>
-  .projects {
-    animation: fadeIn 0.5s ease-in;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0.5;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px dashed var(--color-text-primary);
-  }
-
-  .page-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .page-header p {
-    font-size: 1.1rem;
-    opacity: 0.9;
-  }
-
   .projects-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -149,37 +119,7 @@
     opacity: 0.95;
   }
 
-  .loading {
-    color: var(--color-text-primary);
-    opacity: 0.7;
-    animation: blink 1s infinite;
-    font-size: 1.1rem;
-    margin: 2rem 0;
-  }
-
-  @keyframes blink {
-    0%, 49% {
-      opacity: 1;
-    }
-    50%, 100% {
-      opacity: 0.3;
-    }
-  }
-
-  .error {
-    color: var(--color-error);
-    border: 1px solid var(--color-error);
-    padding: 1rem;
-    border-radius: 3px;
-    background-color: var(--color-error-opacity-05);
-    margin: 1rem 0;
-  }
-
   @media (max-width: 768px) {
-    .page-header h1 {
-      font-size: 1.8rem;
-    }
-
     .projects-grid {
       grid-template-columns: 1fr;
     }

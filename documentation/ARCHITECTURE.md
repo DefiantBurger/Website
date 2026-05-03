@@ -107,6 +107,10 @@ Responsibilities:
 - `published` frontmatter controls public visibility.
 - Enables rapid editorial iteration without rebuilding frontend.
 
+Ordering and metadata notes:
+
+- Projects use an internal numeric `priority` frontmatter field to control list ordering. Higher `priority` values appear earlier in the `/api/projects` results. `priority` is read by the backend for ordering but is not returned in API responses to the frontend.
+
 ## Security and Trust Boundaries
 
 1. CORS is scoped to `/api/*` routes.

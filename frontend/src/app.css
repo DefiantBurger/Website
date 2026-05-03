@@ -121,6 +121,20 @@ a:hover {
   width: 100%;
 }
 
+.page-frame {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0.5;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 main {
   flex: 1;
 }

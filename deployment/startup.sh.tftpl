@@ -43,8 +43,8 @@ git clone --branch ${repo_branch} --single-branch ${repo_url} ${app_path}
 
 echo "[6/10] Setting up backend virtual environment from pyproject..."
 cd ${app_path}/backend
-python3.11 -m venv venv
-source venv/bin/activate
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install .
 deactivate

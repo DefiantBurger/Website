@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { navigate } from '../lib/router';
-  
+  import StatusMessage from '../lib/components/StatusMessage.svelte';
+  import PageHeader from '../lib/components/PageHeader.svelte';
+
   interface Project {
     title: string;
     description: string;
@@ -38,27 +40,23 @@
   <meta name="description" content="Personal portfolio and projects by me." />
 </svelte:head>
 
-<div class="home">
-  <header class="hero">
-    <h1>> Welcome</h1>
-    <p>
-      I'm a developer. This is my website.
-    </p>
-    <p>
+<div class="home page-frame">
+  <PageHeader title="Welcome" description="I'm a developer. This is my website.">
+    <p class="mt-1">
       <a href="/" on:click={(e) => { e.preventDefault(); navigate('/about'); }}>About</a> • 
       <a href="/" on:click={(e) => { e.preventDefault(); navigate('/projects'); }}>Projects</a> • 
       <a href="/" on:click={(e) => { e.preventDefault(); navigate('/utilities'); }}>Utilities</a> • 
       <a href="/" on:click={(e) => { e.preventDefault(); navigate('/contact'); }}>Contact</a>
     </p>
-  </header>
+  </PageHeader>
 
   <section class="featured-projects">
     <h2>> Featured Projects</h2>
     
     {#if loading}
-      <div class="loading">> Loading projects...</div>
+      <StatusMessage kind="loading" message="Loading projects..." />
     {:else if error}
-      <div class="error">> {error}</div>
+      <StatusMessage kind="error" message={error} />
     {:else}
       <div class="projects-grid">
         {#each projects as project}
@@ -95,39 +93,6 @@
 </div>
 
 <style>
-  .home {
-    animation: fadeIn var(--transition-fade) ease-in;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0.5;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .hero {
-    margin-bottom: 3rem;
-    padding-bottom: 2rem;
-    border-bottom: 1px dashed var(--color-text-primary);
-  }
-
-  .hero h1 {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-  }
-
-  .hero p {
-    font-size: 1.2rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .hero a {
-    margin-right: 1rem;
-  }
-
   .featured-projects {
     margin: 3rem 0;
   }
@@ -186,25 +151,6 @@
   .link-item p {
     margin-bottom: 1rem;
     font-size: 0.95rem;
-  }
-
-  .loading {
-    color: var(--color-text-primary);
-    opacity: 0.7;
-    animation: blink 1s infinite;
-  }
-
-  @keyframes blink {
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0.3; }
-  }
-
-  .error {
-    color: #ff6b6b;
-    border: 1px solid #ff6b6b;
-    padding: 1rem;
-    border-radius: 3px;
-    background-color: rgba(255, 107, 107, 0.05);
   }
 
   @media (max-width: 768px) {

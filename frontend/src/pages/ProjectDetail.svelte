@@ -223,10 +223,6 @@
   {:else if project}
     <header class="project-header terminal-box">
       <h1>> {project.title}</h1>
-      {#if project.date}
-        <p class="project-date">{project.date}</p>
-      {/if}
-
       {#if project.tags.length > 0}
         <div class="tag-list">
           {#each project.tags as tag}
@@ -240,7 +236,7 @@
           <a href={project.repo} target="_blank" rel="noreferrer">Repository</a>
         {/if}
         {#if project.demo}
-          <a href={project.demo} target="_blank" rel="noreferrer">Live Demo</a>
+          <a href={project.demo} target="_blank" rel="noreferrer">Live Site</a>
         {/if}
       </div>
     </header>
@@ -297,11 +293,6 @@
   }
 
   .back-button {
-    margin-bottom: 1rem;
-  }
-
-  .project-date {
-    opacity: 0.8;
     margin-bottom: 1rem;
   }
 

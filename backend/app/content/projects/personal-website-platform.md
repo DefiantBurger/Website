@@ -2,14 +2,14 @@
 title: "Personal Website Platform"
 slug: "personal-website-platform"
 summary: "A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform deployment, and dynamic Markdown content. Hosts multiple interactive utilities and demonstrates end-to-end architecture from infrastructure to UX."
-date: "2026-04-11"
+priority: 20
 tags:
   - "Svelte"
   - "Flask"
   - "Terraform"
   - "Nginx"
   - "Cloudflare"
-  - "Mermaid"
+  - "GCP"
 repo: "https://github.com/DefiantBurger/Website"
 demo: ""
 published: true

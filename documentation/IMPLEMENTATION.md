@@ -14,8 +14,8 @@ Install:
 
 ```bash
 cd backend
-python3.11 -m venv venv
-source venv/bin/activate
+python3.11 -m venv .venv
+source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install .
 
@@ -125,21 +125,29 @@ Entry point is `frontend/src/main.ts`; global styles are in `frontend/src/app.cs
 
 ### Routing
 
-`frontend/src/lib/router.ts` routes:
+Routing is implemented in `frontend/src/lib/router.ts` (source of truth for client-side routes).
+
+Client routes (canonical, client-normalized form — the router trims trailing slashes):
 
 - `/`
 - `/projects`
-- `/projects/:slug`
+- `/projects/:slug` (project detail)
 - `/about`
+- `/about-you` (additional about-person route used by the site)
 - `/contact`
 - `/utilities`
-- utility-specific routes under `/utilities/*`
+- `/utilities/scheduler`
+- `/utilities/fileshare`
+
+Utility routes live under `/utilities/*` and the router will normalize duplicate trailing slashes for client navigation.
 
 Stores:
 
 - `currentPage`
 - `currentRoute`
 - `routeParams`
+
+Note: Server API endpoints are implemented in the Flask backend and (for predictability) include trailing slashes in their route definitions (for example `/api/projects/` and `/api/projects/:slug/`). API examples in docs should prefer the canonical trailing-slash form to avoid unexpected redirects during development.
 
 ### App Shell and Navigation
 
@@ -150,6 +158,8 @@ Stores:
 - route-aware active states,
 - client-side navigation,
 - dark/light theme toggle via `localStorage` + `data-theme`.
+
+`frontend/src/lib/components/PageHeader.svelte` and `frontend/src/lib/components/StatusMessage.svelte` provide shared page chrome for repeated header, loading, and error states across the main content pages.
 
 ### Pages
 
@@ -225,6 +235,8 @@ demo: "https://..."
 published: true
 ---
 ```
+
+Note: this project uses an internal numeric `priority` meta-field instead of a `date` to determine list ordering. Add `priority: <integer>` to frontmatter for projects you want surfaced earlier. The `priority` value is used by the backend for sorting (higher = shown earlier) and is not exposed in API responses.
 
 ### Error Expectations
 

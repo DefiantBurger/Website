@@ -148,16 +148,22 @@ def _project_payload_from_file(file_path: Path) -> dict:
 	if not isinstance(tags, list):
 		tags = []
 
+	# read priority as integer for internal sort ordering (higher = earlier)
+	try:
+		priority_val = int(meta.get('priority', 0) or 0)
+	except (TypeError, ValueError):
+		priority_val = 0
+
 	return {
 		'slug': slug,
 		'title': str(meta.get('title') or slug.replace('-', ' ').title()),
 		'summary': str(meta.get('summary') or ''),
-		'date': str(meta.get('date') or ''),
 		'tags': [str(tag) for tag in tags],
 		'repo': str(meta.get('repo') or ''),
 		'demo': str(meta.get('demo') or ''),
 		'published': bool(meta.get('published', True)),
 		'markdown': markdown,
+		'_priority': priority_val,
 	}
 
 @views.route('/static/<path:filename>')
@@ -179,14 +185,26 @@ def scheduler_default_schedule():
 def projects_list():
 	projects: list[dict] = []
 
-	for file_path in sorted(_PROJECTS_CONTENT_DIR.glob('*.md')):
+	# Collect projects and keep internal priority for sorting.
+	for file_path in _PROJECTS_CONTENT_DIR.glob('*.md'):
 		project = _project_payload_from_file(file_path)
 		if not project['published']:
 			continue
+
+		# Extract the internal priority and remove markdown before adding to list
+		priority = project.pop('_priority', 0)
 		project.pop('markdown', None)
+		# store priority on the dict temporarily for sorting
+		project['_sort_priority'] = priority
 		projects.append(project)
 
-	projects.sort(key=lambda item: item.get('date', ''), reverse=True)
+	# Sort by priority (desc). Higher priority shows earlier.
+	projects.sort(key=lambda item: item.get('_sort_priority', 0), reverse=True)
+
+	# Remove internal sort key before returning API response
+	for proj in projects:
+		proj.pop('_sort_priority', None)
+
 	return jsonify(projects)
 
 
@@ -197,6 +215,8 @@ def project_detail(slug: str):
 		if not project['published']:
 			continue
 		if project['slug'] == slug:
+			# ensure internal priority is not exposed
+			project.pop('_priority', None)
 			return jsonify(project)
 
 	abort(404)

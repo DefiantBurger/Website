@@ -1,5 +1,6 @@
 <script lang="ts">
   import { navigate } from '../lib/router';
+  import PageHeader from '../lib/components/PageHeader.svelte';
 </script>
 
 <svelte:head>
@@ -7,10 +8,8 @@
   <meta name="description" content="Learn more about the developer behind this website." />
 </svelte:head>
 
-<div class="page">
-  <header class="page-header">
-    <h1>> About Me</h1>
-  </header>
+<div class="page page-frame">
+  <PageHeader title="About Me" />
 
   <div class="content terminal-box">
     <p>Coming soon...</p>
@@ -25,30 +24,6 @@
 </div>
 
 <style>
-  .page {
-    animation: fadeIn 0.5s ease-in;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0.5;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px dashed var(--color-text-primary);
-  }
-
-  .page-header h1 {
-    font-size: 2.5rem;
-    margin-bottom: 0.5rem;
-  }
-
   .content {
     padding: 2rem;
   }
@@ -66,11 +41,5 @@
 
   .about-you-cta a {
     font-weight: 700;
-  }
-
-  @media (max-width: 768px) {
-    .page-header h1 {
-      font-size: 1.8rem;
-    }
   }
 </style>
