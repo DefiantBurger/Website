@@ -8,6 +8,9 @@ BACKEND_PYTHON="$BACKEND_DIR/.venv/bin/python"
 FRONTEND_DIR="$SCRIPT_DIR/frontend"
 FRONTEND_CMD=(pnpm run dev)
 
+# Load nvm so pnpm can use the correct Node version
+[ -s "$HOME/.nvm/nvm.sh" ] && \. "$HOME/.nvm/nvm.sh"
+
 export FLASK_ENV="${FLASK_ENV:-development}"
 export PORT="${PORT:-5000}"
 export SECRET_KEY="${SECRET_KEY:-local-dev-secret}"
