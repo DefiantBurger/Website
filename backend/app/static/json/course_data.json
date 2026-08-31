@@ -908,7 +908,7 @@
   },
   "A A E 637": {
     "credits": 4,
-    "title": "Applied Econometric Analysis Ii",
+    "title": "Applied Econometric Analysis II",
     "prereqs": [
       [
         "A A E 636"
@@ -1196,7 +1196,7 @@
   },
   "A A E 737": {
     "credits": 3,
-    "title": "Applied Econometric Analysis Iii",
+    "title": "Applied Econometric Analysis III",
     "prereqs": [
       [
         "ECON 709"
@@ -1325,7 +1325,7 @@
   },
   "A A E 776": {
     "credits": 3,
-    "title": "Practicum In Resource And Energy Demand Analysis Ii",
+    "title": "Practicum In Resource And Energy Demand Analysis II",
     "prereqs": [
       [
         "A A E 772"
@@ -1543,7 +1543,7 @@
   },
   "A F AERO 102": {
     "credits": 1,
-    "title": "Heritage And Values Ii",
+    "title": "Heritage And Values II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -1555,7 +1555,7 @@
   },
   "A F AERO 202": {
     "credits": 1,
-    "title": "Team And Leadership Fundamentals Ii",
+    "title": "Team And Leadership Fundamentals II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -1571,7 +1571,7 @@
   },
   "A F AERO 302": {
     "credits": 3,
-    "title": "Leading People And Effective Communication Ii",
+    "title": "Leading People And Effective Communication II",
     "prereqs": [
       [
         "A F AERO 301"
@@ -1607,7 +1607,7 @@
   },
   "A F AERO 502": {
     "credits": 1,
-    "title": "Leadership Laboratory Ii",
+    "title": "Leadership Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -1845,7 +1845,7 @@
   },
   "ACCT I S 302": {
     "credits": 3,
-    "title": "Financial Reporting Ii",
+    "title": "Financial Reporting II",
     "prereqs": [
       [
         "ACCT I S 301"
@@ -2010,7 +2010,7 @@
   },
   "ACCT I S 702": {
     "credits": 3,
-    "title": "Financial Reporting Ii",
+    "title": "Financial Reporting II",
     "prereqs": [
       [
         "ACCT I S 701"
@@ -2199,7 +2199,7 @@
   },
   "ACT SCI 301": {
     "credits": 1,
-    "title": "Actuarial Science Methods Ii",
+    "title": "Actuarial Science Methods II",
     "prereqs": [],
     "concurrent_prereqs": [
       [
@@ -3688,13 +3688,13 @@
   },
   "AFROAMER 326": {
     "credits": 3,
-    "title": "Race And Gender In Post-World War Ii U.S. Society",
+    "title": "Race And Gender In Post-World War II U.S. Society",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "GEN&WS 326": {
     "credits": 3,
-    "title": "Race And Gender In Post-World War Ii U.S. Society",
+    "title": "Race And Gender In Post-World War II U.S. Society",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -4400,7 +4400,7 @@
   },
   "AMER IND 302": {
     "credits": 3,
-    "title": "Beginner Level Ojibwe Language Ii",
+    "title": "Beginner Level Ojibwe Language II",
     "prereqs": [
       [
         "AMER IND 301"
@@ -4416,7 +4416,7 @@
   },
   "AMER IND 304": {
     "credits": 3,
-    "title": "Beginner Level Indigenous Language Ii",
+    "title": "Beginner Level Indigenous Language II",
     "prereqs": [
       [
         "AMER IND 303"
@@ -4444,7 +4444,7 @@
   },
   "AMER IND 309": {
     "credits": 3,
-    "title": "Beginner Level Hoocak/Ho-Chunk Language Ii",
+    "title": "Beginner Level Hoocak/Ho-Chunk Language II",
     "prereqs": [
       [
         "AMER IND 308"
@@ -4460,7 +4460,7 @@
   },
   "AMER IND 311": {
     "credits": 3,
-    "title": "Beginner Level Menominee Language Ii",
+    "title": "Beginner Level Menominee Language II",
     "prereqs": [
       [
         "AMER IND 310"
@@ -4476,7 +4476,7 @@
   },
   "AMER IND 313": {
     "credits": 3,
-    "title": "Beginner Level Oneida Language Ii",
+    "title": "Beginner Level Oneida Language II",
     "prereqs": [
       [
         "AMER IND 312"
@@ -4620,7 +4620,7 @@
   },
   "AMER IND 402": {
     "credits": 3,
-    "title": "Intermediate Level Ojibwe Language Ii",
+    "title": "Intermediate Level Ojibwe Language II",
     "prereqs": [
       [
         "AMER IND 401"
@@ -4636,7 +4636,7 @@
   },
   "AMER IND 404": {
     "credits": 3,
-    "title": "Intermediate Level Indigenous Language Ii",
+    "title": "Intermediate Level Indigenous Language II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -4652,7 +4652,7 @@
   },
   "AMER IND 406": {
     "credits": 3,
-    "title": "Intermediate Level Hoocak/Ho-Chunk Language Ii",
+    "title": "Intermediate Level Hoocak/Ho-Chunk Language II",
     "prereqs": [
       [
         "AMER IND 405"
@@ -4672,7 +4672,7 @@
   },
   "AMER IND 408": {
     "credits": 3,
-    "title": "Intermediate Level Menominee Language Ii",
+    "title": "Intermediate Level Menominee Language II",
     "prereqs": [
       [
         "AMER IND 407"
@@ -5979,13 +5979,13 @@
   },
   "AN SCI 825": {
     "credits": 4,
-    "title": "Ruminant Nutritional Physiology Ii",
+    "title": "Ruminant Nutritional Physiology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "DY SCI 825": {
     "credits": 4,
-    "title": "Ruminant Nutritional Physiology Ii",
+    "title": "Ruminant Nutritional Physiology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -7597,7 +7597,7 @@
   },
   "ART 314": {
     "credits": 4,
-    "title": "Sculpture Ii",
+    "title": "Sculpture II",
     "prereqs": [
       [
         "ART 214"
@@ -7629,7 +7629,7 @@
   },
   "ART 324": {
     "credits": 4,
-    "title": "Ceramics Ii",
+    "title": "Ceramics II",
     "prereqs": [
       [
         "ART 224"
@@ -7655,7 +7655,7 @@
   },
   "ART 332": {
     "credits": 4,
-    "title": "Life Drawing Ii",
+    "title": "Life Drawing II",
     "prereqs": [
       [
         "ART 232"
@@ -7737,7 +7737,7 @@
   },
   "ART 342": {
     "credits": 4,
-    "title": "Watercolor Ii",
+    "title": "Watercolor II",
     "prereqs": [
       [
         "ART 242"
@@ -8260,7 +8260,7 @@
   },
   "ART 529": {
     "credits": 4,
-    "title": "3D Digital Studio Ii",
+    "title": "3D Digital Studio II",
     "prereqs": [
       [
         "ART 429"
@@ -8354,7 +8354,7 @@
   },
   "ART 552": {
     "credits": 4,
-    "title": "Advanced Painting: New Figuration Ii",
+    "title": "Advanced Painting: New Figuration II",
     "prereqs": [
       [
         "ART 452"
@@ -8532,7 +8532,7 @@
   },
   "ART 572": {
     "credits": 3,
-    "title": "Set Design Ii",
+    "title": "Set Design II",
     "prereqs": [
       [
         "THEATRE 372",
@@ -8543,7 +8543,7 @@
   },
   "THEATRE 572": {
     "credits": 3,
-    "title": "Set Design Ii",
+    "title": "Set Design II",
     "prereqs": [
       [
         "THEATRE 372",
@@ -8588,7 +8588,7 @@
   "ART 612": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Advanced Drawing Ii",
+    "title": "Advanced Drawing II",
     "prereqs": [
       [
         "ART 512"
@@ -8615,7 +8615,7 @@
   },
   "ART 624": {
     "credits": 4,
-    "title": "Advanced Ceramics Ii",
+    "title": "Advanced Ceramics II",
     "prereqs": [
       [
         "ART 524"
@@ -8625,7 +8625,7 @@
   },
   "ART 629": {
     "credits": 4,
-    "title": "3D Digital Studio Iii",
+    "title": "3D Digital Studio III",
     "prereqs": [
       [
         "ART 429",
@@ -8637,7 +8637,7 @@
   "ART 632": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Advanced Life Drawing Ii",
+    "title": "Advanced Life Drawing II",
     "prereqs": [
       [
         "ART 532"
@@ -8661,7 +8661,7 @@
   },
   "ART 642": {
     "credits": 4,
-    "title": "Advanced Watercolor Ii",
+    "title": "Advanced Watercolor II",
     "prereqs": [
       [
         "ART 542"
@@ -8671,7 +8671,7 @@
   },
   "ART 644": {
     "credits": 4,
-    "title": "Advanced Art Metal Ii",
+    "title": "Advanced Art Metal II",
     "prereqs": [
       [
         "ART 544"
@@ -9476,7 +9476,7 @@
   },
   "ART HIST 602": {
     "credits": 3,
-    "title": "Introduction To Museum Studies Ii",
+    "title": "Introduction To Museum Studies II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -9791,7 +9791,7 @@
   },
   "ASIALANG 111": {
     "credits": 2,
-    "title": "Elementary Chinese Ii",
+    "title": "Elementary Chinese II",
     "prereqs": [
       [
         "ASIALANG 110",
@@ -10095,7 +10095,7 @@
   },
   "ASIALANG 212": {
     "credits": 3,
-    "title": "Heritage Chinese Ii",
+    "title": "Heritage Chinese II",
     "prereqs": [
       [
         "ASIALANG 211"
@@ -11577,14 +11577,14 @@
   "ASIAN 363": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "China And World War Ii In Asia",
+    "title": "China And World War II In Asia",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "HISTORY 363": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "China And World War Ii In Asia",
+    "title": "China And World War II In Asia",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -11947,7 +11947,7 @@
   },
   "ASIAN 642": {
     "credits": 3,
-    "title": "History Of Chinese Literature Ii",
+    "title": "History Of Chinese Literature II",
     "prereqs": [
       [
         "ASIALANG 301",
@@ -12683,7 +12683,7 @@
   },
   "ASTRON 702": {
     "credits": 2,
-    "title": "Basic Astrophysics Ii",
+    "title": "Basic Astrophysics II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -12890,7 +12890,7 @@
   },
   "ATM OCN 311": {
     "credits": 3,
-    "title": "Dynamics Of The Atmosphere And Ocean Ii",
+    "title": "Dynamics Of The Atmosphere And Ocean II",
     "prereqs": [
       [
         "ATM OCN 310"
@@ -12984,7 +12984,7 @@
   },
   "ATM OCN 340": {
     "credits": 3,
-    "title": "Physics Of The Atmosphere And Ocean Ii",
+    "title": "Physics Of The Atmosphere And Ocean II",
     "prereqs": [
       [
         "ATM OCN 330"
@@ -13255,7 +13255,7 @@
   },
   "ATM OCN 611": {
     "credits": 3,
-    "title": "Geophysical Fluid Dynamics Ii",
+    "title": "Geophysical Fluid Dynamics II",
     "prereqs": [
       [
         "ATM OCN 610"
@@ -13476,7 +13476,7 @@
   },
   "ATM OCN 811": {
     "credits": 2,
-    "title": "Practical Training In Atmospheric And Oceanic Sciences Ii",
+    "title": "Practical Training In Atmospheric And Oceanic Sciences II",
     "prereqs": [
       [
         "ATM OCN 810"
@@ -13767,7 +13767,7 @@
   },
   "B M E 402": {
     "credits": 3,
-    "title": "Biomedical Engineering Capstone Design Ii",
+    "title": "Biomedical Engineering Capstone Design II",
     "prereqs": [
       [
         "B M E 400"
@@ -15015,7 +15015,7 @@
   },
   "B M I 544": {
     "credits": 3,
-    "title": "Introduction To Clinical And Healthcare Research Ii",
+    "title": "Introduction To Clinical And Healthcare Research II",
     "prereqs": [
       [
         "STAT 542",
@@ -15713,7 +15713,7 @@
   "BIOCHEM 508": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "General Biochemistry Ii",
+    "title": "General Biochemistry II",
     "prereqs": [
       [
         "BIOCHEM 507"
@@ -18208,7 +18208,7 @@
   },
   "BSE 509": {
     "credits": 3,
-    "title": "Biological Systems Engineering Design Practicum Ii",
+    "title": "Biological Systems Engineering Design Practicum II",
     "prereqs": [
       [
         "BSE 508"
@@ -18556,7 +18556,7 @@
   },
   "C&E SOC 361": {
     "credits": 4,
-    "title": "Statistics For Sociologists Ii",
+    "title": "Statistics For Sociologists II",
     "prereqs": [
       [
         "C&E SOC 360",
@@ -18583,7 +18583,7 @@
   },
   "SOC 361": {
     "credits": 4,
-    "title": "Statistics For Sociologists Ii",
+    "title": "Statistics For Sociologists II",
     "prereqs": [
       [
         "C&E SOC 360",
@@ -19650,15 +19650,16 @@
   "CBE 255": {
     "credits": 3,
     "title": "Introduction To Chemical Process Modeling",
-    "prereqs": [],
-    "concurrent_prereqs": [
-      [
-        "CBE 250"
-      ],
+    "prereqs": [
       [
         "MATH 319",
         "MATH 320",
         "MATH 376"
+      ]
+    ],
+    "concurrent_prereqs": [
+      [
+        "CBE 250"
       ]
     ]
   },
@@ -20125,7 +20126,7 @@
   },
   "CHEM 102": {
     "credits": 1,
-    "title": "General Chemistry Ii Laboratory",
+    "title": "General Chemistry II Laboratory",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -20145,7 +20146,7 @@
   },
   "CHEM 104": {
     "credits": 5,
-    "title": "General Chemistry Ii",
+    "title": "General Chemistry II",
     "prereqs": [
       [
         "CHEM 103"
@@ -20167,7 +20168,7 @@
   },
   "CHEM 106": {
     "credits": 4,
-    "title": "General Chemistry Ii",
+    "title": "General Chemistry II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -20198,7 +20199,7 @@
   },
   "CHEM 116": {
     "credits": 5,
-    "title": "Chemical Principles Ii",
+    "title": "Chemical Principles II",
     "prereqs": [
       [
         "CHEM 115"
@@ -20326,7 +20327,7 @@
   },
   "CHEM 345": {
     "credits": 3,
-    "title": "Organic Chemistry Ii",
+    "title": "Organic Chemistry II",
     "prereqs": [
       [
         "CHEM 343"
@@ -20507,7 +20508,7 @@
   },
   "CHEM 562": {
     "credits": 3,
-    "title": "Physical Chemistry Ii",
+    "title": "Physical Chemistry II",
     "prereqs": [
       [
         "MATH 222"
@@ -20551,7 +20552,7 @@
   },
   "CHEM 564": {
     "credits": 1,
-    "title": "Physical Chemistry Laboratory Ii",
+    "title": "Physical Chemistry Laboratory II",
     "prereqs": [
       [
         "CHEM 563"
@@ -22090,7 +22091,7 @@
   },
   "CIV ENGR 152": {
     "credits": 3,
-    "title": "Architectural Making Ii",
+    "title": "Architectural Making II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -22577,7 +22578,7 @@
   },
   "CIV ENGR 440": {
     "credits": 3,
-    "title": "Structural Analysis Ii",
+    "title": "Structural Analysis II",
     "prereqs": [
       [
         "CIV ENGR 340"
@@ -23117,7 +23118,7 @@
   },
   "CIV ENGR 545": {
     "credits": 3,
-    "title": "Steel Structures Ii",
+    "title": "Steel Structures II",
     "prereqs": [
       [
         "CIV ENGR 445"
@@ -23127,7 +23128,7 @@
   },
   "CIV ENGR 547": {
     "credits": 3,
-    "title": "Concrete Structures Ii",
+    "title": "Concrete Structures II",
     "prereqs": [
       [
         "CIV ENGR 447"
@@ -23477,7 +23478,7 @@
   },
   "CIV ENGR 647": {
     "credits": 3,
-    "title": "Concrete Structures Iii",
+    "title": "Concrete Structures III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -23577,19 +23578,19 @@
   },
   "CIV ENGR 718": {
     "credits": 2,
-    "title": "Water Resources Management Practicum Planning Seminar Ii",
+    "title": "Water Resources Management Practicum Planning Seminar II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "ENVIR ST 718": {
     "credits": 2,
-    "title": "Water Resources Management Practicum Planning Seminar Ii",
+    "title": "Water Resources Management Practicum Planning Seminar II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "URB R PL 718": {
     "credits": 2,
-    "title": "Water Resources Management Practicum Planning Seminar Ii",
+    "title": "Water Resources Management Practicum Planning Seminar II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -26069,7 +26070,7 @@
   },
   "COMP SCI 300": {
     "credits": 3,
-    "title": "Programming Ii",
+    "title": "Programming II",
     "prereqs": [
       [
         "COMP SCI 200",
@@ -26108,7 +26109,7 @@
   },
   "COMP SCI 320": {
     "credits": 4,
-    "title": "Data Science Programming Ii",
+    "title": "Data Science Programming II",
     "prereqs": [
       [
         "COMP SCI 220",
@@ -26183,7 +26184,7 @@
   },
   "COMP SCI 400": {
     "credits": 3,
-    "title": "Programming Iii",
+    "title": "Programming III",
     "prereqs": [
       [
         "COMP SCI 300"
@@ -26266,8 +26267,7 @@
         "COMP SCI 300",
         "COMP SCI 301",
         "COMP SCI 302",
-        "COMP SCI 310",
-        "placement into COMP SCI 300"
+        "COMP SCI 310"
       ]
     ],
     "concurrent_prereqs": []
@@ -27598,13 +27598,13 @@
   },
   "COMP SCI 715": {
     "credits": 3,
-    "title": "Methods Of Computational Mathematics Ii",
+    "title": "Methods Of Computational Mathematics II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "MATH 715": {
     "credits": 3,
-    "title": "Methods Of Computational Mathematics Ii",
+    "title": "Methods Of Computational Mathematics II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -27688,7 +27688,7 @@
   },
   "COMP SCI 730": {
     "credits": 3,
-    "title": "Nonlinear Optimization Ii",
+    "title": "Nonlinear Optimization II",
     "prereqs": [
       [
         "STAT 726",
@@ -27701,7 +27701,7 @@
   },
   "I SY E 730": {
     "credits": 3,
-    "title": "Nonlinear Optimization Ii",
+    "title": "Nonlinear Optimization II",
     "prereqs": [
       [
         "STAT 726",
@@ -27714,7 +27714,7 @@
   },
   "MATH 730": {
     "credits": 3,
-    "title": "Nonlinear Optimization Ii",
+    "title": "Nonlinear Optimization II",
     "prereqs": [
       [
         "STAT 726",
@@ -27806,13 +27806,13 @@
   },
   "COMP SCI 757": {
     "credits": 3,
-    "title": "Advanced Computer Architecture Ii",
+    "title": "Advanced Computer Architecture II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "E C E 757": {
     "credits": 3,
-    "title": "Advanced Computer Architecture Ii",
+    "title": "Advanced Computer Architecture II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -28547,7 +28547,7 @@
   },
   "COUN PSY 789": {
     "credits": 3,
-    "title": "Qualitative Research Methods In Education: Field Methods Ii",
+    "title": "Qualitative Research Methods In Education: Field Methods II",
     "prereqs": [
       [
         "ED\u00a0PSYCH 788",
@@ -28562,7 +28562,7 @@
   },
   "CURRIC 789": {
     "credits": 3,
-    "title": "Qualitative Research Methods In Education: Field Methods Ii",
+    "title": "Qualitative Research Methods In Education: Field Methods II",
     "prereqs": [
       [
         "ED\u00a0PSYCH 788",
@@ -28577,7 +28577,7 @@
   },
   "ED POL 789": {
     "credits": 3,
-    "title": "Qualitative Research Methods In Education: Field Methods Ii",
+    "title": "Qualitative Research Methods In Education: Field Methods II",
     "prereqs": [
       [
         "ED\u00a0PSYCH 788",
@@ -28592,7 +28592,7 @@
   },
   "ED PSYCH 789": {
     "credits": 3,
-    "title": "Qualitative Research Methods In Education: Field Methods Ii",
+    "title": "Qualitative Research Methods In Education: Field Methods II",
     "prereqs": [
       [
         "ED\u00a0PSYCH 788",
@@ -28607,7 +28607,7 @@
   },
   "ELPA 789": {
     "credits": 3,
-    "title": "Qualitative Research Methods In Education: Field Methods Ii",
+    "title": "Qualitative Research Methods In Education: Field Methods II",
     "prereqs": [
       [
         "ED\u00a0PSYCH 788",
@@ -28622,7 +28622,7 @@
   },
   "RP & SE 789": {
     "credits": 3,
-    "title": "Qualitative Research Methods In Education: Field Methods Ii",
+    "title": "Qualitative Research Methods In Education: Field Methods II",
     "prereqs": [
       [
         "ED\u00a0PSYCH 788",
@@ -28787,7 +28787,7 @@
   },
   "COUN PSY 960": {
     "credits": 3,
-    "title": "Research Methods In Counseling Psychology, Ii",
+    "title": "Research Methods In Counseling Psychology, II",
     "prereqs": [
       [
         "COUN 950",
@@ -28991,7 +28991,7 @@
   },
   "CRB 834": {
     "credits": 2,
-    "title": "Molecular Technologies Iii",
+    "title": "Molecular Technologies III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -29295,7 +29295,7 @@
   },
   "CS&D 710": {
     "credits": 3,
-    "title": "Acquired Language And Cognitive-Communication Disorders In Adults Ii",
+    "title": "Acquired Language And Cognitive-Communication Disorders In Adults II",
     "prereqs": [
       [
         "CS&D 704"
@@ -29458,19 +29458,19 @@
   },
   "CS&D 860": {
     "credits": 2,
-    "title": "Physiological Assessment In Audiology Ii",
+    "title": "Physiological Assessment In Audiology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "CS&D 861": {
     "credits": 1,
-    "title": "Laboratory In Physiological Assessment Of The Auditory System Ii",
+    "title": "Laboratory In Physiological Assessment Of The Auditory System II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "CS&D 862": {
     "credits": 3,
-    "title": "Auditory And Vestibular Pathologies Ii",
+    "title": "Auditory And Vestibular Pathologies II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -29488,7 +29488,7 @@
   },
   "CS&D 866": {
     "credits": 2,
-    "title": "Amplification Systems Ii",
+    "title": "Amplification Systems II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -29508,7 +29508,7 @@
   "CS&D 892": {
     "min_credits": 1,
     "max_credits": 3,
-    "title": "Clerkship In Audiology Ii",
+    "title": "Clerkship In Audiology II",
     "prereqs": [
       [
         "CS&D 891"
@@ -29519,7 +29519,7 @@
   "CS&D 893": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Clerkship In Audiology Iii",
+    "title": "Clerkship In Audiology III",
     "prereqs": [
       [
         "CS&D 892"
@@ -29774,7 +29774,7 @@
   },
   "CSCS 743": {
     "credits": 1,
-    "title": "Nonprofit Board Leadership Development Ii",
+    "title": "Nonprofit Board Leadership Development II",
     "prereqs": [
       [
         "CSCS 742"
@@ -30251,7 +30251,7 @@
   },
   "CURRIC 367": {
     "credits": 3,
-    "title": "Elementary Education Practicum Ii",
+    "title": "Elementary Education Practicum II",
     "prereqs": [
       [
         "CURRIC 340"
@@ -30296,7 +30296,7 @@
   },
   "CURRIC 373": {
     "credits": 3,
-    "title": "Elementary Teaching Practicum Iii",
+    "title": "Elementary Teaching Practicum III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -30332,7 +30332,7 @@
   },
   "CURRIC 394": {
     "credits": 3,
-    "title": "The Teaching Of Secondary School Mathematics Ii",
+    "title": "The Teaching Of Secondary School Mathematics II",
     "prereqs": [
       [
         "CURRIC 393"
@@ -30438,7 +30438,7 @@
   },
   "CURRIC 432": {
     "credits": 3,
-    "title": "Game Design Ii",
+    "title": "Game Design II",
     "prereqs": [
       [
         "CURRIC 357"
@@ -30742,7 +30742,7 @@
   },
   "CURRIC 546": {
     "credits": 2,
-    "title": "Teaching World Languages Ii",
+    "title": "Teaching World Languages II",
     "prereqs": [
       [
         "CURRIC 545"
@@ -31384,7 +31384,7 @@
   },
   "DANCE 102": {
     "credits": 1,
-    "title": "Social Dance Ii",
+    "title": "Social Dance II",
     "prereqs": [
       [
         "DANCE 101"
@@ -31406,7 +31406,7 @@
   },
   "DANCE 106": {
     "credits": 1,
-    "title": "Ballet Ii",
+    "title": "Ballet II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -31418,7 +31418,7 @@
   },
   "DANCE 108": {
     "credits": 1,
-    "title": "Contemporary Dance Ii",
+    "title": "Contemporary Dance II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -31439,7 +31439,7 @@
   "DANCE 112": {
     "min_credits": 1,
     "max_credits": 3,
-    "title": "Contemporary Dance Technique And Theory Ii",
+    "title": "Contemporary Dance Technique And Theory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -31550,14 +31550,14 @@
   "DANCE 211": {
     "min_credits": 1,
     "max_credits": 3,
-    "title": "Contemporary Dance Technique And Theory Iii",
+    "title": "Contemporary Dance Technique And Theory III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "DANCE 212": {
     "min_credits": 1,
     "max_credits": 3,
-    "title": "Contemporary Dance Technique And Theory Iv",
+    "title": "Contemporary Dance Technique And Theory IV",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -31571,7 +31571,7 @@
   "DANCE 215": {
     "min_credits": 1,
     "max_credits": 2,
-    "title": "Hip Hop Technique And Theory Ii",
+    "title": "Hip Hop Technique And Theory II",
     "prereqs": [
       [
         "DANCE 115"
@@ -31582,7 +31582,7 @@
   "DANCE 225": {
     "min_credits": 1,
     "max_credits": 2,
-    "title": "Ballet Technique Ii",
+    "title": "Ballet Technique II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -31617,7 +31617,7 @@
   },
   "DANCE 235": {
     "credits": 1,
-    "title": "Pilates Mat Ii",
+    "title": "Pilates Mat II",
     "prereqs": [
       [
         "DANCE 135"
@@ -31627,7 +31627,7 @@
   },
   "DANCE 236": {
     "credits": 2,
-    "title": "Pilates Equipment Ii",
+    "title": "Pilates Equipment II",
     "prereqs": [
       [
         "DANCE 136"
@@ -31717,14 +31717,14 @@
   "DANCE 312": {
     "min_credits": 1,
     "max_credits": 3,
-    "title": "Contemporary Dance Technique And Theory Vi",
+    "title": "Contemporary Dance Technique And Theory VI",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "DANCE 325": {
     "min_credits": 1,
     "max_credits": 2,
-    "title": "Ballet Technique Iii",
+    "title": "Ballet Technique III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -31759,7 +31759,7 @@
   },
   "DANCE 337": {
     "credits": 3,
-    "title": "Pilates Studio Ii",
+    "title": "Pilates Studio II",
     "prereqs": [
       [
         "DANCE 235",
@@ -31777,7 +31777,7 @@
   },
   "DANCE 355": {
     "credits": 3,
-    "title": "Dance Composition Ii",
+    "title": "Dance Composition II",
     "prereqs": [
       [
         "DANCE 156"
@@ -31924,7 +31924,7 @@
   "DANCE 455": {
     "min_credits": 2,
     "max_credits": 3,
-    "title": "Dance Composition Iii",
+    "title": "Dance Composition III",
     "prereqs": [
       [
         "DANCE 255",
@@ -31961,7 +31961,7 @@
   },
   "DANCE 476": {
     "credits": 3,
-    "title": "Pilates Teaching Ii",
+    "title": "Pilates Teaching II",
     "prereqs": [
       [
         "DANCE 337",
@@ -31978,7 +31978,7 @@
   },
   "DANCE 552": {
     "credits": 1,
-    "title": "Advanced Dance Repertory And Performance Ii",
+    "title": "Advanced Dance Repertory And Performance II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -32215,7 +32215,7 @@
   },
   "DS 154": {
     "credits": 3,
-    "title": "Sewn Construction Ii",
+    "title": "Sewn Construction II",
     "prereqs": [
       [
         "DS 153"
@@ -32248,7 +32248,7 @@
   },
   "DS 220": {
     "credits": 3,
-    "title": "Design: Fundamentals Ii",
+    "title": "Design: Fundamentals II",
     "prereqs": [
       [
         "DS 120"
@@ -32337,7 +32337,7 @@
   },
   "DS 242": {
     "credits": 3,
-    "title": "Visual Communication Ii",
+    "title": "Visual Communication II",
     "prereqs": [
       [
         "DS 241"
@@ -32406,7 +32406,7 @@
   },
   "DS 322": {
     "credits": 4,
-    "title": "Interior Design Ii",
+    "title": "Interior Design II",
     "prereqs": [
       [
         "DS 222"
@@ -32439,7 +32439,7 @@
   },
   "DS 353": {
     "credits": 3,
-    "title": "Patternmaking For Fashion Design Ii",
+    "title": "Patternmaking For Fashion Design II",
     "prereqs": [
       [
         "DS 253"
@@ -32548,7 +32548,7 @@
   },
   "DS 427": {
     "credits": 3,
-    "title": "Textile Design: Printing And Dyeing Ii",
+    "title": "Textile Design: Printing And Dyeing II",
     "prereqs": [
       [
         "DS 227"
@@ -32561,7 +32561,7 @@
   },
   "DS 428": {
     "credits": 3,
-    "title": "Textile Embellishment Ii",
+    "title": "Textile Embellishment II",
     "prereqs": [
       [
         "DS 228"
@@ -32571,7 +32571,7 @@
   },
   "DS 429": {
     "credits": 3,
-    "title": "Textile Design: Weaving Ii",
+    "title": "Textile Design: Weaving II",
     "prereqs": [
       [
         "DS 229",
@@ -32698,7 +32698,7 @@
   },
   "DS 622": {
     "credits": 4,
-    "title": "Interior Design Iii",
+    "title": "Interior Design III",
     "prereqs": [
       [
         "DS 322"
@@ -32708,7 +32708,7 @@
   },
   "DS 623": {
     "credits": 4,
-    "title": "Interior Design Iv",
+    "title": "Interior Design IV",
     "prereqs": [
       [
         "DS 622"
@@ -32880,7 +32880,7 @@
   },
   "DY SCI 234": {
     "credits": 3,
-    "title": "Dairy Herd Management Ii",
+    "title": "Dairy Herd Management II",
     "prereqs": [
       [
         "DY SCI 233"
@@ -33179,7 +33179,7 @@
   },
   "E C E 271": {
     "credits": 1,
-    "title": "Circuits Laboratory Ii",
+    "title": "Circuits Laboratory II",
     "prereqs": [
       [
         "E C E 270"
@@ -33272,7 +33272,7 @@
   },
   "E C E 320": {
     "credits": 3,
-    "title": "Electrodynamics Ii",
+    "title": "Electrodynamics II",
     "prereqs": [
       [
         "E C E 220",
@@ -33360,7 +33360,7 @@
   },
   "E C E 342": {
     "credits": 3,
-    "title": "Electronic Circuits Ii",
+    "title": "Electronic Circuits II",
     "prereqs": [
       [
         "E C E 340"
@@ -33570,7 +33570,7 @@
   },
   "E C E 437": {
     "credits": 3,
-    "title": "Communication Systems Ii",
+    "title": "Communication Systems II",
     "prereqs": [
       [
         "E C E 203",
@@ -35015,7 +35015,7 @@
   },
   "E M A 548": {
     "credits": 3,
-    "title": "Engineering Analysis Ii",
+    "title": "Engineering Analysis II",
     "prereqs": [
       [
         "MATH 322"
@@ -35043,7 +35043,7 @@
   },
   "E P 548": {
     "credits": 3,
-    "title": "Engineering Analysis Ii",
+    "title": "Engineering Analysis II",
     "prereqs": [
       [
         "MATH 322"
@@ -35363,7 +35363,7 @@
   },
   "E P 569": {
     "credits": 3,
-    "title": "Research Practicum In Engineering Physics Ii",
+    "title": "Research Practicum In Engineering Physics II",
     "prereqs": [
       [
         "E P 568"
@@ -35530,7 +35530,7 @@
   },
   "E P D 623": {
     "credits": 3,
-    "title": "Engine Design Ii",
+    "title": "Engine Design II",
     "prereqs": [
       [
         "E P D 622"
@@ -35570,7 +35570,7 @@
   },
   "E P D 630": {
     "credits": 3,
-    "title": "Engine Design Iii",
+    "title": "Engine Design III",
     "prereqs": [
       [
         "E P D 623"
@@ -37108,7 +37108,7 @@
   },
   "ECON 705": {
     "credits": 3,
-    "title": "Econometrics Ii",
+    "title": "Econometrics II",
     "prereqs": [
       [
         "ECON 704"
@@ -37118,7 +37118,7 @@
   },
   "ECON 706": {
     "credits": 3,
-    "title": "Econometrics Iii",
+    "title": "Econometrics III",
     "prereqs": [
       [
         "ECON 705"
@@ -37138,7 +37138,7 @@
   },
   "ECON 708": {
     "credits": 3,
-    "title": "Microeconomics Ii",
+    "title": "Microeconomics II",
     "prereqs": [
       [
         "ECON 701"
@@ -37156,7 +37156,7 @@
   "ECON 710": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Economic Statistics And Econometrics Ii",
+    "title": "Economic Statistics And Econometrics II",
     "prereqs": [
       [
         "ECON 709"
@@ -37402,7 +37402,7 @@
   },
   "ECON 806": {
     "credits": 3,
-    "title": "Advanced Microeconomic Theory Ii",
+    "title": "Advanced Microeconomic Theory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -38593,7 +38593,7 @@
   },
   "ED PSYCH 710": {
     "credits": 3,
-    "title": "Seminar In Research In Educational Psychology Ii",
+    "title": "Seminar In Research In Educational Psychology II",
     "prereqs": [
       [
         "ED\u00a0PSYCH\u00a0709"
@@ -38690,7 +38690,7 @@
   },
   "ED PSYCH 761": {
     "credits": 3,
-    "title": "Statistical Methods Applied To Education Ii",
+    "title": "Statistical Methods Applied To Education II",
     "prereqs": [
       [
         "ED\u00a0PSYCH\u00a0760"
@@ -38767,7 +38767,7 @@
   },
   "ED PSYCH 796": {
     "credits": 3,
-    "title": "Introduction To The Learning Sciences Ii",
+    "title": "Introduction To The Learning Sciences II",
     "prereqs": [
       [
         "ED\u00a0PSYCH\u00a0795"
@@ -38849,7 +38849,7 @@
   },
   "ED PSYCH 871": {
     "credits": 3,
-    "title": "Test Theory Ii",
+    "title": "Test Theory II",
     "prereqs": [
       [
         "ED\u00a0PSYCH\u00a0761"
@@ -40721,7 +40721,7 @@
   },
   "ENGL 614": {
     "credits": 1,
-    "title": "Tesol: Pedagogical Grammar Ii",
+    "title": "Tesol: Pedagogical Grammar II",
     "prereqs": [
       [
         "ENGL 415"
@@ -43295,7 +43295,7 @@
   },
   "ESL 118": {
     "credits": 3,
-    "title": "Academic Writing Ii",
+    "title": "Academic Writing II",
     "prereqs": [
       [
         "ESL 117",
@@ -43793,7 +43793,7 @@
   },
   "F&W ECOL 572": {
     "credits": 4,
-    "title": "Statistical Methods For Bioscience Ii",
+    "title": "Statistical Methods For Bioscience II",
     "prereqs": [
       [
         "STAT 571",
@@ -43804,7 +43804,7 @@
   },
   "STAT 572": {
     "credits": 4,
-    "title": "Statistical Methods For Bioscience Ii",
+    "title": "Statistical Methods For Bioscience II",
     "prereqs": [
       [
         "STAT 571",
@@ -44631,7 +44631,7 @@
   },
   "FINANCE 676": {
     "credits": 4,
-    "title": "Applied Security Analysis And Investment Management Ii",
+    "title": "Applied Security Analysis And Investment Management II",
     "prereqs": [
       [
         "FINANCE 675"
@@ -47099,7 +47099,7 @@
   },
   "GEN BUS 307": {
     "credits": 3,
-    "title": "Business Analytics Ii",
+    "title": "Business Analytics II",
     "prereqs": [
       [
         "GEN BUS 106"
@@ -47462,7 +47462,7 @@
   },
   "GEN BUS 792": {
     "credits": 1,
-    "title": "Emba Consulting Practicum Ii",
+    "title": "Emba Consulting Practicum II",
     "prereqs": [
       [
         "GEN BUS 791"
@@ -48405,7 +48405,7 @@
   },
   "GEN&WS 682": {
     "credits": 3,
-    "title": "Senior Honors Thesis Ii",
+    "title": "Senior Honors Thesis II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -48419,7 +48419,7 @@
   "GEN&WS 692": {
     "min_credits": 2,
     "max_credits": 3,
-    "title": "Senior Thesis Ii",
+    "title": "Senior Thesis II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -49217,7 +49217,7 @@
   },
   "GENETICS 702": {
     "credits": 3,
-    "title": "Advanced Genetics Ii",
+    "title": "Advanced Genetics II",
     "prereqs": [
       [
         "GENETICS 701"
@@ -50446,7 +50446,7 @@
   },
   "GEOSCI 796": {
     "credits": 3,
-    "title": "Physics Of The Earth Ii",
+    "title": "Physics Of The Earth II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -50990,7 +50990,7 @@
   },
   "GERMAN 392": {
     "credits": 3,
-    "title": "German For Graduate Reading Knowledge Ii",
+    "title": "German For Graduate Reading Knowledge II",
     "prereqs": [
       [
         "GERMAN 391"
@@ -52260,7 +52260,7 @@
   },
   "HEBR-BIB 104": {
     "credits": 4,
-    "title": "Elementary Biblical Hebrew, Ii",
+    "title": "Elementary Biblical Hebrew, II",
     "prereqs": [
       [
         "HEBR-BIB 103"
@@ -52276,7 +52276,7 @@
   },
   "HEBR-BIB 304": {
     "credits": 3,
-    "title": "Elementary Biblical Hebrew, Ii",
+    "title": "Elementary Biblical Hebrew, II",
     "prereqs": [
       [
         "HEBR-BIB 303"
@@ -52297,7 +52297,7 @@
   },
   "HEBR-BIB 324": {
     "credits": 4,
-    "title": "Intermediate Biblical Hebrew, Ii",
+    "title": "Intermediate Biblical Hebrew, II",
     "prereqs": [
       [
         "HEBR-BIB 323"
@@ -52367,7 +52367,7 @@
   },
   "HEBR-BIB 702": {
     "credits": 3,
-    "title": "Aramaic Ii",
+    "title": "Aramaic II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -52522,7 +52522,7 @@
   },
   "HEBR-MOD 402": {
     "credits": 3,
-    "title": "Topics In Modern Hebrew / Israeli Literature And Culture Ii",
+    "title": "Topics In Modern Hebrew / Israeli Literature And Culture II",
     "prereqs": [
       [
         "HEBR-MOD 401",
@@ -52535,7 +52535,7 @@
   },
   "JEWISH 402": {
     "credits": 3,
-    "title": "Topics In Modern Hebrew / Israeli Literature And Culture Ii",
+    "title": "Topics In Modern Hebrew / Israeli Literature And Culture II",
     "prereqs": [
       [
         "HEBR-MOD 401",
@@ -52760,21 +52760,21 @@
   "HIST SCI 508": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Health, Disease And Healing Ii",
+    "title": "Health, Disease And Healing II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "HISTORY 508": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Health, Disease And Healing Ii",
+    "title": "Health, Disease And Healing II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "MED HIST 508": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Health, Disease And Healing Ii",
+    "title": "Health, Disease And Healing II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -53618,7 +53618,7 @@
   "HISTORY 375": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "The Cold War - From World War Ii To End Of Soviet Empire",
+    "title": "The Cold War - From World War II To End Of Soviet Empire",
     "prereqs": [
       [
         "HISTORY 3 credits",
@@ -53630,7 +53630,7 @@
   "INTL ST 375": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "The Cold War - From World War Ii To End Of Soviet Empire",
+    "title": "The Cold War - From World War II To End Of Soviet Empire",
     "prereqs": [
       [
         "HISTORY 3 credits",
@@ -54696,7 +54696,7 @@
   },
   "I SY E 450": {
     "credits": 3,
-    "title": "Industrial Engineering Design Ii",
+    "title": "Industrial Engineering Design II",
     "prereqs": [
       [
         "I S Y E 313",
@@ -55648,7 +55648,7 @@
   },
   "ILS 202": {
     "credits": 3,
-    "title": "Western Culture: Science, Technology, Philosophy Ii",
+    "title": "Western Culture: Science, Technology, Philosophy II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -55661,7 +55661,7 @@
   "ILS 204": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Western Culture: Literature And The Arts Ii",
+    "title": "Western Culture: Literature And The Arts II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -55673,7 +55673,7 @@
   },
   "ILS 206": {
     "credits": 3,
-    "title": "Western Culture: Political, Economic, And Social Thought Ii",
+    "title": "Western Culture: Political, Economic, And Social Thought II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -56100,7 +56100,7 @@
   },
   "INTEGSCI 340": {
     "credits": 2,
-    "title": "Service With Youth In Stem Ii",
+    "title": "Service With Youth In Stem II",
     "prereqs": [
       [
         "INTEGSCI 240"
@@ -56626,7 +56626,7 @@
   },
   "INTEREGR 941": {
     "credits": 3,
-    "title": "Collaborative Capstone Ii",
+    "title": "Collaborative Capstone II",
     "prereqs": [
       [
         "INTER-HE 940"
@@ -57071,7 +57071,7 @@
   "ITALIAN 103": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Italian Language Abroad Ii",
+    "title": "Italian Language Abroad II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -57084,7 +57084,7 @@
   "ITALIAN 200": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Italian Language Abroad Iii",
+    "title": "Italian Language Abroad III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -57176,7 +57176,7 @@
   "ITALIAN 310": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Italian Studies Abroad In The Humanities Ii",
+    "title": "Italian Studies Abroad In The Humanities II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -57218,7 +57218,7 @@
   },
   "ITALIAN 322": {
     "credits": 3,
-    "title": "Studies In Italian Literature And Culture Ii",
+    "title": "Studies In Italian Literature And Culture II",
     "prereqs": [
       [
         "ITALIAN 204",
@@ -59078,7 +59078,7 @@
   },
   "KINES 621": {
     "credits": 3,
-    "title": "Clinical Practicum In Athletic Training Ii",
+    "title": "Clinical Practicum In Athletic Training II",
     "prereqs": [
       [
         "KINES 620"
@@ -59098,7 +59098,7 @@
   },
   "KINES 623": {
     "credits": 3,
-    "title": "Clinical Field Experience In Athletic Training Ii",
+    "title": "Clinical Field Experience In Athletic Training II",
     "prereqs": [
       [
         "KINES 622"
@@ -59118,7 +59118,7 @@
   },
   "KINES 625": {
     "credits": 7,
-    "title": "Athletic Training Preceptorship Ii",
+    "title": "Athletic Training Preceptorship II",
     "prereqs": [
       [
         "KINES 624"
@@ -59146,7 +59146,7 @@
   },
   "KINES 653": {
     "credits": 4,
-    "title": "Evaluation And Therapeutic Interventions Ii",
+    "title": "Evaluation And Therapeutic Interventions II",
     "prereqs": [
       [
         "KINES 652"
@@ -59162,7 +59162,7 @@
   },
   "KINES 655": {
     "credits": 3,
-    "title": "Clinical Medicine In Athletic Training Ii",
+    "title": "Clinical Medicine In Athletic Training II",
     "prereqs": [
       [
         "KINES 654"
@@ -60011,7 +60011,7 @@
   },
   "LAND ARC 354": {
     "credits": 3,
-    "title": "Landscape Architectural Technology Ii",
+    "title": "Landscape Architectural Technology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -60076,7 +60076,7 @@
   },
   "LAND ARC 381": {
     "credits": 1,
-    "title": "Plants For Ecological Design Ii",
+    "title": "Plants For Ecological Design II",
     "prereqs": [
       [
         "LAND ARC 380"
@@ -60209,7 +60209,7 @@
   },
   "LAND ARC 611": {
     "credits": 4,
-    "title": "Landscape Architecture Capstone Ii",
+    "title": "Landscape Architecture Capstone II",
     "prereqs": [
       [
         "LAND ARC 610"
@@ -60615,7 +60615,7 @@
   },
   "LAW 723": {
     "credits": 3,
-    "title": "Legal Analysis, Advocacy, & Writing Ii",
+    "title": "Legal Analysis, Advocacy, & Writing II",
     "prereqs": [
       [
         "LAW 722"
@@ -61007,7 +61007,7 @@
   "LAW 838": {
     "min_credits": 2,
     "max_credits": 3,
-    "title": "Real Estate Transactions Ii",
+    "title": "Real Estate Transactions II",
     "prereqs": [
       [
         "LAW 732"
@@ -61018,7 +61018,7 @@
   "LAW 840": {
     "min_credits": 2,
     "max_credits": 4,
-    "title": "Taxation Ii",
+    "title": "Taxation II",
     "prereqs": [
       [
         "LAW 742"
@@ -61717,7 +61717,7 @@
   },
   "LINGUIS 427": {
     "credits": 3,
-    "title": "Field Methods Ii",
+    "title": "Field Methods II",
     "prereqs": [
       [
         "LINGUIS 310"
@@ -61870,7 +61870,7 @@
   },
   "LITTRANS 202": {
     "credits": 3,
-    "title": "Survey Of 19Th And 20Th Century Russian Literature In Translation Ii",
+    "title": "Survey Of 19Th And 20Th Century Russian Literature In Translation II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -61882,7 +61882,7 @@
   },
   "LITTRANS 204": {
     "credits": 4,
-    "title": "Survey Of 19Th And 20Th Century Russian Literature In Translation Ii",
+    "title": "Survey Of 19Th And 20Th Century Russian Literature In Translation II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -62098,7 +62098,7 @@
   },
   "LITTRANS 260": {
     "credits": 3,
-    "title": "Italy And The Invention Of America: From Columbus To World War Ii",
+    "title": "Italy And The Invention Of America: From Columbus To World War II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -62820,8 +62820,7 @@
         "COMP SCI 220",
         "COMP SCI 300",
         "COMP SCI 301",
-        "COMP SCI 310",
-        "placement into COMP SCI 300"
+        "COMP SCI 310"
       ]
     ],
     "concurrent_prereqs": [
@@ -62888,7 +62887,7 @@
   },
   "M E 352": {
     "credits": 3,
-    "title": "Interdisciplinary Experiential Design Projects Ii",
+    "title": "Interdisciplinary Experiential Design Projects II",
     "prereqs": [
       [
         "M E 351"
@@ -63388,7 +63387,7 @@
   "M E 492": {
     "min_credits": 1,
     "max_credits": 3,
-    "title": "Mechanical Engineering Projects Ii",
+    "title": "Mechanical Engineering Projects II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -63891,7 +63890,7 @@
   },
   "M&ENVTOX 626": {
     "credits": 3,
-    "title": "Toxicology Ii",
+    "title": "Toxicology II",
     "prereqs": [
       [
         "POP HLTH 625",
@@ -63905,7 +63904,7 @@
   },
   "PATH 626": {
     "credits": 3,
-    "title": "Toxicology Ii",
+    "title": "Toxicology II",
     "prereqs": [
       [
         "POP HLTH 625",
@@ -63919,7 +63918,7 @@
   },
   "PHM SCI 626": {
     "credits": 3,
-    "title": "Toxicology Ii",
+    "title": "Toxicology II",
     "prereqs": [
       [
         "POP HLTH 625",
@@ -63933,7 +63932,7 @@
   },
   "PHMCOL-M 626": {
     "credits": 3,
-    "title": "Toxicology Ii",
+    "title": "Toxicology II",
     "prereqs": [
       [
         "POP HLTH 625",
@@ -63947,7 +63946,7 @@
   },
   "POP HLTH 626": {
     "credits": 3,
-    "title": "Toxicology Ii",
+    "title": "Toxicology II",
     "prereqs": [
       [
         "POP HLTH 625",
@@ -64214,7 +64213,7 @@
   },
   "M H R 641": {
     "credits": 2,
-    "title": "Creative Destruction Lab Ii",
+    "title": "Creative Destruction Lab II",
     "prereqs": [
       [
         "M H R 640"
@@ -65072,7 +65071,7 @@
   },
   "M S & E 471": {
     "credits": 3,
-    "title": "Capstone Project Ii",
+    "title": "Capstone Project II",
     "prereqs": [
       [
         "M S & E 470"
@@ -66072,7 +66071,7 @@
   },
   "MATH 217": {
     "credits": 5,
-    "title": "Calculus With Algebra And Trigonometry Ii",
+    "title": "Calculus With Algebra And Trigonometry II",
     "prereqs": [
       [
         "MATH 171"
@@ -66158,7 +66157,7 @@
   },
   "MATH 310": {
     "credits": 3,
-    "title": "Introduction To Probability And Mathematical Statistics Ii",
+    "title": "Introduction To Probability And Mathematical Statistics II",
     "prereqs": [
       [
         "STAT 309",
@@ -66198,7 +66197,7 @@
   },
   "STAT 310": {
     "credits": 3,
-    "title": "Introduction To Probability And Mathematical Statistics Ii",
+    "title": "Introduction To Probability And Mathematical Statistics II",
     "prereqs": [
       [
         "STAT 309",
@@ -66562,7 +66561,7 @@
   },
   "MATH 522": {
     "credits": 3,
-    "title": "Analysis Ii",
+    "title": "Analysis II",
     "prereqs": [
       [
         "MATH 521"
@@ -66623,7 +66622,7 @@
   },
   "MATH 540": {
     "credits": 3,
-    "title": "Linear Algebra Ii",
+    "title": "Linear Algebra II",
     "prereqs": [
       [
         "MATH 234",
@@ -67004,7 +67003,7 @@
   },
   "MATH 710": {
     "credits": 4,
-    "title": "Mathematical Statistics Ii",
+    "title": "Mathematical Statistics II",
     "prereqs": [
       [
         "STAT 709",
@@ -67015,7 +67014,7 @@
   },
   "STAT 710": {
     "credits": 4,
-    "title": "Mathematical Statistics Ii",
+    "title": "Mathematical Statistics II",
     "prereqs": [
       [
         "STAT 709",
@@ -67086,13 +67085,13 @@
   },
   "MATH 734": {
     "credits": 3,
-    "title": "Theory Of Probability Ii",
+    "title": "Theory Of Probability II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "STAT 734": {
     "credits": 3,
-    "title": "Theory Of Probability Ii",
+    "title": "Theory Of Probability II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -67158,7 +67157,7 @@
   },
   "MATH 752": {
     "credits": 3,
-    "title": "Introductory Topology Ii",
+    "title": "Introductory Topology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -67553,7 +67552,7 @@
   },
   "MED HIST 708": {
     "credits": 1,
-    "title": "Health, Disease And Healing Ii",
+    "title": "Health, Disease And Healing II",
     "prereqs": [],
     "concurrent_prereqs": [
       [
@@ -68356,7 +68355,7 @@
   },
   "MED SC-V 577": {
     "credits": 1,
-    "title": "Small Animal Emergency And Critical Care Ii",
+    "title": "Small Animal Emergency And Critical Care II",
     "prereqs": [
       [
         "MED SC-V 576"
@@ -68385,7 +68384,7 @@
   },
   "MED SC-V 633": {
     "credits": 6,
-    "title": "Companion Animal And Equine Medicine Ii",
+    "title": "Companion Animal And Equine Medicine II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -68465,7 +68464,7 @@
   },
   "MED SC-V 703": {
     "credits": 2,
-    "title": "Production Medicine Ii",
+    "title": "Production Medicine II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -68514,13 +68513,13 @@
   },
   "MED SC-V 732": {
     "credits": 7,
-    "title": "Foundations Of Veterinary Medicine Ii",
+    "title": "Foundations Of Veterinary Medicine II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "MED SC-V 733": {
     "credits": 7,
-    "title": "Foundations Of Veterinary Medicine Iii",
+    "title": "Foundations Of Veterinary Medicine III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -68532,7 +68531,7 @@
   },
   "MED SC-V 737": {
     "credits": 1,
-    "title": "Veterinary Clinical Skills Ii",
+    "title": "Veterinary Clinical Skills II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -68544,7 +68543,7 @@
   },
   "MED SC-V 739": {
     "credits": 1,
-    "title": "Veterinary Professional Skills Ii",
+    "title": "Veterinary Professional Skills II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -68556,13 +68555,13 @@
   },
   "MED SC-V 746": {
     "credits": 1,
-    "title": "Veterinary Clinical Skills Iii",
+    "title": "Veterinary Clinical Skills III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "MED SC-V 748": {
     "credits": 1,
-    "title": "Veterinary Professional Skills Iii",
+    "title": "Veterinary Professional Skills III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -71547,7 +71546,7 @@
   },
   "MUSIC 468": {
     "credits": 2,
-    "title": "Language Diction For Singing Ii",
+    "title": "Language Diction For Singing II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -71839,7 +71838,7 @@
   "MUSIC 624": {
     "min_credits": 2,
     "max_credits": 3,
-    "title": "Form And Analysis Ii",
+    "title": "Form And Analysis II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -72294,7 +72293,7 @@
   "NAV SCI 176": {
     "min_credits": 0,
     "max_credits": 1,
-    "title": "Introductory Naval Laboratory Ii",
+    "title": "Introductory Naval Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -72320,7 +72319,7 @@
   "NAV SCI 276": {
     "min_credits": 0,
     "max_credits": 1,
-    "title": "Elementary Naval Laboratory Ii",
+    "title": "Elementary Naval Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -72358,7 +72357,7 @@
   "NAV SCI 376": {
     "min_credits": 0,
     "max_credits": 1,
-    "title": "Intermediate Naval Laboratory Ii",
+    "title": "Intermediate Naval Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -72384,7 +72383,7 @@
   "NAV SCI 476": {
     "min_credits": 0,
     "max_credits": 1,
-    "title": "Advanced Naval Laboratory Ii",
+    "title": "Advanced Naval Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -72398,7 +72397,7 @@
   "NAV SCI 576": {
     "min_credits": 0,
     "max_credits": 1,
-    "title": "Professional Naval Laboratory Ii",
+    "title": "Professional Naval Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -72927,7 +72926,7 @@
   },
   "NURSING 326": {
     "credits": 4,
-    "title": "Foundations Of Nursing Practice: Experiential Learning Ii",
+    "title": "Foundations Of Nursing Practice: Experiential Learning II",
     "prereqs": [
       [
         "NURSING 316"
@@ -73332,7 +73331,7 @@
   },
   "NURSING 713": {
     "credits": 3,
-    "title": "Health Systems Leadership And Innovation Practicum Ii",
+    "title": "Health Systems Leadership And Innovation Practicum II",
     "prereqs": [
       [
         "NURSING 712"
@@ -73440,7 +73439,7 @@
   },
   "NURSING 727": {
     "credits": 3,
-    "title": "Foundations For Apn Clinical Practice Ii",
+    "title": "Foundations For Apn Clinical Practice II",
     "prereqs": [
       [
         "NURSING 726"
@@ -73469,7 +73468,7 @@
   "NURSING 729": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Advanced Practice Clinical Application And Role Development Ii",
+    "title": "Advanced Practice Clinical Application And Role Development II",
     "prereqs": [],
     "concurrent_prereqs": [
       [
@@ -73709,7 +73708,7 @@
   },
   "NURSING 826": {
     "credits": 3,
-    "title": "Foundations For Apn Clinical Practice Iii",
+    "title": "Foundations For Apn Clinical Practice III",
     "prereqs": [
       [
         "NURSING 727"
@@ -73723,7 +73722,7 @@
   "NURSING 828": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Clinical Leadership Iii",
+    "title": "Clinical Leadership III",
     "prereqs": [
       [
         "NURSING 729"
@@ -73734,7 +73733,7 @@
   "NURSING 829": {
     "min_credits": 1,
     "max_credits": 4,
-    "title": "Clinical Leadership Iv",
+    "title": "Clinical Leadership IV",
     "prereqs": [
       [
         "NURSING 828"
@@ -73987,7 +73986,7 @@
   },
   "NUTR SCI 632": {
     "credits": 3,
-    "title": "Clinical Nutrition Ii",
+    "title": "Clinical Nutrition II",
     "prereqs": [
       [
         "NUTR SCI 631"
@@ -74008,7 +74007,7 @@
   },
   "NUTR SCI 642": {
     "credits": 1,
-    "title": "Applications In Clinical Nutrition Ii",
+    "title": "Applications In Clinical Nutrition II",
     "prereqs": [],
     "concurrent_prereqs": [
       [
@@ -74061,7 +74060,7 @@
   },
   "NUTR SCI 671": {
     "credits": 3,
-    "title": "Nutrition And Dietetics Practicum Ii",
+    "title": "Nutrition And Dietetics Practicum II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -74400,7 +74399,7 @@
   },
   "OCC THER 652": {
     "credits": 1,
-    "title": "Clinical Conditions Ii",
+    "title": "Clinical Conditions II",
     "prereqs": [
       [
         "OCC THER 651"
@@ -74410,13 +74409,13 @@
   },
   "OCC THER 662": {
     "credits": 6,
-    "title": "Level Ii Fieldwork A",
+    "title": "Level II Fieldwork A",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "OCC THER 664": {
     "credits": 6,
-    "title": "Level Ii Fieldwork B",
+    "title": "Level II Fieldwork B",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -74656,7 +74655,7 @@
   },
   "OCC THER 882": {
     "credits": 3,
-    "title": "Capstone Project Ii",
+    "title": "Capstone Project II",
     "prereqs": [
       [
         "OCC THER 881"
@@ -75430,7 +75429,7 @@
   },
   "PATH-BIO 526": {
     "credits": 1,
-    "title": "Active, Integrated Learning Ii",
+    "title": "Active, Integrated Learning II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -75448,7 +75447,7 @@
   },
   "PATH-BIO 561": {
     "credits": 4,
-    "title": "Veterinary Systemic Pathology Ii",
+    "title": "Veterinary Systemic Pathology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -75481,7 +75480,7 @@
   "PATH-BIO 682": {
     "min_credits": 2,
     "max_credits": 4,
-    "title": "Senior Honors Thesis Ii",
+    "title": "Senior Honors Thesis II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -75726,7 +75725,7 @@
   },
   "PHARMACY 126": {
     "credits": 1,
-    "title": "Exploring Pharmacy Ii",
+    "title": "Exploring Pharmacy II",
     "prereqs": [
       [
         "PHARMACY 125"
@@ -75894,7 +75893,7 @@
   },
   "PHARMACY 771": {
     "credits": 2,
-    "title": "Cns Drug Designs, Actions, And Applications Ii",
+    "title": "Cns Drug Designs, Actions, And Applications II",
     "prereqs": [
       [
         "PHARMACY 770"
@@ -76375,7 +76374,7 @@
   },
   "PHM PRAC 526": {
     "credits": 1,
-    "title": "Pharmacy Practice Experiences Ii",
+    "title": "Pharmacy Practice Experiences II",
     "prereqs": [
       [
         "PHM PRAC 426"
@@ -76397,7 +76396,7 @@
   },
   "PHM PRAC 554": {
     "credits": 1,
-    "title": "Integrated Pharmacotherapy Skills Ii",
+    "title": "Integrated Pharmacotherapy Skills II",
     "prereqs": [
       [
         "PHM PRAC 553"
@@ -76416,7 +76415,7 @@
   },
   "PHM PRAC 556": {
     "credits": 3,
-    "title": "Pharmacotherapy Ii",
+    "title": "Pharmacotherapy II",
     "prereqs": [
       [
         "PHM PRAC 553"
@@ -76475,7 +76474,7 @@
   },
   "PHM PRAC 625": {
     "credits": 2,
-    "title": "Pharmacy Practice Experiences Iii",
+    "title": "Pharmacy Practice Experiences III",
     "prereqs": [
       [
         "PHM PRAC 526"
@@ -76485,7 +76484,7 @@
   },
   "PHM PRAC 626": {
     "credits": 2,
-    "title": "Pharmacy Practice Experiences Iv",
+    "title": "Pharmacy Practice Experiences IV",
     "prereqs": [
       [
         "PHM PRAC 625"
@@ -76501,7 +76500,7 @@
   },
   "PHM PRAC 629": {
     "credits": 1,
-    "title": "Practice Innovation Ii",
+    "title": "Practice Innovation II",
     "prereqs": [
       [
         "PHM PRAC 628"
@@ -76517,13 +76516,13 @@
   },
   "PHM PRAC 653": {
     "credits": 1,
-    "title": "Integrated Pharmacotherapy Skills Iii",
+    "title": "Integrated Pharmacotherapy Skills III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "PHM PRAC 654": {
     "credits": 1,
-    "title": "Integrated Pharmacotherapy Skills Iv",
+    "title": "Integrated Pharmacotherapy Skills IV",
     "prereqs": [
       [
         "PHM PRAC 653"
@@ -76536,7 +76535,7 @@
   },
   "PHM PRAC 655": {
     "credits": 3,
-    "title": "Pharmacotherapy Iii",
+    "title": "Pharmacotherapy III",
     "prereqs": [
       [
         "PHM PRAC 554"
@@ -76550,7 +76549,7 @@
   "PHM PRAC 656": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Pharmacotherapy Iv",
+    "title": "Pharmacotherapy IV",
     "prereqs": [
       [
         "PHM PRAC 653"
@@ -76814,7 +76813,7 @@
   "PHM SCI 522": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Pharmacology Ii",
+    "title": "Pharmacology II",
     "prereqs": [
       [
         "PHM SCI 521"
@@ -76825,7 +76824,7 @@
   "PHMCOL-M 522": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Pharmacology Ii",
+    "title": "Pharmacology II",
     "prereqs": [
       [
         "PHM SCI 521"
@@ -76845,7 +76844,7 @@
   },
   "PHM SCI 532": {
     "credits": 2,
-    "title": "Medicinal Chemistry Ii",
+    "title": "Medicinal Chemistry II",
     "prereqs": [
       [
         "PHM SCI 531"
@@ -76909,7 +76908,7 @@
   },
   "PHM SCI 623": {
     "credits": 3,
-    "title": "Pharmacology Iii",
+    "title": "Pharmacology III",
     "prereqs": [
       [
         "PHM SCI 522",
@@ -77144,7 +77143,7 @@
   },
   "PHY ASST 602": {
     "credits": 6,
-    "title": "Clinical Medicine Ii",
+    "title": "Clinical Medicine II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77162,7 +77161,7 @@
   },
   "PHY ASST 611": {
     "credits": 1,
-    "title": "Clinical Prevention And Community Practice Ii",
+    "title": "Clinical Prevention And Community Practice II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77174,13 +77173,13 @@
   },
   "PHY ASST 617": {
     "credits": 1,
-    "title": "Professional Seminar Ii",
+    "title": "Professional Seminar II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "PHY ASST 618": {
     "credits": 1,
-    "title": "Professional Seminar Iii",
+    "title": "Professional Seminar III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77198,7 +77197,7 @@
   },
   "PHY ASST 621": {
     "credits": 1,
-    "title": "Advanced Patient Evaluation In The Primary Care Setting Ii",
+    "title": "Advanced Patient Evaluation In The Primary Care Setting II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77222,7 +77221,7 @@
   },
   "PHY ASST 641": {
     "credits": 2,
-    "title": "Clinical Pharmacology Ii",
+    "title": "Clinical Pharmacology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77240,7 +77239,7 @@
   },
   "PHY ASST 651": {
     "credits": 3,
-    "title": "Diagnostic Methods Ii",
+    "title": "Diagnostic Methods II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77281,7 +77280,7 @@
   },
   "PHY ASST 716": {
     "credits": 1,
-    "title": "Professional Seminar Iv",
+    "title": "Professional Seminar IV",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77293,7 +77292,7 @@
   },
   "PHY ASST 718": {
     "credits": 1,
-    "title": "Professional Seminar And Capstone Ii",
+    "title": "Professional Seminar And Capstone II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77431,7 +77430,7 @@
   },
   "PHY THER 636": {
     "credits": 5,
-    "title": "Motor Control Dysfunction: Examination, Diagnosis, And Management Ii",
+    "title": "Motor Control Dysfunction: Examination, Diagnosis, And Management II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77456,7 +77455,7 @@
   },
   "PHY THER 643": {
     "credits": 1,
-    "title": "Current Issues In Rehabilitation Research Ii",
+    "title": "Current Issues In Rehabilitation Research II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77468,7 +77467,7 @@
   },
   "PHY THER 665": {
     "credits": 4,
-    "title": "Clinical Medicine Ii",
+    "title": "Clinical Medicine II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77492,7 +77491,7 @@
   },
   "PHY THER 677": {
     "credits": 5,
-    "title": "Musculoskeletal Dysfunction : Examination, Diagnosis, & Management Ii",
+    "title": "Musculoskeletal Dysfunction : Examination, Diagnosis, & Management II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77523,19 +77522,19 @@
   },
   "PHY THER 701": {
     "credits": 4,
-    "title": "Clinical Internship Ii",
+    "title": "Clinical Internship II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "PHY THER 702": {
     "credits": 9,
-    "title": "Clinical Internship Iii",
+    "title": "Clinical Internship III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "PHY THER 703": {
     "credits": 9,
-    "title": "Clinical Internship Iv",
+    "title": "Clinical Internship IV",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -77548,13 +77547,13 @@
   },
   "PHY THER 705": {
     "credits": 9,
-    "title": "Clinical Internship Vi",
+    "title": "Clinical Internship VI",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "PHY THER 706": {
     "credits": 5,
-    "title": "Clinical Internship Vii",
+    "title": "Clinical Internship VII",
     "prereqs": [
       [
         "PHY THER 679"
@@ -78170,7 +78169,7 @@
   },
   "PHYSICS 716": {
     "credits": 3,
-    "title": "Statistical Mechanics Ii",
+    "title": "Statistical Mechanics II",
     "prereqs": [
       [
         "PHYSICS 715"
@@ -81806,7 +81805,7 @@
   },
   "PSYCH 710": {
     "credits": 4,
-    "title": "Design And Analysis Of Psychological Experiments Ii",
+    "title": "Design And Analysis Of Psychological Experiments II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -81884,7 +81883,7 @@
   },
   "PSYCH 791": {
     "credits": 3,
-    "title": "Capstone Ii",
+    "title": "Capstone II",
     "prereqs": [
       [
         "PSYCH 790"
@@ -82038,13 +82037,13 @@
   },
   "PSYCHIAT 716": {
     "credits": 2,
-    "title": "Seminar In Reflective Practices And Mindfulness In Infant, Early Childhood And Fam Mental Health Ii",
+    "title": "Seminar In Reflective Practices And Mindfulness In Infant, Early Childhood And Fam Mental Health II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "PSYCHIAT 717": {
     "credits": 1,
-    "title": "Consultation In Infant, Early Childhood And Family Mental Health: Advanced Clinical Practice Ii",
+    "title": "Consultation In Infant, Early Childhood And Family Mental Health: Advanced Clinical Practice II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -82565,7 +82564,7 @@
   },
   "PUBLHLTH 784": {
     "credits": 3,
-    "title": "Quantitative Approaches To Public Health Ii",
+    "title": "Quantitative Approaches To Public Health II",
     "prereqs": [
       [
         "PUBLHLTH 783"
@@ -83262,7 +83261,7 @@
   },
   "REAL EST 842": {
     "credits": 3,
-    "title": "Applied Real Estate Investment Track (Areit) Ii",
+    "title": "Applied Real Estate Investment Track (Areit) II",
     "prereqs": [
       [
         "REAL EST 841"
@@ -84047,13 +84046,13 @@
   },
   "RP & SE 890": {
     "credits": 3,
-    "title": "Clinical Rehabilitation Counseling - Supervised Practicum Ii",
+    "title": "Clinical Rehabilitation Counseling - Supervised Practicum II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "RP & SE 900": {
     "credits": 3,
-    "title": "Clinical Rehabilitation Counseling - Supervised Practicum Iii",
+    "title": "Clinical Rehabilitation Counseling - Supervised Practicum III",
     "prereqs": [
       [
         "RP & SE 880"
@@ -84117,7 +84116,7 @@
   },
   "RP & SE 955": {
     "credits": 3,
-    "title": "Internship In Rehabilitation Counselor Education Ii",
+    "title": "Internship In Rehabilitation Counselor Education II",
     "prereqs": [
       [
         "RP 945",
@@ -84660,7 +84659,7 @@
   },
   "SCAND ST 476": {
     "credits": 4,
-    "title": "Scandinavian Life And Civilization Ii",
+    "title": "Scandinavian Life And Civilization II",
     "prereqs": [
       [
         "SCAND ST 202",
@@ -84990,7 +84989,7 @@
   },
   "SLAVIC 276": {
     "credits": 3,
-    "title": "Third Year Russian Ii",
+    "title": "Third Year Russian II",
     "prereqs": [
       [
         "SLAVIC 275"
@@ -85010,7 +85009,7 @@
   },
   "SLAVIC 278": {
     "credits": 3,
-    "title": "Third Year Polish Ii",
+    "title": "Third Year Polish II",
     "prereqs": [
       [
         "SLAVIC 277"
@@ -85107,7 +85106,7 @@
   },
   "SLAVIC 316": {
     "credits": 3,
-    "title": "Russian Language And Culture Ii",
+    "title": "Russian Language And Culture II",
     "prereqs": [
       [
         "SLAVIC 315"
@@ -85127,7 +85126,7 @@
   },
   "SLAVIC 322": {
     "credits": 3,
-    "title": "Fourth Year Russian Ii",
+    "title": "Fourth Year Russian II",
     "prereqs": [
       [
         "SLAVIC 321"
@@ -85147,7 +85146,7 @@
   },
   "SLAVIC 332": {
     "credits": 3,
-    "title": "Fourth Year Polish Ii",
+    "title": "Fourth Year Polish II",
     "prereqs": [
       [
         "SLAVIC 331"
@@ -85586,7 +85585,7 @@
   },
   "SOC 362": {
     "credits": 4,
-    "title": "Statistics For Sociologists Iii",
+    "title": "Statistics For Sociologists III",
     "prereqs": [
       [
         "C&E SOC 361",
@@ -86073,7 +86072,7 @@
   },
   "SOC 756": {
     "credits": 3,
-    "title": "Demographic Techniques Ii",
+    "title": "Demographic Techniques II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -86229,7 +86228,7 @@
   "SOC WORK 401": {
     "min_credits": 2,
     "max_credits": 6,
-    "title": "Field Practice And Integrative Seminar Ii",
+    "title": "Field Practice And Integrative Seminar II",
     "prereqs": [
       [
         "SOC WORK 400"
@@ -86559,7 +86558,7 @@
   "SOC WORK 800": {
     "min_credits": 2,
     "max_credits": 6,
-    "title": "Field Practice And Integrative Seminar Iii",
+    "title": "Field Practice And Integrative Seminar III",
     "prereqs": [
       [
         "SOC WORK 401"
@@ -86573,7 +86572,7 @@
   "SOC WORK 801": {
     "min_credits": 2,
     "max_credits": 6,
-    "title": "Field Practice And Integrative Seminar Iv",
+    "title": "Field Practice And Integrative Seminar IV",
     "prereqs": [
       [
         "SOC WORK 800"
@@ -86603,13 +86602,13 @@
   },
   "SOC WORK 817": {
     "credits": 2,
-    "title": "Social Work Practice In Schools Ii",
+    "title": "Social Work Practice In Schools II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "SOC WORK 818": {
     "credits": 1,
-    "title": "Social Work Practicum In Schools Ii",
+    "title": "Social Work Practicum In Schools II",
     "prereqs": [
       [
         "SOC WORK 816"
@@ -88059,7 +88058,7 @@
   },
   "STAT 304": {
     "credits": 1,
-    "title": "R For Statistics Ii",
+    "title": "R For Statistics II",
     "prereqs": [
       [
         "STAT 303"
@@ -88069,7 +88068,7 @@
   },
   "STAT 305": {
     "credits": 1,
-    "title": "R For Statistics Iii",
+    "title": "R For Statistics III",
     "prereqs": [
       [
         "STAT 304"
@@ -88092,7 +88091,7 @@
   },
   "STAT 312": {
     "credits": 3,
-    "title": "Introduction To Theory And Methods Of Mathematical Statistics Ii",
+    "title": "Introduction To Theory And Methods Of Mathematical Statistics II",
     "prereqs": [
       [
         "STAT 309",
@@ -88148,7 +88147,7 @@
   },
   "STAT 340": {
     "credits": 4,
-    "title": "Data Science Modeling Ii",
+    "title": "Data Science Modeling II",
     "prereqs": [
       [
         "MATH 211",
@@ -88236,7 +88235,6 @@
       [
         "COMP SCI 200",
         "COMP SCI 220",
-        "COMP SCI 300",
         "COMP SCI 300"
       ]
     ],
@@ -88412,7 +88410,7 @@
   },
   "STAT 602": {
     "credits": 4,
-    "title": "Statistical Methods Ii",
+    "title": "Statistical Methods II",
     "prereqs": [
       [
         "STAT 601"
@@ -89103,7 +89101,7 @@
   },
   "SURG SCI 545": {
     "credits": 1,
-    "title": "Fundamentals Of Anesthesiology Ii",
+    "title": "Fundamentals Of Anesthesiology II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -89766,7 +89764,7 @@
   "THEATRE 361": {
     "min_credits": 1,
     "max_credits": 2,
-    "title": "Backstage Laboratory Ii",
+    "title": "Backstage Laboratory II",
     "prereqs": [],
     "concurrent_prereqs": []
   },
@@ -89887,7 +89885,7 @@
   "THEATRE 466": {
     "min_credits": 3,
     "max_credits": 4,
-    "title": "Stage Lighting Design Ii",
+    "title": "Stage Lighting Design II",
     "prereqs": [
       [
         "THEATRE 366",
@@ -89954,13 +89952,13 @@
   "THEATRE 561": {
     "min_credits": 1,
     "max_credits": 2,
-    "title": "Backstage Laboratory Iii",
+    "title": "Backstage Laboratory III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
   "THEATRE 563": {
     "credits": 3,
-    "title": "Costume Design Ii",
+    "title": "Costume Design II",
     "prereqs": [
       [
         "THEATRE 363"
@@ -90079,7 +90077,7 @@
   },
   "THEATRE 763": {
     "credits": 3,
-    "title": "Costume Design Iii",
+    "title": "Costume Design III",
     "prereqs": [],
     "concurrent_prereqs": []
   },
