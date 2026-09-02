@@ -19,7 +19,7 @@
 <div class="page page-frame">
   <PageHeader
     title="Utilities"
-    description="Small tools and experiments that are useful beyond portfolio projects."
+    description="A few of my small tools and experiments."
   />
 
   <section class="terminal-box utility-card">

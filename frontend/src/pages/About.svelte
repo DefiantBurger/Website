@@ -12,13 +12,12 @@
   <PageHeader title="About Me" />
 
   <div class="content terminal-box">
-    <p>Coming soon...</p>
-    <p>Tell your story here.</p>
+    <p>Computer Engineering and Physics student at UW–Madison with experience spanning robotics hardware design, quantum simulation research, and full-stack web development. Electrical Team Lead for Wisconsin Robotics and Undergraduate Researcher in UW–Madison's Quantum Transport Theory and Simulation lab.</p>
   </div>
 
   <div class="about-you-cta">
     <a href="/about-you" on:click={(e) => { e.preventDefault(); navigate('/about-you'); }}>
-      > See what this site can learn from your visit
+      > About You: see what this site can learn from your visit
     </a>
   </div>
 </div>
@@ -29,7 +28,6 @@
   }
 
   .content p {
-    margin-bottom: 1rem;
     line-height: 1.8;
   }
 
