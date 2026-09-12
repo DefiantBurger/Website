@@ -20,6 +20,11 @@ from .fileshare import (
 	get_storage_status,
 	save_upload,
 )
+from .messageboard import (
+	MessageBoardError,
+	board_rate_limiter,
+	board_store,
+)
 
 views = Blueprint('views', __name__)
 
@@ -333,3 +338,48 @@ def about_you_request_context():
 			'doNotTrack': request.headers.get('DNT', ''),
 		},
 	})
+
+
+@views.route('/api/messageboard/status/', methods=['GET'])
+def messageboard_status():
+	return jsonify(board_store.get_status())
+
+
+@views.route('/api/messageboard/messages/', methods=['GET'])
+def messageboard_messages():
+	messages = board_store.get_active_messages()
+	return jsonify({
+		'messages': messages,
+		'serverTime': datetime.now(timezone.utc).isoformat(),
+		'retentionSeconds': 30,
+		'totalActive': len(messages),
+	})
+
+
+@views.route('/api/messageboard/messages/', methods=['POST'])
+def messageboard_post_message():
+	raw_ip, _ = _resolve_client_ip()
+
+	if not board_rate_limiter.check_and_record(raw_ip):
+		return jsonify({'error': 'You are posting too quickly. Please wait a few seconds.'}), 429
+
+	if request.content_length and request.content_length > 16384:
+		return jsonify({'error': 'Payload exceeds maximum allowed size.'}), 413
+
+	data = request.get_json(silent=True)
+	if data is None:
+		data = request.form
+
+	text = data.get('text') if hasattr(data, 'get') else None
+
+	try:
+		record = board_store.add_message(text, raw_ip)
+	except MessageBoardError as exc:
+		return jsonify({'error': exc.message}), exc.status_code
+
+	return jsonify({
+		'id': record.id,
+		'text': record.text,
+		'createdAt': record.created_at,
+		'expiresAt': record.expires_at,
+	}), 201

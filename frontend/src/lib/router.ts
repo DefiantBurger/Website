@@ -9,6 +9,7 @@ import Contact from '../pages/Contact.svelte';
 import Utilities from '../pages/Utilities.svelte';
 import UtilityScheduler from '../pages/UtilityScheduler.svelte';
 import UtilityFileShare from '../pages/UtilityFileShare.svelte';
+import UtilityMessageBoard from '../pages/UtilityMessageBoard.svelte';
 import NotFound from '../pages/NotFound.svelte';
 import { recordRouteVisit } from './aboutYou/interactionStore';
 
@@ -81,6 +82,14 @@ function matchRoute(pathname: string): RouteMatch {
       page: UtilityFileShare,
       params: {},
       routeVisitPath: '/utilities/fileshare'
+    };
+  }
+
+  if (pathname === '/utilities/message-board' || pathname === '/utilities/messageboard') {
+    return {
+      page: UtilityMessageBoard,
+      params: {},
+      routeVisitPath: '/utilities/message-board'
     };
   }
 

@@ -8,6 +8,7 @@ Current utility:
 
 - Class Scheduler (`/utilities/scheduler`)
 - File Share (`/utilities/fileshare`)
+- Message Board (`/utilities/message-board`)
 
 As more utilities are added, each utility should get its own section under this document.
 
@@ -237,3 +238,90 @@ curl -s http://localhost:5000/api/fileshare/status | jq .
 1. Add scheduled background cleanup so expiration does not depend on traffic.
 2. Add backend tests for upload limits, eviction behavior, and quota recovery.
 3. Consider a future shared storage backend if multi-VM deployment becomes necessary.
+
+## Message Board
+
+### Summary
+
+Anonymous ephemeral message board where messages automatically expire after around 30 seconds. Uses a strict URL-safe character allowlist for positive input sanitization to eliminate HTML, script, and server injection.
+
+### Route
+
+- `/utilities/message-board` (alias: `/utilities/messageboard`)
+
+### Data Sources
+
+Backend APIs:
+
+- `GET /api/messageboard/messages/`
+- `POST /api/messageboard/messages/`
+- `GET /api/messageboard/status/`
+
+### Data Model
+
+Post request payload:
+
+```json
+{
+  "text": "Hello, world!"
+}
+```
+
+Post response shape:
+
+```json
+{
+  "id": "c7a80fa4-1f7c-473d-9d48-6a56f916c68b",
+  "text": "Hello, world!",
+  "createdAt": "2026-09-11T20:45:00.000000+00:00",
+  "expiresAt": "2026-09-11T20:45:30.000000+00:00"
+}
+```
+
+Messages list response shape:
+
+```json
+{
+  "messages": [
+    {
+      "id": "c7a80fa4-1f7c-473d-9d48-6a56f916c68b",
+      "text": "Hello, world!",
+      "createdAt": "2026-09-11T20:45:00.000000+00:00",
+      "expiresAt": "2026-09-11T20:45:30.000000+00:00"
+    }
+  ],
+  "serverTime": "2026-09-11T20:45:05.123456+00:00",
+  "retentionSeconds": 30,
+  "totalActive": 1
+}
+```
+
+### Core Behavior
+
+`backend/app/messageboard.py`:
+
+- Enforces a positive character allowlist: `^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,.-!/()=?`*;:_{}[]\|~` plus standard spaces and newlines.
+- Strips any character outside the allowlist (specifically `<, >, &, ", '` and any non-printable control characters or null bytes).
+- Collapses excessive blank lines and enforces a 280-character limit.
+- Rejects empty messages with HTTP 400.
+- Thread-safe in-memory store protected by `threading.Lock()` for Waitress multi-threaded production execution.
+- Messages automatically expire 30 seconds after creation (`MESSAGE_TTL_SECONDS = 30.0`). Expired messages are purged on every read and write.
+- Enforces an in-memory storage cap of 200 messages (evicts oldest when full).
+- Implements per-IP rate limiting (sliding window: max 5 messages per 10 seconds per IP) returning HTTP 429 when exceeded.
+
+`frontend/src/lib/messageboard/api.ts` & `frontend/src/pages/UtilityMessageBoard.svelte`:
+
+- Fetches active messages on page load or when the user clicks "Reload Board".
+- Terminal aesthetic matching the site's dark/light muted terminal theme.
+- Displays post timestamp and message text.
+- Safe rendering using standard Svelte text interpolation (never `{@html}`).
+
+### API Checks
+
+```bash
+curl -s http://localhost:5000/api/messageboard/status/ | jq .
+curl -s http://localhost:5000/api/messageboard/messages/ | jq .
+curl -s -X POST http://localhost:5000/api/messageboard/messages/ \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello from curl!"}' | jq .
+```

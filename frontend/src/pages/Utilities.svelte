@@ -9,11 +9,15 @@
   function openFileShare(): void {
     navigate('/utilities/fileshare/');
   }
+
+  function openMessageBoard(): void {
+    navigate('/utilities/message-board/');
+  }
 </script>
 
 <svelte:head>
   <title>Utilities</title>
-  <meta name="description" content="Interactive tools and experiments, including a class scheduler and file sharing utility." />
+  <meta name="description" content="Interactive tools and experiments, including a class scheduler, file sharing utility, and message board." />
 </svelte:head>
 
 <div class="page page-frame">
@@ -38,6 +42,15 @@
       before the 10-minute expiration window closes.
     </p>
     <button type="button" on:click={openFileShare}>Open File Share</button>
+  </section>
+
+  <section class="terminal-box utility-card">
+    <h2>Message Board</h2>
+    <p>
+      Post short anonymous notes that self-destruct after around 30 seconds. Uses a strict URL-safe
+      allowlist for sanitization.
+    </p>
+    <button type="button" on:click={openMessageBoard}>Open Message Board</button>
   </section>
 </div>
 

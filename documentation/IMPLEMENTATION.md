@@ -99,6 +99,9 @@ Implemented in `backend/app/views.py`:
 - `GET /api/fileshare/status`
 - `POST /api/fileshare/upload`
 - `POST /api/fileshare/access`
+- `GET /api/messageboard/status`
+- `GET /api/messageboard/messages`
+- `POST /api/messageboard/messages`
 - `GET /api/projects`
 - `GET /api/projects/:slug`
 - `GET /static/<path:filename>`
@@ -106,6 +109,9 @@ Implemented in `backend/app/views.py`:
 The file share routes rely on `backend/app/fileshare.py` for deterministic access-key
 labels, encrypted-at-rest payload storage, 10-minute expiry cleanup, and oldest-file
 eviction when the live-storage cap is reached.
+
+The message board routes rely on `backend/app/messageboard.py` for URL-safe allowlist
+sanitization, 30-second TTL in-memory storage, and sliding-window rate limiting.
 
 ### Data Sources
 
@@ -138,6 +144,7 @@ Client routes (canonical, client-normalized form — the router trims trailing s
 - `/utilities`
 - `/utilities/scheduler`
 - `/utilities/fileshare`
+- `/utilities/message-board`
 
 Utility routes live under `/utilities/*` and the router will normalize duplicate trailing slashes for client navigation.
 

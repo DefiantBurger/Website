@@ -11,7 +11,7 @@
 
 <div id="app">
   <Nav />
-  <main class="container" class:container-wide={$currentRoute.startsWith('/utilities/scheduler')}>
+  <main class="container" class:container-wide={$currentRoute.startsWith('/utilities/scheduler') || $currentRoute.startsWith('/utilities/fileshare') || $currentRoute.startsWith('/utilities/message-board') || $currentRoute.startsWith('/utilities/messageboard')}>
     {#if $currentPage}
       <svelte:component this={$currentPage} />
     {:else}
