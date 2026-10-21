@@ -172,7 +172,7 @@ Upload response shape:
 
 ```json
 {
-  "label": "sha256 password hash",
+  "label": "HMAC-SHA256 of the access key, keyed with SECRET_KEY",
   "originalFilename": "report.pdf",
   "sizeBytes": 123456,
   "uploadedAt": "2026-05-01T12:00:00+00:00",
@@ -187,7 +187,7 @@ Status response shape:
 {
   "activeFileCount": 3,
   "usedBytes": 8451200,
-  "maxFileBytes": 50000000,
+  "maxFileBytes": 100000000,
   "maxTotalBytes": 1000000000,
   "retentionSeconds": 600,
   "uploadsPaused": false
@@ -198,7 +198,8 @@ Status response shape:
 
 `backend/app/fileshare.py`:
 
-- hashes access keys with SHA-256 to derive a deterministic active label,
+- derives a deterministic label from the access key with HMAC-SHA256 keyed by `SECRET_KEY`
+  (a server-side pepper), so labels on disk can't be brute-forced without the server secret,
 - derives a per-file encryption key from the same access key using a random salt and
   a memory-hard KDF,
 - encrypts payload bytes with an authenticated cipher before writing them to disk,
@@ -206,6 +207,10 @@ Status response shape:
 - supports multiple files per label and will replace previous files when an upload
   is performed with the same access key (first file in a batch clears prior files),
 - enforces a 100 MB per-file cap,
+- allows at most 2 uploads/downloads at a time (`MAX_CONCURRENT_TRANSFERS`); further requests get
+  `503` "busy, try again" instead of running the 1 GB VM out of memory,
+- always serves downloads as `application/octet-stream` with `nosniff`, ignoring the MIME type the
+  uploader supplied, so an uploaded HTML file can never render on the site's origin,
 - deletes expired files older than 10 minutes,
 - when accepting an upload would exceed the 1 GB live-storage cap the backend will
   evict oldest active files (by upload time) until enough space is freed; if eviction
@@ -235,9 +240,14 @@ curl -s http://localhost:5000/api/fileshare/status | jq .
 
 ### Next Improvements
 
-1. Add scheduled background cleanup so expiration does not depend on traffic.
-2. Add backend tests for upload limits, eviction behavior, and quota recovery.
-3. Consider a future shared storage backend if multi-VM deployment becomes necessary.
+1. Stream uploads and downloads instead of holding whole files in memory. Today a transfer
+   reads the full file, then encrypts or decrypts it in one piece, using roughly 3x the file size
+   in RAM. That is why concurrent transfers are capped at 2. Encrypting in fixed-size chunks
+   (e.g. AES-GCM per 1 MB chunk with per-chunk nonces, written straight to disk) would keep memory
+   near-constant per transfer and allow raising or removing the cap.
+2. Add scheduled background cleanup so expiration does not depend on traffic.
+3. Add backend tests for upload limits, eviction behavior, and quota recovery.
+4. Consider a future shared storage backend if multi-VM deployment becomes necessary.
 
 ## Message Board
 

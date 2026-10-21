@@ -390,14 +390,6 @@
 							Longitude: {requestContext.geolocation.longitude ??
 								"Unavailable"}
 						</li>
-						<li>
-							ASN: {requestContext.geolocation.asn ||
-								"Unavailable"}
-						</li>
-						<li>
-							Organization: {requestContext.geolocation.org ||
-								"Unavailable"}
-						</li>
 					</ul>
 				{:else}
 					<p class="value">

@@ -23,9 +23,10 @@ A major architectural improvement moved project write-ups to backend-hosted Mark
 ```mermaid
 flowchart LR
     User[Browser User] --> CF[Cloudflare]
-    CF --> Nginx[Nginx on GCE VM]
+    CF -->|Tunnel| CFD[cloudflared on GCE VM]
+    CFD --> Nginx[Nginx on 127.0.0.1:80]
     Nginx -->|/| FE[Svelte static build]
-    Nginx -->|/api/*| Flask[Flask app on :5000]
+    Nginx -->|/api/*| Flask[Flask app on 127.0.0.1:5000]
     Flask --> JSON[Utility JSON files]
     Flask --> MD[Project Markdown files]
 ```
@@ -48,7 +49,7 @@ Responsibilities:
 ### Backend
 
 - Flask app factory + blueprint routing
-- Flask-CORS scoped to `/api/*`
+- Flask-CORS scoped to `/api/*`, enabled only in development (production is same-origin)
 - Waitress in production
 
 Responsibilities:
@@ -59,10 +60,10 @@ Responsibilities:
 
 ### Infrastructure
 
-- Terraform for network/VM/firewall/DNS resources
-- Nginx for TLS, static hosting, API proxying
-- systemd-managed Flask service
-- Cloudflare DNS + proxy
+- Terraform for network/VM/firewall/DNS/tunnel resources
+- Nginx for static hosting, API proxying, and security headers
+- systemd-managed Flask and `cloudflared` services
+- Cloudflare DNS + proxy + Tunnel (TLS terminates at Cloudflare)
 
 ## Repository Layout
 
@@ -113,10 +114,14 @@ Ordering and metadata notes:
 
 ## Security and Trust Boundaries
 
-1. CORS is scoped to `/api/*` routes.
-2. Markdown output is sanitized before frontend injection.
-3. Infra secrets are pulled from Secret Manager during provisioning.
-4. HTTPS is enforced through Cloudflare + Nginx configuration.
+1. The origin has no open web ports: all traffic arrives through the Cloudflare Tunnel, and Nginx
+   and Flask listen only on loopback. Cloudflare-set headers (`CF-Connecting-IP`, location headers)
+   can therefore be trusted.
+2. CORS is enabled only in development, for `/api/*` routes.
+3. Markdown output is sanitized before frontend injection.
+4. Infra secrets are pulled from Secret Manager during provisioning.
+5. HTTPS is enforced at Cloudflare and with an Nginx redirect plus HSTS. Nginx also sets security headers
+   (CSP currently report-only).
 
 ## Notable Tradeoffs
 

@@ -86,8 +86,9 @@ Packaging/dependency metadata lives in `backend/pyproject.toml`.
 `backend/app/__init__.py`:
 
 - creates app,
-- configures CORS for `/api/*`,
+- configures CORS for `/api/*` when `FLASK_ENV=development` (the Vite dev server is cross-origin),
 - requires `SECRET_KEY`,
+- caps request bodies at 101 MiB (`MAX_CONTENT_LENGTH`),
 - registers routes blueprint,
 - defines 404 handler.
 

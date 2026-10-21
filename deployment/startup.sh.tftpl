@@ -89,16 +89,29 @@ systemctl enable flaskapp
 systemctl start flaskapp
 
 echo "[10/10] Setting up Nginx reverse proxy..."
-mkdir ${app_path}/certs
-fetch_secret_value "${secret_name_cloudflare_origin_certificate}" "${secret_version_cloudflare_origin_certificate}" > ${app_path}/certs/cloudflare.crt
-fetch_secret_value "${secret_name_cloudflare_private_key}" "${secret_version_cloudflare_private_key}" > ${app_path}/certs/cloudflare.key
-chmod 600 ${app_path}/certs/cloudflare.key
-
 printf "%s" "${nginx_api_proxy_params}" | base64 --decode > /etc/nginx/api_proxy_params.conf
 printf "%s" "${nginx_conf}" | base64 --decode > /etc/nginx/sites-available/default
 
 nginx -t
 systemctl restart nginx
+
+echo "[10.1/10] Installing and starting Cloudflare Tunnel..."
+mkdir -p --mode=0755 /usr/share/keyrings
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg > /usr/share/keyrings/cloudflare-main.gpg
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main" > /etc/apt/sources.list.d/cloudflared.list
+apt-get update -yq
+apt-get install -yq cloudflared
+
+mkdir -p /etc/cloudflared
+(
+	umask 077
+	echo "TUNNEL_TOKEN=$(fetch_secret_value "${secret_name_cloudflare_tunnel_token}" "latest")" > /etc/cloudflared/tunnel.env
+)
+
+printf "%s" "${cloudflared_service}" | base64 --decode > /etc/systemd/system/cloudflared.service
+systemctl daemon-reload
+systemctl enable cloudflared
+systemctl restart cloudflared
 
 
 echo "===== Startup Script Complete ====="

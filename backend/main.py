@@ -12,13 +12,14 @@ app = create_app()
 
 @app.before_request
 def log_request_info():
-	app.logger.info(f"Received {request.method} request for {request.path} from {request.remote_addr}")
+	app.logger.info(f"Received {request.method} request for {request.path!r} from {request.remote_addr}")
 
 if __name__ == "__main__":
-	port = int(os.getenv("PORT", 5000))
+	port = int(os.getenv("PORT", "5000"))
 	env = os.getenv("FLASK_ENV", "production")
 
 	if env == "development":
 		app.run(port=port, debug=True)
 	elif env == "production":
-		serve(app, host="0.0.0.0", port=port)
+		# Only nginx on the same VM should reach the app.
+		serve(app, host="127.0.0.1", port=port)

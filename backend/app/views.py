@@ -2,10 +2,6 @@ from pathlib import Path
 from datetime import datetime, timezone
 from io import BytesIO
 import ipaddress
-import json
-from urllib import error as urllib_error
-from urllib import parse as urllib_parse
-from urllib import request as urllib_request
 
 import yaml
 
@@ -19,6 +15,7 @@ from .fileshare import (
 	get_all_records_for_password,
 	get_storage_status,
 	save_upload,
+	transfer_slot,
 )
 from .messageboard import (
 	MessageBoardError,
@@ -71,62 +68,43 @@ def _mask_ip(raw_ip: str) -> str:
 	return f'{hextets[0]}:{hextets[1]}:{hextets[2]}:xxxx:xxxx:xxxx:xxxx:xxxx'
 
 
-def _is_public_ip(raw_ip: str) -> bool:
-	if not raw_ip:
-		return False
-
+def _cloudflare_header(name: str) -> str:
+	# Cloudflare sends UTF-8 header values (e.g. city names), but WSGI decodes
+	# headers as latin-1, so re-decode them.
+	raw = request.headers.get(name, '').strip()
 	try:
-		parsed = ipaddress.ip_address(raw_ip)
+		return raw.encode('latin-1').decode('utf-8')
+	except (UnicodeEncodeError, UnicodeDecodeError):
+		return raw
+
+
+def _parse_coordinate(raw: str) -> float | None:
+	try:
+		return float(raw)
 	except ValueError:
-		return False
-
-	return not (
-		parsed.is_private
-		or parsed.is_loopback
-		or parsed.is_link_local
-		or parsed.is_multicast
-		or parsed.is_reserved
-		or parsed.is_unspecified
-	)
+		return None
 
 
-def _lookup_ip_geolocation(raw_ip: str) -> dict:
-	if not _is_public_ip(raw_ip):
+def _cloudflare_geolocation() -> dict:
+	# Populated by Cloudflare's "Add visitor location headers" Managed Transform.
+	country = _cloudflare_header('CF-IPCountry')
+	city = _cloudflare_header('CF-IPCity')
+	if not country and not city:
 		return {
 			'available': False,
-			'reason': 'IP is not public or unavailable.',
-		}
-
-	url = f"https://ipapi.co/{urllib_parse.quote(raw_ip)}/json/"
-
-	try:
-		with urllib_request.urlopen(url, timeout=2.0) as response:
-			payload = response.read().decode('utf-8')
-			data = json.loads(payload)
-	except (urllib_error.URLError, urllib_error.HTTPError, TimeoutError, json.JSONDecodeError):
-		return {
-			'available': False,
-			'reason': 'Geolocation lookup failed.',
-		}
-
-	if isinstance(data, dict) and data.get('error'):
-		return {
-			'available': False,
-			'reason': str(data.get('reason') or 'Geolocation provider returned an error.'),
+			'reason': 'Cloudflare location headers were not present.',
 		}
 
 	return {
 		'available': True,
-		'provider': 'ipapi.co',
-		'country': str(data.get('country_name') or ''),
-		'region': str(data.get('region') or ''),
-		'city': str(data.get('city') or ''),
-		'postal': str(data.get('postal') or ''),
-		'timezone': str(data.get('timezone') or ''),
-		'latitude': data.get('latitude'),
-		'longitude': data.get('longitude'),
-		'asn': str(data.get('asn') or ''),
-		'org': str(data.get('org') or ''),
+		'provider': 'Cloudflare',
+		'country': country,
+		'region': _cloudflare_header('CF-Region'),
+		'city': city,
+		'postal': _cloudflare_header('CF-Postal-Code'),
+		'timezone': _cloudflare_header('CF-Timezone'),
+		'latitude': _parse_coordinate(_cloudflare_header('CF-IPLatitude')),
+		'longitude': _parse_coordinate(_cloudflare_header('CF-IPLongitude')),
 	}
 
 
@@ -244,7 +222,8 @@ def fileshare_upload():
 		return jsonify({'error': 'A file is required.'}), 400
 
 	try:
-		record = save_upload(uploaded_file, password, clear_existing=clear_existing)
+		with transfer_slot():
+			record = save_upload(uploaded_file, password, clear_existing=clear_existing)
 	except FileShareError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
@@ -273,17 +252,22 @@ def fileshare_access():
 		return jsonify({'error': 'No active file matched that password.'}), 404
 
 	try:
-		plaintext = decrypt_record_payload(record, password)
+		with transfer_slot():
+			plaintext = decrypt_record_payload(record, password)
 	except FileShareError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
-	return send_file(
+	# Never echo the uploader-supplied MIME type: serving e.g. text/html from this
+	# origin would let an uploaded file run scripts if a browser rendered it.
+	response = send_file(
 		BytesIO(plaintext),
 		as_attachment=True,
 		download_name=record.original_filename,
-		mimetype=record.mime_type,
+		mimetype='application/octet-stream',
 		max_age=0,
 	)
+	response.headers['X-Content-Type-Options'] = 'nosniff'
+	return response
 
 
 @views.route('/api/fileshare/list/', methods=['POST'])
@@ -297,13 +281,13 @@ def fileshare_list():
 	return jsonify({
 		'files': [
 			{
-				'occurrenceIndex': idx,
+				'occurrenceIndex': record.occurrence_index,
 				'originalFilename': record.original_filename,
 				'sizeBytes': record.size_bytes,
 				'uploadedAt': record.uploaded_at,
 				'expiresAt': record.expires_at,
 			}
-			for idx, record in enumerate(records, start=1)
+			for record in records
 		],
 	})
 
@@ -311,7 +295,7 @@ def fileshare_list():
 @views.route('/api/about-you/request-context/', methods=['GET'])
 def about_you_request_context():
 	raw_ip, ip_source = _resolve_client_ip()
-	geolocation = _lookup_ip_geolocation(raw_ip)
+	geolocation = _cloudflare_geolocation()
 
 	has_forwarded_headers = any(
 		bool(request.headers.get(header_name, '').strip())

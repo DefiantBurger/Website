@@ -32,4 +32,16 @@ API
 - Project list: `GET /api/projects/`
 - Project detail: `GET /api/projects/:slug/`
 
+Testing
+
+Run the test suite using `pytest` (recommended) or the standard library `unittest`:
+
+```bash
+# Run pytest with coverage
+uv run pytest --cov=app --cov-report=term-missing
+
+# Or run using standard library unittest
+uv run python -m unittest discover -s tests
+```
+
 For more, see the top-level `documentation/IMPLEMENTATION.md`.

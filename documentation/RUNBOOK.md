@@ -30,7 +30,7 @@ For full infrastructure refresh paths, use the deployment guide.
 ### Verify Service Health
 
 1. `systemctl status flaskapp`
-2. `systemctl status nginx`
+2. `systemctl status nginx` and `systemctl status cloudflared`
 3. Check project and utility API endpoints with curl.
 4. Load root, projects, and utilities routes in browser.
 
@@ -133,8 +133,9 @@ Actions:
    Fix: migrate to remote encrypted backend and stop tracking local state.
 2. Secrets exposed in local state.
    Fix: rotate exposed values and avoid plaintext secret values in state.
-3. Boot-time clone/build deployment model.
-   Fix: migrate to immutable artifacts.
+3. Boot-time clone/build deployment model: re-deploys the tip of `main` as root on every reboot.
+   Fix: build and deploy releases from GitHub Actions. Details and plan in
+   `DEPLOYMENT.md` → "Known Issue: Boot-Time Deployment (Future Fix)".
 4. Hardening/observability baseline is incomplete.
    Fix: tighten privileges/firewall and add monitoring/alerts.
 

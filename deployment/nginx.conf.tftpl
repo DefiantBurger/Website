@@ -1,17 +1,34 @@
 limit_req_zone $http_cf_connecting_ip zone=limit:10m rate=10r/s;
 
+server_tokens off;
+
+# Only cloudflared on this VM connects here. Cloudflare terminates TLS for
+# visitors, and the tunnel encrypts traffic between Cloudflare and the VM.
 server {
-	listen 443 ssl;
-	server_name ${domain} *.${domain};
+	listen 127.0.0.1:80;
+	server_name ${domain};
 	root ${app_path}/frontend/dist;
 	index index.html;
-
-	ssl_certificate ${app_path}/certs/cloudflare.crt;
-	ssl_certificate_key ${app_path}/certs/cloudflare.key;
 
 	client_max_body_size 1M;
 
 	limit_req zone=limit burst=10 delay=5;
+
+	# CF-Visitor carries the visitor's original scheme through the tunnel.
+	if ($http_cf_visitor ~ '"scheme":"http"') {
+		return 301 https://$host$request_uri;
+	}
+
+	# These apply to every location below, as long as none of them sets its own add_header.
+	add_header Strict-Transport-Security "max-age=31536000" always;
+	add_header X-Content-Type-Options "nosniff" always;
+	add_header X-Frame-Options "DENY" always;
+	add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+	add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+	# Report-only until verified: check the browser console on each page for
+	# violations, then rename this header to Content-Security-Policy.
+	# style-src needs 'unsafe-inline' for Mermaid diagrams and Svelte transitions.
+	add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
 
 	location /api/ {
 		include api_proxy_params.conf;
@@ -31,10 +48,4 @@ server {
 	location / {
 		try_files $uri $uri/ /index.html;
 	}
-}
-
-server {
-	listen 80;
-	server_name ${domain} *.${domain};
-	return 301 https://$host$request_uri;
 }

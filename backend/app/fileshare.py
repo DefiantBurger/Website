@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import base64
 import hashlib
+import hmac
 import json
 import os
 from pathlib import Path
+import threading
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
@@ -26,6 +30,11 @@ KDF_LENGTH = 32
 KDF_N = 2**14
 KDF_R = 8
 KDF_P = 1
+# Each transfer holds roughly 3x the file size in memory (plaintext + ciphertext +
+# buffers), so this keeps two 100 MB transfers within the VM's 1 GB of RAM.
+MAX_CONCURRENT_TRANSFERS = 2
+
+_transfer_slots = threading.BoundedSemaphore(MAX_CONCURRENT_TRANSFERS)
 
 
 class FileShareError(RuntimeError):
@@ -50,7 +59,20 @@ class FileShareRecord:
 
 
 def build_label(password: str) -> str:
-	return hashlib.sha256(password.encode('utf-8')).hexdigest()
+	# Keyed with SECRET_KEY (a pepper) so labels on disk can't be brute-forced
+	# without also having the server secret.
+	pepper = current_app.config['SECRET_KEY'].encode('utf-8')
+	return hmac.new(pepper, password.encode('utf-8'), hashlib.sha256).hexdigest()
+
+
+@contextmanager
+def transfer_slot() -> Iterator[None]:
+	if not _transfer_slots.acquire(blocking=False):
+		raise FileShareError('The file share is busy right now; try again in a moment.', 503)
+	try:
+		yield
+	finally:
+		_transfer_slots.release()
 
 
 def _now_utc() -> datetime:
@@ -72,6 +94,20 @@ def _record_paths(label: str, occurrence_index: int = 1) -> tuple[Path, Path]:
 		root / f'{label}__{occurrence_index}{META_SUFFIX}',
 		root / f'{label}__{occurrence_index}{PAYLOAD_SUFFIX}',
 	)
+
+
+def _existing_indices(label: str) -> list[int]:
+	indices: set[int] = set()
+	for path in _storage_root().glob(f'{label}*'):
+		stem = path.name.removesuffix(META_SUFFIX).removesuffix(PAYLOAD_SUFFIX)
+		if stem == label:
+			indices.add(1)
+		elif stem.startswith(f'{label}__'):
+			try:
+				indices.add(int(stem[len(label) + 2:]))
+			except ValueError:
+				continue
+	return sorted(indices)
 
 
 def _b64encode(raw: bytes) -> str:
@@ -148,12 +184,7 @@ def _remove_record(label: str, occurrence_index: int | None = None) -> None:
 	if occurrence_index is not None:
 		paths = [_record_paths(label, occurrence_index)]
 	else:
-		paths = []
-		for idx in range(1, 100):
-			meta_path, payload_path = _record_paths(label, idx)
-			if not meta_path.exists() and not payload_path.exists():
-				break
-			paths.append((meta_path, payload_path))
+		paths = [_record_paths(label, idx) for idx in _existing_indices(label)]
 
 	for meta_path, payload_path in paths:
 		for path in (meta_path, payload_path):
@@ -233,7 +264,7 @@ def get_record_for_password(password: str, occurrence_index: int | None = None) 
 		meta_path, _ = _record_paths(label, occurrence_index)
 		return _load_record(meta_path)
 
-	for idx in range(1, 100):
+	for idx in _existing_indices(label):
 		meta_path, _ = _record_paths(label, idx)
 		record = _load_record(meta_path)
 		if record is not None:
@@ -247,7 +278,7 @@ def get_all_records_for_password(password: str) -> list[FileShareRecord]:
 	cleanup_expired_records()
 	records: list[FileShareRecord] = []
 
-	for idx in range(1, 100):
+	for idx in _existing_indices(label):
 		meta_path, _ = _record_paths(label, idx)
 		record = _load_record(meta_path)
 		if record is not None:
@@ -317,12 +348,7 @@ def save_upload(uploaded_file: FileStorage, password: str, clear_existing: bool 
 		_remove_record(label)
 		occurrence_index = 1
 	else:
-		occurrence_index = 1
-		while True:
-			meta_path, payload_path = _record_paths(label, occurrence_index)
-			if not meta_path.exists() and not payload_path.exists():
-				break
-			occurrence_index += 1
+		occurrence_index = max(_existing_indices(label), default=0) + 1
 
 	meta_path, payload_path = _record_paths(label, occurrence_index)
 	plaintext = uploaded_file.read()
@@ -363,7 +389,8 @@ def save_upload(uploaded_file: FileStorage, password: str, clear_existing: bool 
 		meta_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding='utf-8')
 	except Exception as exc:
 		_remove_record(label, occurrence_index)
-		raise FileShareError(f'Failed to store upload: {exc}') from exc
+		current_app.logger.exception('Failed to store fileshare upload')
+		raise FileShareError('Failed to store upload.', 500) from exc
 
 	return FileShareRecord(
 		label=label,

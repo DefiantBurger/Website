@@ -43,7 +43,13 @@ variable "project_zone" {
 variable "cloudflare_zone_id" {
   description = "Cloudflare zone ID for DNS record management"
   type        = string
-  default = "9d742195068bb58a363dfdf2e17ec7e5"
+  default     = "9d742195068bb58a363dfdf2e17ec7e5"
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID that owns the tunnel"
+  type        = string
+  default     = "299dfe93c8f42147f7977fab1abad5b2"
 }
 
 variable "secret_name_flask" {
@@ -52,32 +58,14 @@ variable "secret_name_flask" {
   default     = "flask-secret"
 }
 
-variable "secret_name_cloudflare_origin_certificate" {
-  description = "Secret Manager secret name for Cloudflare origin certificate"
+variable "secret_name_cloudflare_tunnel_token" {
+  description = "Secret Manager secret name (created by Terraform) for the Cloudflare Tunnel token"
   type        = string
-  default     = "cloudflare-origin-certificate"
-}
-
-variable "secret_name_cloudflare_private_key" {
-  description = "Secret Manager secret name for Cloudflare private key"
-  type        = string
-  default     = "cloudflare-private-key"
+  default     = "cloudflare-tunnel-token"
 }
 
 variable "secret_version_flask" {
   description = "Secret version for Flask secret"
-  type        = string
-  default     = "latest"
-}
-
-variable "secret_version_cloudflare_origin_certificate" {
-  description = "Secret version for Cloudflare origin certificate"
-  type        = string
-  default     = "latest"
-}
-
-variable "secret_version_cloudflare_private_key" {
-  description = "Secret version for Cloudflare private key"
   type        = string
   default     = "latest"
 }

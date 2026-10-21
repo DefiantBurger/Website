@@ -21,8 +21,6 @@ export type RequestContextSnapshot = {
     timezone?: string;
     latitude?: number | null;
     longitude?: number | null;
-    asn?: string;
-    org?: string;
   };
   headers: {
     userAgent: string;

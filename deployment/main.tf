@@ -34,6 +34,7 @@ locals {
   flaskapp_service = templatefile("${path.module}/flaskapp.service.tftpl", {
     app_path = var.app_path
   })
+  cloudflared_service = templatefile("${path.module}/cloudflared.service.tftpl", {})
 }
 
 resource "google_service_account" "vm_runtime" {
@@ -56,19 +57,17 @@ resource "google_compute_instance" "default" {
   }
 
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
-    domain                                       = var.domain
-    app_path                                     = var.app_path
-    repo_url                                     = var.repo_url
-    repo_branch                                  = var.repo_branch
-    flaskapp_service                             = base64encode(local.flaskapp_service)
-    nginx_conf                                   = base64encode(local.nginx_conf)
-    nginx_api_proxy_params                       = base64encode(local.nginx_api_proxy_params)
-    secret_name_flask                            = var.secret_name_flask
-    secret_name_cloudflare_origin_certificate    = var.secret_name_cloudflare_origin_certificate
-    secret_name_cloudflare_private_key           = var.secret_name_cloudflare_private_key
-    secret_version_flask                         = var.secret_version_flask
-    secret_version_cloudflare_origin_certificate = var.secret_version_cloudflare_origin_certificate
-    secret_version_cloudflare_private_key        = var.secret_version_cloudflare_private_key
+    domain                              = var.domain
+    app_path                            = var.app_path
+    repo_url                            = var.repo_url
+    repo_branch                         = var.repo_branch
+    flaskapp_service                    = base64encode(local.flaskapp_service)
+    cloudflared_service                 = base64encode(local.cloudflared_service)
+    nginx_conf                          = base64encode(local.nginx_conf)
+    nginx_api_proxy_params              = base64encode(local.nginx_api_proxy_params)
+    secret_name_flask                   = var.secret_name_flask
+    secret_version_flask                = var.secret_version_flask
+    secret_name_cloudflare_tunnel_token = var.secret_name_cloudflare_tunnel_token
   })
 
 
@@ -76,7 +75,8 @@ resource "google_compute_instance" "default" {
     subnetwork = google_compute_subnetwork.default.id
 
     access_config {
-      # Include this section to give the VM an external IP address
+      # External IP for outbound traffic only (apt, git, the tunnel). No firewall
+      # rule allows inbound web traffic; it all arrives through the tunnel.
     }
   }
 
@@ -87,8 +87,8 @@ resource "google_compute_instance" "default" {
 
   depends_on = [
     google_secret_manager_secret_iam_member.vm_flask_secret_accessor,
-    google_secret_manager_secret_iam_member.vm_cloudflare_origin_cert_secret_accessor,
-    google_secret_manager_secret_iam_member.vm_cloudflare_private_key_secret_accessor,
+    google_secret_manager_secret_iam_member.vm_cloudflare_tunnel_token_accessor,
+    google_secret_manager_secret_version.cloudflare_tunnel_token,
   ]
 }
 
@@ -106,36 +106,6 @@ resource "google_compute_firewall" "allow_iap_ssh" {
 
   source_ranges = ["35.235.240.0/20"] # Google's IAP TCP forwarding IP range
   target_tags   = ["ssh"]
-
-  depends_on = [google_compute_network.vpc_network]
-}
-
-resource "google_compute_firewall" "flask" {
-  name    = "flask-app-firewall"
-  network = google_compute_network.vpc_network.id
-
-  allow {
-    protocol = "tcp"
-    ports    = ["80", "443"]
-  }
-  source_ranges = [
-    # Only allows access from Cloudflare's IPs
-    "173.245.48.0/20",
-    "103.21.244.0/22",
-    "103.22.200.0/22",
-    "103.31.4.0/22",
-    "141.101.64.0/18",
-    "108.162.192.0/18",
-    "190.93.240.0/20",
-    "188.114.96.0/20",
-    "197.234.240.0/22",
-    "198.41.128.0/17",
-    "162.158.0.0/15",
-    "104.16.0.0/13",
-    "104.24.0.0/14",
-    "172.64.0.0/13",
-    "131.0.72.0/22"
-  ]
 
   depends_on = [google_compute_network.vpc_network]
 }
