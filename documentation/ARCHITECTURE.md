@@ -70,4 +70,4 @@ The backend reads the Markdown files on every request, so editing a file locally
 3. In-browser utility logic keeps interactions fast at the cost of a heavier client.
 4. File-share and message-board state is local to one process/disk, which rules out horizontal scaling.
 
-Open issues are tracked in [Runbook → Known Issues](./RUNBOOK.md#known-issues).
+Open issues are tracked in [Known Issues](./KNOWN-ISSUES.md).

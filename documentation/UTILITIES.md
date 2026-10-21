@@ -52,12 +52,6 @@ Each inner list is a group of alternatives (any one satisfies it); every group m
 - UI: add courses by code, drag and drop between or within semesters, move the selected course earlier/later, edit its credits, remove it, clear all, and import/export the plan as JSON. Import rejects unknown courses and invalid credit values.
 - Edges are SVG, redrawn in a `requestAnimationFrame` batch; selecting a course highlights its edges.
 
-### Known Gaps
-
-1. Catalog and seed data may be incomplete or outdated.
-2. Edits live in memory only; reloading loses them unless exported.
-3. No tests for the scheduler parser or graph logic.
-
 ## File Share
 
 Temporary file sharing keyed by an access key: files are encrypted at rest and expire after 10 minutes.
@@ -98,12 +92,6 @@ Errors: `400` missing key/file, `403` decryption failed, `404` no matching file,
 
 The UI uploads one or more files under one key (the first upload sends `clearExisting=true`, so a new batch replaces the key's previous files), lists the key's files, and downloads them individually or all at once.
 
-### Known Gaps
-
-1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
-2. Expiry is request-driven; idle files linger until the next file-share request.
-3. Storage is local to one VM, and no user accounts or ownership exist.
-
 ## Message Board
 
 Anonymous board where messages expire 30 seconds after posting.
@@ -141,4 +129,4 @@ The page loads messages on mount, after posting, and on "Reload Board" (no polli
 2. Add the page in `frontend/src/pages/` and its logic/API client in `frontend/src/lib/<name>/`.
 3. Add a card in `Utilities.svelte` and the route to the suggestions list in `NotFound.svelte`.
 4. Add backend routes under `/api/<name>/` in `backend/app/views.py` (logic in its own module) with tests in `backend/tests/`.
-5. Document it here.
+5. Document it here, and list any gaps in [Known Issues](./KNOWN-ISSUES.md#utilities).

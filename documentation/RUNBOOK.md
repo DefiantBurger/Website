@@ -75,28 +75,6 @@ The key is wrong, the files expired (10 minutes), the VM was replaced, or someon
 
 `cloudflared` isn't connected. Check `systemctl status cloudflared` and its journal. Right after a VM replacement, the startup script may still be running (`/var/log/startup-script.log`). A replaced VM also serves 502 until a release is deployed.
 
-## Known Issues
-
-### Backend
-
-1. No uptime monitoring (`/api/health/` exists, but nothing polls it).
-
-### Frontend
-
-1. `Home.svelte` shows hard-coded placeholder "Featured Projects" instead of using `/api/projects/`.
-2. `src/app.css` ends with leftover Vite template styles (from `body { margin: 0; }` onward) that reference undefined variables (`--heading`, `--text-h`); `src/lib/Counter.svelte` is unused template code.
-3. `NotFound.svelte` route suggestions omit `/utilities/message-board`.
-4. `index.html` title is still `personal-website-frontend`.
-5. No frontend tests (scheduler logic is the best first target).
-
-### Infrastructure
-
-1. Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking. It contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. GCS).
-2. No monitoring or alerting.
-3. Deploys auto-run on every green push to `main`. Adding required reviewers to the `production` environment would gate them.
-
-Utility-specific gaps are listed per utility in [Utilities](./UTILITIES.md).
-
 ## Secrets
 
 1. Never commit secrets or secret-bearing files (`.env`, `*.tfstate`).
@@ -110,4 +88,4 @@ When changing behavior, check that:
 - [ ] Route and API tables in [Implementation](./IMPLEMENTATION.md) match `router.ts` and `views.py`.
 - [ ] Utility contracts and limits in [Utilities](./UTILITIES.md) match the code constants.
 - [ ] [Deployment](./DEPLOYMENT.md) matches the Terraform files, `startup.sh.tftpl`, `deploy.sh.tftpl`, and `.github/workflows/deploy.yaml`.
-- [ ] Known issues above are still open.
+- [ ] [Known Issues](./KNOWN-ISSUES.md) are still open.
