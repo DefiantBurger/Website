@@ -16,6 +16,7 @@ def log_request_info():
 
 if __name__ == "__main__":
 	port = int(os.getenv("PORT", "5000"))
+	# Any other FLASK_ENV value starts no server.
 	env = os.getenv("FLASK_ENV", "production")
 
 	if env == "development":

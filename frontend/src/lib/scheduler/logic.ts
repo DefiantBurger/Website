@@ -8,6 +8,7 @@ interface ComputeGraphParams {
   semesterToIndex: Record<string, number>;
 }
 
+/** Pick the earliest-scheduled course instance that can satisfy the requirement. */
 function chooseBestRequirementCourse(
   requirement: Requirement,
   courseIdsByName: Record<string, string[]>,
@@ -63,6 +64,10 @@ function buildCourseIdsByName(
   return grouped;
 }
 
+/**
+ * Build prerequisite edges and each course's progress (satisfied groups / groups
+ * not already met by precollege). Unscheduled requirements count as unmet.
+ */
 export function computeSchedulerGraph({
   coursesById,
   prereqsByCourseId,
@@ -129,6 +134,11 @@ export function computeSchedulerGraph({
   return { edges, requirementProgressByCourseId };
 }
 
+/**
+ * Reorder courses within each semester to reduce edge crossings: repeated
+ * forward and backward sweeps sort each column by the mean position of its
+ * neighbors (barycenter heuristic).
+ */
 export function detangleCourseOrder(
   semesterOrder: string[],
   columnCourseIds: Record<string, string[]>,

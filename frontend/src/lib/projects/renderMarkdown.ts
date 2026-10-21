@@ -8,6 +8,7 @@ import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
 
+// Diagnostics for checking that Mermaid fences survived the pipeline.
 export interface MarkdownRenderDebug {
   inputHasMermaidFence: boolean;
   transformedMermaidBlocks: number;
@@ -16,6 +17,7 @@ export interface MarkdownRenderDebug {
   htmlLength: number;
 }
 
+/** Replace ```mermaid code blocks with <div class="mermaid"> so Mermaid can render them after mount. */
 function rehypeMermaid(counter: { transformed: number }) {
   return function transformer(tree: any) {
     visit(tree, 'element', (node: any, index: number | undefined, parent: any) => {
@@ -58,6 +60,7 @@ function rehypeMermaid(counter: { transformed: number }) {
   };
 }
 
+// Default GitHub-style schema, plus the Mermaid div and language classes on code blocks.
 const sanitizeSchema: any = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), 'div'],

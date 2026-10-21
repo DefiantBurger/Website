@@ -1,188 +1,95 @@
 # Runbook
 
-## Purpose
+For deploys and VM access, see [Deployment](./DEPLOYMENT.md#deploying-changes).
 
-Operational procedures for routine maintenance, incident response, and documentation quality checks.
+## Verify Service Health
 
-## Standard Procedures
+```bash
+curl -I https://josephcicalese.com
+curl https://josephcicalese.com/api/projects/
+curl https://josephcicalese.com/api/fileshare/status/
+```
 
-### Content-Only Project Update (No Frontend Rebuild)
+On the VM:
 
-Use this when editing only project Markdown content.
+```bash
+sudo systemctl status flaskapp nginx cloudflared
+sudo journalctl -u flaskapp -n 200 --no-pager
+sudo journalctl -u cloudflared -n 100 --no-pager
+sudo tail -n 100 /var/log/startup-script.log
+```
 
-1. Edit project Markdown in backend content directory.
-2. Validate frontmatter and ensure `published: true`.
-3. Verify `GET /api/projects` and `GET /api/projects/:slug` responses.
-4. Refresh the project page.
+Then load `/`, `/projects`, and each `/utilities/*` page in a browser.
 
-Frontend project pages fetch content at runtime; content-only edits do not require a frontend rebuild.
+## Update Project Content
 
-### Full Application Update on VM
+Project pages fetch Markdown at runtime and Flask rereads the files on every request, so content edits need no rebuild or restart.
 
-1. Pull latest code on VM.
-2. Reinstall backend package dependencies.
-3. Build frontend with correct `VITE_BACKEND_URL`.
-4. Restart `flaskapp`.
-5. Reload/restart Nginx if config changed.
+1. Edit or add `backend/app/content/projects/<slug>.md` ([frontmatter](./IMPLEMENTATION.md#project-frontmatter)).
+2. Check locally: `curl http://localhost:5000/api/projects/<slug>/`.
+3. Push, then on the VM `cd /opt/personalwebsite && sudo git pull` (or reboot the VM).
 
-For full infrastructure refresh paths, use the deployment guide.
+## Incidents
 
-### Verify Service Health
+### Frontend reports "Expected JSON" or fails to load data
 
-1. `systemctl status flaskapp`
-2. `systemctl status nginx` and `systemctl status cloudflared`
-3. Check project and utility API endpoints with curl.
-4. Load root, projects, and utilities routes in browser.
+1. `curl -i` the endpoint (a `308` just means the trailing slash is missing). An HTML body usually means a `502` from Nginx because Flask is down, or a path outside `/api/` that hit the SPA fallback.
+2. Check `journalctl -u flaskapp` for exceptions.
+3. Confirm the build's `VITE_BACKEND_URL` matches the site's origin.
 
-## Incident Playbook
+### Project page shows "not found"
 
-### API Returns Non-JSON
+1. The file exists in `backend/app/content/projects/`.
+2. Its `slug` (or file name, if no slug) matches the URL.
+3. It isn't `published: false`.
 
-Symptoms:
+### File-share upload returns 503
 
-- frontend parse/load errors,
-- console errors for unexpected content type.
+- **"busy, try again"**: two transfers are already running (`MAX_CONCURRENT_TRANSFERS`). Retry shortly.
+- **"Not enough storage"**: eviction couldn't free room under the 1 GB cap. Check `GET /api/fileshare/status/`; wait for files to expire (10 minutes) or delete files from `/opt/personalwebsite/backend/instance/fileshare/` on the VM.
 
-Actions:
+### File-share download returns 404
 
-1. Curl endpoint and inspect headers/body.
-2. Validate Flask route behavior and returned file.
-3. Check Nginx proxy mapping for `/api/`.
+The key is wrong, the files expired (10 minutes), a VM reboot erased them, or someone uploaded a new batch with the same key, which replaces earlier files.
 
-### Project Page Missing
+### Site shows Cloudflare error 1033
 
-Symptoms:
+`cloudflared` isn't connected. Check `systemctl status cloudflared` and its journal. Right after a reboot or replacement, the startup script may still be running (`/var/log/startup-script.log`).
 
-- `/projects/:slug` renders not found.
-
-Actions:
-
-1. Confirm Markdown file exists.
-2. Confirm frontmatter `slug` matches URL.
-3. Confirm `published: true`.
-4. Re-test project detail API endpoint.
-
-### Utility Data Load Failure
-
-Actions:
-
-1. Confirm utility endpoints return 200 JSON.
-2. Validate utility data files are present/readable.
-3. Verify frontend backend URL target is correct.
-
-Utility-specific checks are documented in `UTILITIES.md`.
-
-### File Share Storage Saturation
-
-Symptoms:
-
-- upload requests return a 503 response,
-- storage status reports live usage at or near 1 GB after eviction.
-
-Actions:
-
-1. Call `GET /api/fileshare/status` to confirm live usage.
-2. Confirm the backend has already evicted the oldest active files.
-3. Wait for expired files to age out, or manually clear stale files from the backend instance fileshare directory if you need to recover capacity immediately.
-4. Re-check status until used storage falls below 1 GB.
-5. Retry the upload.
-
-### File Share Missing File
-
-Symptoms:
-
-- password lookup returns 404,
-- upload label already exists for another active file.
-
-Actions:
-
-1. Confirm the password is correct.
-2. Confirm the upload has not already expired after 10 minutes.
-3. If duplicate-label rejection is expected, choose a different password.
-
-## Known Issues and Recommended Fixes
+## Known Issues
 
 ### Backend
 
-1. 404 template is referenced but missing.
-   Fix: add `backend/app/templates/404.html`.
-2. Any unused secret injections (e.g., old DB URIs) should be removed.
-   Fix: remove unused secret config from deployment and rotate exposed values.
-3. No automated backend tests.
-   Fix: add pytest startup smoke + route tests.
+1. Production installs ignore `uv.lock` (see [Boot-Time Deployment](./DEPLOYMENT.md#known-issue-boot-time-deployment)).
+2. No `/api/health` endpoint or uptime monitoring.
 
 ### Frontend
 
-1. `frontend/src/app.css` includes a duplicate legacy style region.
-   Fix: consolidate to one stylesheet structure.
-2. About and Contact are placeholders.
-   Fix: replace with final content and metadata.
-3. Project cards include placeholder/hard-coded content in some pages.
-   Fix: render from canonical data source.
-4. No frontend utility/UI test suite.
-   Fix: add Vitest + Testing Library tests.
-
-### Utilities
-
-1. Utility-specific data and behavior risks are tracked in `UTILITIES.md`.
-   Fix: keep each utility section current with known gaps and mitigations.
+1. `Home.svelte` shows hard-coded placeholder "Featured Projects" instead of using `/api/projects/`.
+2. `src/app.css` ends with leftover Vite template styles (from `body { margin: 0; }` onward) that reference undefined variables (`--heading`, `--text-h`); `src/lib/Counter.svelte` is unused template code.
+3. `NotFound.svelte` route suggestions omit `/utilities/message-board`.
+4. `index.html` title is still `personal-website-frontend`.
+5. No frontend tests (scheduler logic is the best first target).
 
 ### Infrastructure
 
-1. Terraform local state files in repo.
-   Fix: migrate to remote encrypted backend and stop tracking local state.
-2. Secrets exposed in local state.
-   Fix: rotate exposed values and avoid plaintext secret values in state.
-3. Boot-time clone/build deployment model: re-deploys the tip of `main` as root on every reboot.
-   Fix: build and deploy releases from GitHub Actions. Details and plan in
-   `DEPLOYMENT.md` → "Known Issue: Boot-Time Deployment (Future Fix)".
-4. Hardening/observability baseline is incomplete.
-   Fix: tighten privileges/firewall and add monitoring/alerts.
+1. The boot-time clone-and-build model redeploys the tip of `main` as root on every reboot. Details and the planned GitHub Actions fix: [Deployment](./DEPLOYMENT.md#known-issue-boot-time-deployment).
+2. Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking. It contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. GCS).
+3. No monitoring or alerting.
 
-## Security and Secrets SOP
+Utility-specific gaps are listed per utility in [Utilities](./UTILITIES.md).
 
-1. Never commit secrets or secret-bearing artifacts.
-2. Rotate any exposed secret immediately.
-3. Re-run relevant deployment/app restart procedure after rotation.
-4. Keep service permissions and network access least-privileged.
-5. Provide `CLOUDFLARE_API_TOKEN` only through shell or CI secret environment for Terraform runs.
-6. Keep runtime secrets in Secret Manager and grant VM access only to required secrets.
+## Secrets
 
-## Documentation QA Checklist
+1. Never commit secrets or secret-bearing files (`.env`, `*.tfstate`).
+2. Rotate an exposed secret immediately in Secret Manager, then reboot the VM so it re-reads secrets. Rotating `flask-secret` invalidates current file-share files.
+3. Grant the VM access only to the secrets it needs.
 
-Use this list when updating docs:
+## Docs Checklist
 
-### Case Study Quality
+When changing behavior, check that:
 
-- [ ] Problem and scope are clear.
-- [ ] Architecture decisions include tradeoffs.
-- [ ] Outcomes are concrete and credible.
-- [ ] Next steps are specific and realistic.
-
-### Technical Accuracy
-
-- [ ] Route list matches router behavior.
-- [ ] API contracts match backend responses.
-- [ ] Utility-specific states and behavior details are correct.
-- [ ] Deployment flow matches Terraform/startup behavior.
-
-### Evidence and Artifacts
-
-- [ ] Architecture diagram is present/readable.
-- [ ] Utility examples are present for affected features.
-- [ ] Runtime Markdown + Mermaid flow is documented.
-- [ ] At least one real project Markdown example is represented.
-
-### Operations Readiness
-
-- [ ] Content-only update SOP validated.
-- [ ] Incident steps are actionable.
-- [ ] Secret rotation guidance is current.
-- [ ] Known issues list is reviewed/prioritized.
-
-### Final Editorial Pass
-
-- [ ] Cross-links are current.
-- [ ] Terminology is consistent.
-- [ ] Dates/commands are current.
-- [ ] Obsolete placeholders are removed.
+- [ ] Route and API tables in [Implementation](./IMPLEMENTATION.md) match `router.ts` and `views.py`.
+- [ ] Utility contracts and limits in [Utilities](./UTILITIES.md) match the code constants.
+- [ ] [Deployment](./DEPLOYMENT.md) matches the Terraform files and `startup.sh.tftpl`.
+- [ ] Known issues above are still open.

@@ -76,6 +76,7 @@ export async function fetchFileShareStatus(): Promise<FileShareStatus> {
 	return parseJsonResponse<FileShareStatus>(response);
 }
 
+/** Upload files one at a time; the first clears the key's existing files, so each call replaces the previous batch. */
 export async function uploadFileShare(
 	files: File | File[],
 	password: string,

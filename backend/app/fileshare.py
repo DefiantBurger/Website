@@ -1,3 +1,10 @@
+"""Temporary encrypted file storage keyed by an access key.
+
+Each file is a pair in `<instance>/fileshare/`: `<label>.json` (metadata) and
+`<label>.payload` (AES-GCM ciphertext). Further files under the same key use
+`<label>__2`, `<label>__3`, ... The label is an HMAC of the access key, so the
+key itself is never stored.
+"""
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -67,6 +74,7 @@ def build_label(password: str) -> str:
 
 @contextmanager
 def transfer_slot() -> Iterator[None]:
+	"""Hold one of MAX_CONCURRENT_TRANSFERS slots, or raise a 503 immediately if none is free."""
 	if not _transfer_slots.acquire(blocking=False):
 		raise FileShareError('The file share is busy right now; try again in a moment.', 503)
 	try:
@@ -195,6 +203,7 @@ def _remove_record(label: str, occurrence_index: int | None = None) -> None:
 
 
 def cleanup_expired_records(now: datetime | None = None) -> int:
+	"""Delete expired or unreadable records; returns how many were removed."""
 	root = _storage_root()
 	current_time = now or _now_utc()
 	deleted_count = 0
@@ -257,6 +266,7 @@ def get_storage_status() -> dict[str, int | bool]:
 
 
 def get_record_for_password(password: str, occurrence_index: int | None = None) -> FileShareRecord | None:
+	"""Return the key's record at `occurrence_index`, or its first record when None."""
 	label = build_label(password)
 	cleanup_expired_records()
 
@@ -311,6 +321,7 @@ def _sanitize_original_filename(filename: str) -> str:
 
 
 def _evict_oldest_records(required_free_bytes: int) -> int:
+	"""Delete records oldest-upload-first until at least `required_free_bytes` are freed; returns bytes freed."""
 	if required_free_bytes <= 0:
 		return 0
 
@@ -336,6 +347,11 @@ def _evict_oldest_records(required_free_bytes: int) -> int:
 
 
 def save_upload(uploaded_file: FileStorage, password: str, clear_existing: bool = False) -> FileShareRecord:
+	"""Encrypt and store a file under the key, evicting old files if over quota.
+
+	With `clear_existing`, the key's previous files are deleted first; otherwise the
+	file is appended at the next occurrence index.
+	"""
 	if not password.strip():
 		raise FileShareError('Access key is required.')
 	if uploaded_file.filename is None or not uploaded_file.filename.strip():

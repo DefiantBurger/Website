@@ -5,6 +5,7 @@ from flask_cors import CORS
 
 
 def create_app(test_config: dict | None = None, instance_path: str | None = None):
+	"""Build the app. `test_config` overrides config (including SECRET_KEY); `instance_path` relocates file-share storage."""
 	if instance_path is not None:
 		app = Flask(__name__, instance_path=instance_path)
 	else:

@@ -2,262 +2,119 @@
 
 ## Local Development
 
-### Prerequisites
-
-Install:
-
-- Python 3.11+
-- Node.js 22+
-- pnpm (Corepack recommended)
-
-### Backend Setup
+Prerequisites: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, pnpm (Corepack recommended).
 
 ```bash
-cd backend
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install .
-
-export SECRET_KEY="change-me"
-export FLASK_ENV=development
-export PORT=5000
-python main.py
+(cd backend && uv sync)          # creates backend/.venv with app + dev dependencies
+(cd frontend && pnpm install)
+./start-dev.sh
 ```
 
-Notes:
+`start-dev.sh` runs the backend (`backend/.venv/bin/python main.py`) and the Vite dev server together, stops both on Ctrl+C, and defaults these variables if unset:
 
-- `SECRET_KEY` is required; app startup fails without it.
-- `FLASK_ENV=development` enables Flask debug behavior.
-- Production startup path uses Waitress.
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `FLASK_ENV` | `development` | `development`: Flask debug server + CORS on `/api/*`. `production` (the default when running `main.py` directly): Waitress on `127.0.0.1`. |
+| `PORT` | `5000` | Backend port. |
+| `SECRET_KEY` | `local-dev-secret` | Required by the backend; also the file-share label pepper. |
+| `VITE_BACKEND_URL` | `http://localhost:$PORT` | Base URL the frontend uses for API calls. |
 
-### Frontend Setup
+`backend/main.py` also loads a `backend/.env` file if present.
+
+### Checks
 
 ```bash
-cd frontend
-pnpm install
-pnpm run dev
+cd backend && uv run pytest --cov=app    # also runs under python -m unittest
+cd frontend && pnpm run check            # svelte-check + tsc
+curl http://localhost:5000/api/projects/
 ```
 
-Optional backend target override:
-
-```bash
-export VITE_BACKEND_URL="http://localhost:5000"
-pnpm run dev
-```
-
-### Recommended Local Run Sequence
-
-1. Start backend on port 5000.
-2. Start frontend dev server.
-3. Load any utility route to validate API wiring.
-
-### Quick Health Checks
-
-```bash
-curl http://localhost:5000/api/projects
-```
-
-```bash
-cd frontend
-pnpm run check
-```
+Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet.
 
 ## Backend
 
-### Stack
+Dependencies (`backend/pyproject.toml`): Flask, Flask-CORS, Waitress, python-dotenv, PyYAML, cryptography.
 
-- Flask
-- Flask-CORS
-- Waitress
-- python-dotenv
+| File | Role |
+| --- | --- |
+| `main.py` | Loads `.env`, builds the app, logs each request, starts the dev server or Waitress based on `FLASK_ENV`. |
+| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at 101 MiB, enables CORS in development, registers the `views` blueprint, returns JSON 404s. |
+| `app/views.py` | All routes, project Markdown parsing, client-IP and Cloudflare-header helpers. |
+| `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
+| `app/messageboard.py` | Message sanitization, in-memory store, rate limiter. |
 
-Packaging/dependency metadata lives in `backend/pyproject.toml`.
+Data sources:
 
-### Entry and App Factory
-
-`backend/main.py`:
-
-- loads `.env` values,
-- builds app via `create_app()`,
-- logs request method/path/remote address,
-- starts Flask dev server or Waitress depending on environment.
-
-`backend/app/__init__.py`:
-
-- creates app,
-- configures CORS for `/api/*` when `FLASK_ENV=development` (the Vite dev server is cross-origin),
-- requires `SECRET_KEY`,
-- caps request bodies at 101 MiB (`MAX_CONTENT_LENGTH`),
-- registers routes blueprint,
-- defines 404 handler.
-
-### Routes
-
-Implemented in `backend/app/views.py`:
-
-- `GET /api/scheduler/*` utility endpoints
-- `GET /api/fileshare/status`
-- `POST /api/fileshare/upload`
-- `POST /api/fileshare/access`
-- `GET /api/messageboard/status`
-- `GET /api/messageboard/messages`
-- `POST /api/messageboard/messages`
-- `GET /api/projects`
-- `GET /api/projects/:slug`
-- `GET /static/<path:filename>`
-
-The file share routes rely on `backend/app/fileshare.py` for deterministic access-key
-labels, encrypted-at-rest payload storage, 10-minute expiry cleanup, and oldest-file
-eviction when the live-storage cap is reached.
-
-The message board routes rely on `backend/app/messageboard.py` for URL-safe allowlist
-sanitization, 30-second TTL in-memory storage, and sliding-window rate limiting.
-
-### Data Sources
-
-- `backend/app/static/json/*.json`: utility data files.
-- `backend/app/content/projects/*.md`: project metadata/body via frontmatter + Markdown.
+- `app/content/projects/*.md`: project write-ups (frontmatter + Markdown).
+- `app/static/json/course_data.json`, `physics_courses.json`: scheduler catalog and default plan.
+- `instance/fileshare/`: file-share uploads (created at runtime, gitignored).
 
 ## Frontend
 
-### Stack
-
-- Svelte 5
-- TypeScript
-- Vite
-- `page` router
-
-Entry point is `frontend/src/main.ts`; global styles are in `frontend/src/app.css`.
+Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles are in `src/app.css`. `App.svelte` uses a wider layout for utility pages.
 
 ### Routing
 
-Routing is implemented in `frontend/src/lib/router.ts` (source of truth for client-side routes).
+`src/lib/router.ts` is a small History API router (no library). It strips trailing slashes, maps paths to page components, and exposes the stores `currentPage`, `currentRoute`, and `routeParams`. Use `navigate(path)` for client-side links.
 
-Client routes (canonical, client-normalized form — the router trims trailing slashes):
+| Path | Page |
+| --- | --- |
+| `/` | `Home.svelte` |
+| `/projects` | `Projects.svelte` |
+| `/projects/:slug` | `ProjectDetail.svelte` |
+| `/about` | `About.svelte` |
+| `/about-you` | `AboutYou.svelte` |
+| `/contact` | `Contact.svelte` |
+| `/utilities` | `Utilities.svelte` |
+| `/utilities/scheduler` | `UtilityScheduler.svelte` |
+| `/utilities/fileshare` | `UtilityFileShare.svelte` |
+| `/utilities/message-board` (alias `/utilities/messageboard`) | `UtilityMessageBoard.svelte` |
+| anything else | `NotFound.svelte` (suggests the closest route by Levenshtein distance) |
 
-- `/`
-- `/projects`
-- `/projects/:slug` (project detail)
-- `/about`
-- `/about-you` (additional about-person route used by the site)
-- `/contact`
-- `/utilities`
-- `/utilities/scheduler`
-- `/utilities/fileshare`
-- `/utilities/message-board`
+### Shared Components
 
-Utility routes live under `/utilities/*` and the router will normalize duplicate trailing slashes for client navigation.
+- `lib/components/Nav.svelte`: navigation with active states and a light/dark toggle (persisted in `localStorage`, applied via `data-theme`).
+- `lib/components/PageHeader.svelte`, `lib/components/StatusMessage.svelte`: page header and loading/error states.
 
-Stores:
+### API Clients
 
-- `currentPage`
-- `currentRoute`
-- `routeParams`
+Each feature has its own client under `src/lib/<feature>/`, all using `VITE_BACKEND_URL` (default `http://localhost:5000`) as the base URL. The production build sets it to `https://<domain>`.
 
-Note: Server API endpoints are implemented in the Flask backend and (for predictability) include trailing slashes in their route definitions (for example `/api/projects/` and `/api/projects/:slug/`). API examples in docs should prefer the canonical trailing-slash form to avoid unexpected redirects during development.
+### Project Rendering
 
-### App Shell and Navigation
+`lib/projects/renderMarkdown.ts` runs remark-parse → GFM → rehype → heading slugs and `#` anchors → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → HTML. `ProjectDetail.svelte` injects the HTML, then renders Mermaid diagrams with a theme matching the site theme.
 
-`frontend/src/App.svelte` initializes router and supports wider layout for utility-heavy routes.
+### About You
 
-`frontend/src/lib/components/Nav.svelte` provides:
-
-- route-aware active states,
-- client-side navigation,
-- dark/light theme toggle via `localStorage` + `data-theme`.
-
-`frontend/src/lib/components/PageHeader.svelte` and `frontend/src/lib/components/StatusMessage.svelte` provide shared page chrome for repeated header, loading, and error states across the main content pages.
-
-### Pages
-
-- `Home.svelte`
-- `Projects.svelte`
-- `ProjectDetail.svelte`
-- `About.svelte`
-- `Contact.svelte`
-- `Utilities.svelte`
-- utility-specific pages (for example `UtilityScheduler.svelte`)
-
-Utility-specific behavior, contracts, and API checks are documented in `UTILITIES.md`.
-
-## Project Content Rendering
-
-### API Client
-
-`frontend/src/lib/projects/api.ts`:
-
-- fetches project list and detail,
-- validates response content type,
-- provides useful parse error diagnostics.
-
-### Markdown Pipeline
-
-`frontend/src/lib/projects/renderMarkdown.ts`:
-
-- parses Markdown with GFM,
-- adds heading IDs and anchors,
-- converts Mermaid code fences into render targets,
-- sanitizes HTML before render.
-
-`frontend/src/pages/ProjectDetail.svelte` loads slug-based content and runs Mermaid post-render.
+`AboutYou.svelte` shows what the site can observe about a visit: server-side request context from `/api/about-you/request-context/` (IP, Cloudflare location headers, request headers), browser properties, and in-session navigation history from `lib/aboutYou/interactionStore.ts`. That history is kept in memory only and is never sent to the server.
 
 ## API Reference
 
-### Base URLs
+All routes are defined with a trailing slash; requests without one get a `308` redirect. JSON errors have the shape `{"error": "<message>"}`, and unknown paths return `404 {"error": "Not Found"}`.
 
-- Local: `http://localhost:5000`
-- Production: `https://<your-domain>`
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/projects/` | Published project metadata, highest `priority` first |
+| GET | `/api/projects/<slug>/` | One published project, including `markdown`; 404 if missing or unpublished |
+| GET | `/api/about-you/request-context/` | Request metadata for the About You page |
+| GET | `/api/scheduler/course-data/`, `/api/scheduler/default-schedule/` | Scheduler data ([Utilities](./UTILITIES.md#class-scheduler)) |
+| GET, POST | `/api/fileshare/...` | File share ([Utilities](./UTILITIES.md#file-share)) |
+| GET, POST | `/api/messageboard/...` | Message board ([Utilities](./UTILITIES.md#message-board)) |
+| GET | `/static/<path>` | Files under `backend/app/static/` |
 
-Frontend expects JSON endpoints to return `Content-Type` including `application/json`.
-
-### Project Endpoints
-
-#### GET `/api/projects`
-
-Returns published project metadata for card/index pages.
-
-```bash
-curl -s http://localhost:5000/api/projects | jq .
-```
-
-#### GET `/api/projects/:slug`
-
-Returns one published project payload including Markdown body.
-
-```bash
-curl -s http://localhost:5000/api/projects/frontend-runtime-markdown | jq .
-```
-
-### Project Frontmatter Contract
+### Project Frontmatter
 
 ```yaml
 ---
-title: "Readable title"
-slug: "url-slug"
+title: "Readable title"        # default: slug in Title Case
+slug: "url-slug"               # default: file name without .md
 summary: "Short card summary"
-date: "YYYY-MM-DD"
+priority: 20                   # integer; higher sorts first; not returned by the API
 tags: ["Tag1", "Tag2"]
 repo: "https://..."
-demo: "https://..."
-published: true
+demo: "https://..."            # empty string to omit
+published: true                # default: true; set false to hide
 ---
 ```
 
-Note: this project uses an internal numeric `priority` meta-field instead of a `date` to determine list ordering. Add `priority: <integer>` to frontmatter for projects you want surfaced earlier. The `priority` value is used by the backend for sorting (higher = shown earlier) and is not exposed in API responses.
-
-### Error Expectations
-
-1. Unknown slug returns 404.
-2. Non-JSON responses should be treated as client errors.
-3. Utility endpoint failures return non-2xx and surface in UI.
-
-For utility-specific endpoint contracts and examples, see `UTILITIES.md`.
-
-## Implementation Gaps and Next Fixes
-
-1. Add backend `templates/404.html` to satisfy configured error handler.
-2. Add route-level SPA 404 handling.
-3. Clean duplicate legacy region in `frontend/src/app.css`.
-4. Add backend pytest route tests and frontend Vitest/Svelte Testing Library coverage.
-5. Remove any unused secret injections (e.g., DB URIs) from deployment configuration.
+API responses contain `slug`, `title`, `summary`, `tags`, `repo`, `demo`, `published`, plus `markdown` on the detail route.

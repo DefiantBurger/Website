@@ -1,6 +1,8 @@
 #!/bin/bash
 
-exec > >(tee /dev/console | tee -a /var/log/startup-script.log) 2>&1
+# google_metadata_script_runner already forwards stdout to the serial console,
+# so only tee to the local log file to avoid every line appearing twice.
+exec > >(tee -a /var/log/startup-script.log) 2>&1
 set -euo pipefail
 
 echo "===== Startup Script Begin ====="
@@ -107,6 +109,13 @@ mkdir -p /etc/cloudflared
 	umask 077
 	echo "TUNNEL_TOKEN=$(fetch_secret_value "${secret_name_cloudflare_tunnel_token}" "latest")" > /etc/cloudflared/tunnel.env
 )
+
+# quic-go (used by cloudflared) wants ~7 MiB UDP buffers; the Debian default caps them at 208 KiB.
+cat > /etc/sysctl.d/99-cloudflared.conf <<'EOF'
+net.core.rmem_max=7500000
+net.core.wmem_max=7500000
+EOF
+sysctl -p /etc/sysctl.d/99-cloudflared.conf
 
 printf "%s" "${cloudflared_service}" | base64 --decode > /etc/systemd/system/cloudflared.service
 systemctl daemon-reload

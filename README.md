@@ -1,41 +1,23 @@
-# Personal Website Documentation
+# Personal Website
 
-This documentation set has been compacted into five canonical documents to reduce overlap and maintenance burden.
+Svelte + Vite frontend, Flask API backend, deployed by Terraform to a single GCP VM behind a Cloudflare Tunnel. Hosts project write-ups (runtime Markdown) and interactive utilities.
 
-## Document Map
+## Quick Start
 
-- [Architecture](./documentation/ARCHITECTURE.md)
-- [Implementation](./documentation/IMPLEMENTATION.md)
-- [Utilities](./documentation/UTILITIES.md)
-- [Deployment](./documentation/DEPLOYMENT.md)
-- [Runbook](./documentation/RUNBOOK.md)
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, and pnpm.
 
-## Scope
+```bash
+(cd backend && uv sync)
+(cd frontend && pnpm install)
+./start-dev.sh   # backend on :5000, Vite dev server on :5173
+```
 
-These docs describe the current repository state on `main`, including:
+## Documentation
 
-- system behavior and architecture,
-- local development and implementation details,
-- utility-specific behavior and data contracts,
-- deployment and VM refresh workflow,
-- operations procedures, incidents, and known issues.
-
-## Reading Paths
-
-### New Contributor
-
-1. Read [Architecture](./documentation/ARCHITECTURE.md).
-2. Read [Implementation](./documentation/IMPLEMENTATION.md#local-development).
-3. Use [Utilities](./documentation/UTILITIES.md) for utility behavior and utility APIs.
-
-### Deployment / Infra Changes
-
-1. Read [Deployment](./documentation/DEPLOYMENT.md).
-2. Use [VM Update Playbook](./documentation/DEPLOYMENT.md#vm-update-playbook).
-3. Use [Runbook Service Health](./documentation/RUNBOOK.md#verify-service-health).
-
-### Production Maintenance
-
-1. Start with [Runbook](./documentation/RUNBOOK.md).
-2. Use [Incident Playbook](./documentation/RUNBOOK.md#incident-playbook).
-3. Use [Known Issues and Recommended Fixes](./documentation/RUNBOOK.md#known-issues-and-recommended-fixes).
+| Document | Covers |
+| --- | --- |
+| [Architecture](./documentation/ARCHITECTURE.md) | Topology, stack, runtime flows, security boundaries |
+| [Implementation](./documentation/IMPLEMENTATION.md) | Local development, testing, backend/frontend structure, API reference |
+| [Utilities](./documentation/UTILITIES.md) | Scheduler, File Share, and Message Board behavior and APIs |
+| [Deployment](./documentation/DEPLOYMENT.md) | Terraform resources, secrets, VM bootstrap, deploy procedures |
+| [Runbook](./documentation/RUNBOOK.md) | Health checks, routine procedures, incidents, known issues |

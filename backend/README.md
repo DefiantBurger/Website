@@ -1,47 +1,11 @@
 # Backend
 
-Minimal developer guide for the backend Flask application.
-
-Prerequisites
-
- - Python 3.11+
- - A virtual environment named `.venv` is recommended for local development
-
-Quick start (recommended)
+Flask API. `pyproject.toml` is the dependency manifest; `uv.lock` pins versions.
 
 ```bash
-cd backend
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install .
-
-export SECRET_KEY="change-me"
-export FLASK_ENV=development
-export PORT=5000
-python main.py
+uv sync                                  # create .venv with app + dev dependencies
+SECRET_KEY=dev FLASK_ENV=development uv run main.py
+uv run pytest --cov=app                  # tests (also runnable with python -m unittest discover -s tests)
 ```
 
-Notes
-
-- The project `pyproject.toml` is the canonical dependency manifest.
-- The app expects `SECRET_KEY` to be set; startup will fail without it.
-
-API
-
-- Project list: `GET /api/projects/`
-- Project detail: `GET /api/projects/:slug/`
-
-Testing
-
-Run the test suite using `pytest` (recommended) or the standard library `unittest`:
-
-```bash
-# Run pytest with coverage
-uv run pytest --cov=app --cov-report=term-missing
-
-# Or run using standard library unittest
-uv run python -m unittest discover -s tests
-```
-
-For more, see the top-level `documentation/IMPLEMENTATION.md`.
+`SECRET_KEY` is required; startup fails without it. See [Implementation](../documentation/IMPLEMENTATION.md) for structure and the API reference.

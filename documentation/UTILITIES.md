@@ -1,57 +1,36 @@
 # Utilities
 
-## Purpose
-
-This document tracks utility-specific behavior, APIs, and operational notes.
-
-Current utility:
-
-- Class Scheduler (`/utilities/scheduler`)
-- File Share (`/utilities/fileshare`)
-- Message Board (`/utilities/message-board`)
-
-As more utilities are added, each utility should get its own section under this document.
-
-## Utility Architecture Pattern
-
-Utilities follow the same pattern:
-
-1. Route is mounted under `/utilities/<name>` in frontend router.
-2. Utility-specific state and logic live in `frontend/src/lib/<utility>/`.
-3. Optional API endpoints are exposed from backend under `/api/<utility>/...`.
-4. Utility data contracts are documented in this file.
+| Utility | Route | Frontend | Backend |
+| --- | --- | --- | --- |
+| [Class Scheduler](#class-scheduler) | `/utilities/scheduler` | `lib/scheduler/`, `UtilityScheduler.svelte` | static JSON via `views.py` |
+| [File Share](#file-share) | `/utilities/fileshare` | `lib/fileshare/`, `UtilityFileShare.svelte` | `app/fileshare.py` |
+| [Message Board](#message-board) | `/utilities/message-board` | `lib/messageboard/`, `UtilityMessageBoard.svelte` | `app/messageboard.py` |
 
 ## Class Scheduler
 
-### Summary
+Semester planner that validates prerequisites and draws them as a dependency graph.
 
-Interactive semester planning with prerequisite validation and dependency graph visualization.
+### API
 
-### Route
-
-- `/utilities/scheduler`
-
-### Data Sources
-
-Backend APIs:
-
-- `GET /api/scheduler/default-schedule`
-- `GET /api/scheduler/course-data`
+- `GET /api/scheduler/default-schedule/` → `backend/app/static/json/physics_courses.json`
+- `GET /api/scheduler/course-data/` → `backend/app/static/json/course_data.json`
 
 ### Data Model
 
-Schedule shape:
+Schedule (semester key order is display order; `precollege` holds credit already earned and is not shown as a column):
 
 ```json
 {
   "semesters": {
     "precollege": ["MATH 221", "E C E 210"],
-    "fall24": ["MATH 222", "CHEM 103"]
+    "fall24": ["MATH 222", "CHEM 103", "PHYSICS 499[3]"]
   }
 }
 ```
 
-Catalog record shape:
+A `[n]` suffix picks the credit count for a variable-credit course.
+
+Catalog record (`credits`, or `min_credits`/`max_credits` for variable-credit courses):
 
 ```json
 {
@@ -64,274 +43,102 @@ Catalog record shape:
 }
 ```
 
-Course entries may include explicit credits in bracket notation:
+Each inner list is a group of alternatives (any one satisfies it); every group must be satisfied. `concurrent_prereqs` groups may also be satisfied in the same semester.
 
-- `COURSE NAME[4]`
+### Behavior
 
-### Core Behavior
-
-`frontend/src/lib/scheduler/data.ts`:
-
-- validates JSON content type,
-- parses optional credit suffix notation,
-- expands entries into unique instance IDs,
-- builds requirements per course instance.
-
-`frontend/src/lib/scheduler/logic.ts`:
-
-- computes edge status (`valid`, `invalid`, `concurrent`),
-- computes requirement progress,
-- supports detangling semester order via barycenter sweeps.
-
-Progress model:
-
-$$
-\text{progress} = \frac{\text{satisfied requirement groups}}{\text{expected requirement groups}}
-$$
-
-### Interaction Model
-
-- drag and drop across semesters,
-- drop-above reordering,
-- move earlier/later controls,
-- remove selected course,
-- clear-all with confirmation,
-- import/export schedule JSON with validation.
-
-Validation behavior:
-
-- malformed credit syntax raises explicit errors,
-- invalid/out-of-range credits are rejected,
-- unknown imported course codes fail import.
-
-### Rendering
-
-- SVG edges between course cards,
-- invalid edges emphasized,
-- selection highlights related edges,
-- redraw batching via `requestAnimationFrame`.
-
-### API Checks
-
-```bash
-curl -s http://localhost:5000/api/scheduler/default-schedule | jq .
-curl -s http://localhost:5000/api/scheduler/course-data | jq .
-```
+- `lib/scheduler/data.ts` loads both files, parses credit suffixes, and gives each course occurrence a unique ID (`<course>__<n>`) so repeated courses are distinct.
+- `lib/scheduler/logic.ts` matches each requirement group to the earliest-scheduled option and marks the edge `valid` (earlier semester), `concurrent` (same semester, allowed), or `invalid`. A course's progress is satisfied groups ÷ groups not already met by `precollege`. Auto-detangle reorders cards within semesters using barycenter sweeps to reduce edge crossings.
+- UI: add courses by code, drag and drop between or within semesters, move the selected course earlier/later, edit its credits, remove it, clear all, and import/export the plan as JSON. Import rejects unknown courses and invalid credit values.
+- Edges are SVG, redrawn in a `requestAnimationFrame` batch; selecting a course highlights its edges.
 
 ### Known Gaps
 
-1. Seed data may be incomplete/inaccurate.
-2. User edits are in-memory unless exported manually.
-3. No persistence API or user profile support.
-
-### Next Improvements
-
-1. Add localStorage persistence fallback.
-2. Add persistence API design for saved plans.
-3. Add scheduler-specific test coverage for parser, validation, and interaction flows.
-
-## Adding a New Utility
-
-When adding another utility:
-
-1. Add route under `/utilities/<name>` in `frontend/src/lib/router.ts`.
-2. Add page component in `frontend/src/pages/`.
-3. Add utility library folder in `frontend/src/lib/<name>/`.
-4. Add backend endpoints under `/api/<name>/...` when needed.
-5. Add a new section in this file documenting data contracts, behavior, and checks.
+1. Catalog and seed data may be incomplete or outdated.
+2. Edits live in memory only; reloading loses them unless exported.
+3. No tests for the scheduler parser or graph logic.
 
 ## File Share
 
-### Summary
+Temporary file sharing keyed by an access key: files are encrypted at rest and expire after 10 minutes.
 
-Access-key-labeled local file sharing with automatic expiration, encryption at rest,
-and backend-enforced storage limits.
+### API
 
-### Route
+All `POST` bodies are `multipart/form-data`. `password` is the access key.
 
-- `/utilities/fileshare`
-
-### Data Sources
-
-Backend APIs:
-
-- `GET /api/fileshare/status`
-- `POST /api/fileshare/upload`
-- `POST /api/fileshare/access`
-
-### Data Model
-
-Upload request fields:
-
-```text
-file: multipart file payload
-password: share password
-```
-
-Upload response shape:
+| Method | Path | Fields | Response |
+| --- | --- | --- | --- |
+| GET | `/api/fileshare/status/` | | storage status (below) |
+| POST | `/api/fileshare/upload/` | `file`, `password`, `clearExisting` (`"true"` deletes the key's existing files first) | upload record (below) |
+| POST | `/api/fileshare/list/` | `password` | `{"files": [{occurrenceIndex, originalFilename, sizeBytes, uploadedAt, expiresAt}]}`; 404 if none |
+| POST | `/api/fileshare/access/` | `password`, `occurrenceIndex` (default `1`) | file as an `application/octet-stream` attachment |
 
 ```json
-{
-  "label": "HMAC-SHA256 of the access key, keyed with SECRET_KEY",
-  "originalFilename": "report.pdf",
-  "sizeBytes": 123456,
-  "uploadedAt": "2026-05-01T12:00:00+00:00",
-  "expiresAt": "2026-05-01T12:10:00+00:00",
-  "downloadEndpoint": "/api/fileshare/access"
-}
+// status
+{ "activeFileCount": 3, "usedBytes": 8451200, "maxFileBytes": 100000000,
+  "maxTotalBytes": 1000000000, "retentionSeconds": 600, "uploadsPaused": false }
+
+// upload
+{ "label": "<hex HMAC>", "originalFilename": "report.pdf", "sizeBytes": 123456,
+  "uploadedAt": "2026-05-01T12:00:00+00:00", "expiresAt": "2026-05-01T12:10:00+00:00",
+  "downloadEndpoint": "/api/fileshare/access/" }
 ```
 
-Status response shape:
+Errors: `400` missing key/file, `403` decryption failed, `404` no matching file, `413` file over 100 MB, `503` storage full or too many concurrent transfers.
 
-```json
-{
-  "activeFileCount": 3,
-  "usedBytes": 8451200,
-  "maxFileBytes": 100000000,
-  "maxTotalBytes": 1000000000,
-  "retentionSeconds": 600,
-  "uploadsPaused": false
-}
-```
-
-### Core Behavior
+### Behavior
 
 `backend/app/fileshare.py`:
 
-- derives a deterministic label from the access key with HMAC-SHA256 keyed by `SECRET_KEY`
-  (a server-side pepper), so labels on disk can't be brute-forced without the server secret,
-- derives a per-file encryption key from the same access key using a random salt and
-  a memory-hard KDF,
-- encrypts payload bytes with an authenticated cipher before writing them to disk,
-- stores uploads on local disk under the backend instance path,
-- supports multiple files per label and will replace previous files when an upload
-  is performed with the same access key (first file in a batch clears prior files),
-- enforces a 100 MB per-file cap,
-- allows at most 2 uploads/downloads at a time (`MAX_CONCURRENT_TRANSFERS`); further requests get
-  `503` "busy, try again" instead of running the 1 GB VM out of memory,
-- always serves downloads as `application/octet-stream` with `nosniff`, ignoring the MIME type the
-  uploader supplied, so an uploaded HTML file can never render on the site's origin,
-- deletes expired files older than 10 minutes,
-- when accepting an upload would exceed the 1 GB live-storage cap the backend will
-  evict oldest active files (by upload time) until enough space is freed; if eviction
-  cannot free sufficient space the upload is rejected.
+- **Lookup.** The label is HMAC-SHA256(access key) keyed with `SECRET_KEY`, so stored labels can't be brute-forced without the server secret. A key can hold several files, stored as `<label>.json`/`.payload`, `<label>__2.json`/`.payload`, and so on, in `instance/fileshare/`.
+- **Encryption.** Each file gets a random salt; scrypt (n=2¹⁴, r=8, p=1) derives an AES-256-GCM key from the access key.
+- **Limits.** 100 MB per file, 1 GB total. If an upload would exceed the total, the oldest files are evicted; if that still isn't enough, the upload fails with `503`. At most 2 uploads/downloads run at once (`MAX_CONCURRENT_TRANSFERS`), because each holds about 3× the file size in RAM on a 1 GB VM.
+- **Expiry.** Expired files are deleted during file-share API requests, not on a schedule.
+- **Downloads** ignore the uploader's MIME type and send `X-Content-Type-Options: nosniff`, so uploaded HTML can't execute on the site's origin.
 
-### Interaction Model
-
-- upload one or more files with an access key together,
-- retrieve files by entering the same access key,
-- keep payloads encrypted at rest while still allowing label-based lookup by access key,
-- show live storage status in the UI; the backend will evict oldest files as needed
-  to accommodate new uploads when storage is near capacity,
-- surface backend errors for expired files and quota failures when eviction cannot
-  free enough space.
-
-### API Checks
-
-```bash
-curl -s http://localhost:5000/api/fileshare/status | jq .
-```
+The UI uploads one or more files under one key (the first upload sends `clearExisting=true`, so a new batch replaces the key's previous files), lists the key's files, and downloads them individually or all at once.
 
 ### Known Gaps
 
-1. Storage is local to the VM and is not shared across instances.
-2. Expiration cleanup is request-driven, so inactive files are removed on the next file-share API call.
-3. No authentication or user-scoped ownership model exists yet.
-
-### Next Improvements
-
-1. Stream uploads and downloads instead of holding whole files in memory. Today a transfer
-   reads the full file, then encrypts or decrypts it in one piece, using roughly 3x the file size
-   in RAM. That is why concurrent transfers are capped at 2. Encrypting in fixed-size chunks
-   (e.g. AES-GCM per 1 MB chunk with per-chunk nonces, written straight to disk) would keep memory
-   near-constant per transfer and allow raising or removing the cap.
-2. Add scheduled background cleanup so expiration does not depend on traffic.
-3. Add backend tests for upload limits, eviction behavior, and quota recovery.
-4. Consider a future shared storage backend if multi-VM deployment becomes necessary.
+1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
+2. Expiry is request-driven; idle files linger until the next file-share request.
+3. Storage is local to one VM, and no user accounts or ownership exist.
 
 ## Message Board
 
-### Summary
+Anonymous board where messages expire 30 seconds after posting.
 
-Anonymous ephemeral message board where messages automatically expire after around 30 seconds. Uses a strict URL-safe character allowlist for positive input sanitization to eliminate HTML, script, and server injection.
+### API
 
-### Route
+| Method | Path | Body | Response |
+| --- | --- | --- | --- |
+| GET | `/api/messageboard/messages/` | | `{messages, serverTime, retentionSeconds, totalActive}`, newest first |
+| POST | `/api/messageboard/messages/` | JSON or form: `{"text": "..."}` | `201` with the message |
+| GET | `/api/messageboard/status/` | | `{activeCount, retentionSeconds, maxMessageLength, maxMessages}` |
 
-- `/utilities/message-board` (alias: `/utilities/messageboard`)
+Message shape: `{"id": "<uuid4>", "text": "...", "createdAt": "<ISO 8601>", "expiresAt": "<ISO 8601>"}`.
 
-### Data Sources
+Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` rate limit.
 
-Backend APIs:
-
-- `GET /api/messageboard/messages/`
-- `POST /api/messageboard/messages/`
-- `GET /api/messageboard/status/`
-
-### Data Model
-
-Post request payload:
-
-```json
-{
-  "text": "Hello, world!"
-}
+```bash
+curl -s -X POST http://localhost:5000/api/messageboard/messages/ \
+  -H "Content-Type: application/json" -d '{"text":"Hello from curl!"}'
 ```
 
-Post response shape:
-
-```json
-{
-  "id": "c7a80fa4-1f7c-473d-9d48-6a56f916c68b",
-  "text": "Hello, world!",
-  "createdAt": "2026-09-11T20:45:00.000000+00:00",
-  "expiresAt": "2026-09-11T20:45:30.000000+00:00"
-}
-```
-
-Messages list response shape:
-
-```json
-{
-  "messages": [
-    {
-      "id": "c7a80fa4-1f7c-473d-9d48-6a56f916c68b",
-      "text": "Hello, world!",
-      "createdAt": "2026-09-11T20:45:00.000000+00:00",
-      "expiresAt": "2026-09-11T20:45:30.000000+00:00"
-    }
-  ],
-  "serverTime": "2026-09-11T20:45:05.123456+00:00",
-  "retentionSeconds": 30,
-  "totalActive": 1
-}
-```
-
-### Core Behavior
+### Behavior
 
 `backend/app/messageboard.py`:
 
-- Enforces a positive character allowlist: `^0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ,.-!/()=?`*;:_{}[]\|~` plus standard spaces and newlines.
-- Strips any character outside the allowlist (specifically `<, >, &, ", '` and any non-printable control characters or null bytes).
-- Collapses excessive blank lines and enforces a 280-character limit.
-- Rejects empty messages with HTTP 400.
-- Thread-safe in-memory store protected by `threading.Lock()` for Waitress multi-threaded production execution.
-- Messages automatically expire 30 seconds after creation (`MESSAGE_TTL_SECONDS = 30.0`). Expired messages are purged on every read and write.
-- Enforces an in-memory storage cap of 200 messages (evicts oldest when full).
-- Implements per-IP rate limiting (sliding window: max 5 messages per 10 seconds per IP) returning HTTP 429 when exceeded.
+- **Sanitizing.** Keeps only letters, digits, whitespace, and ``,.-!/()=?`*;:_{}[]\|~^``; everything else (including `<>&"'` and most control characters) is removed. Runs of 3+ newlines collapse to 2.
+- **Storage.** In-process memory behind a lock: up to 200 messages (oldest evicted), purged of expired messages on every read and write, and lost on restart.
+- **Rate limit.** 5 posts per 10 seconds per client IP (sliding window; `CF-Connecting-IP` in production). It is checked before validation, so rejected posts also count.
 
-`frontend/src/lib/messageboard/api.ts` & `frontend/src/pages/UtilityMessageBoard.svelte`:
+The page loads messages on mount, after posting, and on "Reload Board" (no polling) and renders text with Svelte interpolation, never `{@html}`.
 
-- Fetches active messages on page load or when the user clicks "Reload Board".
-- Terminal aesthetic matching the site's dark/light muted terminal theme.
-- Displays post timestamp and message text.
-- Safe rendering using standard Svelte text interpolation (never `{@html}`).
+## Adding a Utility
 
-### API Checks
-
-```bash
-curl -s http://localhost:5000/api/messageboard/status/ | jq .
-curl -s http://localhost:5000/api/messageboard/messages/ | jq .
-curl -s -X POST http://localhost:5000/api/messageboard/messages/ \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hello from curl!"}' | jq .
-```
+1. Add the route to `matchRoute()` in `frontend/src/lib/router.ts`, and to the wide-layout check in `App.svelte` if needed.
+2. Add the page in `frontend/src/pages/` and its logic/API client in `frontend/src/lib/<name>/`.
+3. Add a card in `Utilities.svelte` and the route to the suggestions list in `NotFound.svelte`.
+4. Add backend routes under `/api/<name>/` in `backend/app/views.py` (logic in its own module) with tests in `backend/tests/`.
+5. Document it here.

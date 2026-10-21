@@ -1,3 +1,5 @@
+// In-memory navigation history for the About You page. Lives only for this tab
+// and is never sent to the server.
 type InteractionState = {
   sessionStartedAt: string;
   previousRoute: string | null;

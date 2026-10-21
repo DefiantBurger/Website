@@ -32,6 +32,7 @@ _PROJECTS_CONTENT_DIR = Path(__file__).resolve().parent / 'content' / 'projects'
 
 
 def _resolve_client_ip() -> tuple[str, str]:
+	"""Return (ip, header it came from). Headers are trusted because the origin is only reachable via Cloudflare."""
 	cf_connecting_ip = request.headers.get('CF-Connecting-IP', '').strip()
 	if cf_connecting_ip:
 		return cf_connecting_ip, 'CF-Connecting-IP'
@@ -50,6 +51,7 @@ def _resolve_client_ip() -> tuple[str, str]:
 
 
 def _mask_ip(raw_ip: str) -> str:
+	"""Hide the host part: last octet for IPv4, last five hextets for IPv6."""
 	if not raw_ip:
 		return 'Unavailable'
 
@@ -109,6 +111,7 @@ def _cloudflare_geolocation() -> dict:
 
 
 def _parse_project_markdown(file_path: Path) -> tuple[dict, str]:
+	"""Split a file into (YAML frontmatter, Markdown body); files without frontmatter return ({}, text)."""
 	text = file_path.read_text(encoding='utf-8')
 
 	if not text.startswith('---\n'):
@@ -124,6 +127,7 @@ def _parse_project_markdown(file_path: Path) -> tuple[dict, str]:
 
 
 def _project_payload_from_file(file_path: Path) -> dict:
+	"""Build the API payload, filling defaults. Includes `markdown` and the internal `_priority`, which callers strip."""
 	meta, markdown = _parse_project_markdown(file_path)
 	slug = str(meta.get('slug') or file_path.stem)
 
@@ -213,6 +217,7 @@ def fileshare_status():
 
 @views.route('/api/fileshare/upload/', methods=['POST'])
 def fileshare_upload():
+	# Form fields: file, password, clearExisting ("true" replaces the key's existing files).
 	uploaded_file = request.files.get('file')
 	password = request.form.get('password', '')
 	clear_existing_str = request.form.get('clearExisting', 'false')
@@ -239,6 +244,7 @@ def fileshare_upload():
 
 @views.route('/api/fileshare/access/', methods=['POST'])
 def fileshare_access():
+	# Form fields: password, occurrenceIndex (which of the key's files; default 1).
 	password = request.form.get('password', '')
 	occurrence_index_str = request.form.get('occurrenceIndex', '1')
 	
@@ -294,6 +300,7 @@ def fileshare_list():
 
 @views.route('/api/about-you/request-context/', methods=['GET'])
 def about_you_request_context():
+	# Everything the server can see about this request, for the About You page.
 	raw_ip, ip_source = _resolve_client_ip()
 	geolocation = _cloudflare_geolocation()
 
@@ -335,7 +342,7 @@ def messageboard_messages():
 	return jsonify({
 		'messages': messages,
 		'serverTime': datetime.now(timezone.utc).isoformat(),
-		'retentionSeconds': 30,
+		'retentionSeconds': int(board_store.ttl_seconds),
 		'totalActive': len(messages),
 	})
 
@@ -344,6 +351,7 @@ def messageboard_messages():
 def messageboard_post_message():
 	raw_ip, _ = _resolve_client_ip()
 
+	# Rate limit before validating so rejected posts still count toward the limit.
 	if not board_rate_limiter.check_and_record(raw_ip):
 		return jsonify({'error': 'You are posting too quickly. Please wait a few seconds.'}), 429
 

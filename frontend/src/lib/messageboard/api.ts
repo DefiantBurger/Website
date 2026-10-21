@@ -1,3 +1,6 @@
+// How long messages stay on the board. Must match MESSAGE_TTL_SECONDS in backend/app/messageboard.py.
+export const MESSAGE_TTL_SECONDS = 60;
+
 const BACKEND_BASE_URL =
 	(import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:5000';
 

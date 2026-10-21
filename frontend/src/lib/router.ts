@@ -1,3 +1,5 @@
+// Minimal History API router: maps paths to page components and exposes the
+// result through stores that App.svelte renders.
 import { writable } from 'svelte/store';
 
 import Home from '../pages/Home.svelte';
@@ -20,11 +22,13 @@ export const routeParams = writable<Record<string, string>>({});
 type RouteMatch = {
   page: any;
   params: Record<string, string>;
+  // Route pattern recorded for the About You page's navigation history.
   routeVisitPath: string;
 };
 
 let isInitialized = false;
 
+/** Drop query, hash, and trailing slashes so each route has one canonical path. */
 function normalizePath(path: string): string {
   if (!path) {
     return '/';
@@ -139,7 +143,7 @@ export function initRouter() {
   isInitialized = true;
 }
 
-// Helper function for navigation
+/** Client-side navigation: pushes a history entry and renders the matching page. */
 export function navigate(path: string) {
   const canonicalPath = normalizePath(path);
 

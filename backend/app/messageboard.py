@@ -1,3 +1,4 @@
+"""Ephemeral anonymous message board. All state is in process memory and resets on restart."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ import threading
 import time
 import uuid
 
-MESSAGE_TTL_SECONDS = 30.0
+MESSAGE_TTL_SECONDS = 60.0
 MAX_MESSAGES_STORED = 200
 MAX_MESSAGE_LENGTH = 280
 RATE_LIMIT_WINDOW_SECONDS = 10.0
@@ -71,6 +72,8 @@ def sanitize_message_text(raw_text: object) -> str:
 
 
 class RateLimiter:
+	"""Thread-safe sliding-window limiter: at most `max_requests` per `window_seconds` per client IP."""
+
 	def __init__(self, window_seconds: float = RATE_LIMIT_WINDOW_SECONDS, max_requests: int = RATE_LIMIT_MAX_REQUESTS):
 		self.window_seconds = window_seconds
 		self.max_requests = max_requests
@@ -93,6 +96,7 @@ class RateLimiter:
 			timestamps.append(current_time)
 			self._requests[key] = timestamps
 
+			# Bound memory by dropping IPs with no recent requests once the map grows.
 			if len(self._requests) > 500:
 				self._requests = {k: v for k, v in self._requests.items() if v and v[-1] > cutoff}
 
@@ -104,6 +108,8 @@ class RateLimiter:
 
 
 class MessageBoardStore:
+	"""Thread-safe list of messages that expire after `ttl_seconds`; the oldest is dropped beyond `max_messages`."""
+
 	def __init__(self, ttl_seconds: float = MESSAGE_TTL_SECONDS, max_messages: int = MAX_MESSAGES_STORED):
 		self.ttl_seconds = ttl_seconds
 		self.max_messages = max_messages

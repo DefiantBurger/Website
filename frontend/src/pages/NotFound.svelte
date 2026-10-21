@@ -1,20 +1,33 @@
 <script lang="ts">
-  import { closest } from 'fastest-levenshtein';
-  import { navigate } from '../lib/router';
-  import { currentRoute } from '../lib/router';
+  import { closest } from "fastest-levenshtein";
+  import { navigate } from "../lib/router";
+  import { currentRoute } from "../lib/router";
 
-  const suggestions = ['/', '/projects', '/about', '/about-you', '/contact', '/utilities', '/utilities/scheduler', '/utilities/fileshare'];
+  const suggestions = [
+    "/",
+    "/projects",
+    "/about",
+    "/about-you",
+    "/contact",
+    "/utilities",
+    "/utilities/scheduler",
+    "/utilities/fileshare",
+    "/utilities/message-board"
+  ];
 
   $: suggestedRoute = closest($currentRoute, suggestions);
 
   function goHome() {
-    navigate('/');
+    navigate("/");
   }
 </script>
 
 <svelte:head>
   <title>404 - Not Found</title>
-  <meta name="description" content="The page you requested could not be found." />
+  <meta
+    name="description"
+    content="The page you requested could not be found."
+  />
 </svelte:head>
 
 <section class="not-found terminal-box">
@@ -22,7 +35,11 @@
   <p>The page you requested does not exist.</p>
   {#if suggestedRoute}
     <p class="suggestion">
-      Did you mean <a href={suggestedRoute} on:click|preventDefault={() => navigate(suggestedRoute)}>{suggestedRoute}</a>?
+      Did you mean <a
+        href={suggestedRoute}
+        on:click|preventDefault={() => navigate(suggestedRoute)}
+        >{suggestedRoute}</a
+      >?
     </p>
   {/if}
   <div class="actions">

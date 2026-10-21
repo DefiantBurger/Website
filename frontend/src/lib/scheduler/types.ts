@@ -1,3 +1,4 @@
+/** One prerequisite group: satisfied by any one of `courseChoices`. */
 export interface Requirement {
   courseChoices: string[];
   canBeConcurrent: boolean;
@@ -5,10 +6,13 @@ export interface Requirement {
 
 export interface CourseCatalogRecord {
   title: string;
+  // Fixed credits, or a min_credits..max_credits range for variable-credit courses.
   credits?: number;
   min_credits?: number;
   max_credits?: number;
+  // Every group must be satisfied; each group lists alternatives.
   prereqs: string[][];
+  // Groups that may also be satisfied in the same semester.
   concurrent_prereqs: string[][];
 }
 
@@ -16,6 +20,7 @@ export interface ScheduleFile {
   semesters: Record<string, string[]>;
 }
 
+/** One scheduled occurrence of a course; `id` is `<name>__<occurrenceIndex>`. */
 export interface CourseInstance {
   id: string;
   name: string;

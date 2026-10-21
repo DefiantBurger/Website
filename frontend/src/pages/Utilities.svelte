@@ -1,6 +1,7 @@
 <script lang="ts">
   import { navigate } from '../lib/router';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import { MESSAGE_TTL_SECONDS } from '../lib/messageboard/api';
 
   function openScheduler(): void {
     navigate('/utilities/scheduler/');
@@ -47,7 +48,7 @@
   <section class="terminal-box utility-card">
     <h2>Message Board</h2>
     <p>
-      Post short anonymous notes that self-destruct after around 30 seconds. Uses a strict URL-safe
+      Post short anonymous notes that self-destruct after around {MESSAGE_TTL_SECONDS} seconds. Uses a strict URL-safe
       allowlist for sanitization.
     </p>
     <button type="button" on:click={openMessageBoard}>Open Message Board</button>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import {
+		MESSAGE_TTL_SECONDS,
 		fetchActiveMessages,
 		postBoardMessage,
 		type BoardMessage,
@@ -50,7 +51,7 @@
 		try {
 			await postBoardMessage(trimmed);
 			messageText = '';
-			postSuccess = 'Message posted! It will remain active on the server for ~30s.';
+			postSuccess = `Message posted! It will remain active on the server for ~${MESSAGE_TTL_SECONDS}s.`;
 			await loadMessages();
 		} catch (err) {
 			postError = err instanceof Error ? err.message : 'Failed to post message.';
@@ -77,7 +78,7 @@
 	<title>Message Board</title>
 	<meta
 		name="description"
-		content="Ephemeral anonymous message board where notes vanish after around 30 seconds."
+		content={`Ephemeral anonymous message board where notes vanish after around ${MESSAGE_TTL_SECONDS} seconds.`}
 	/>
 </svelte:head>
 
@@ -87,7 +88,7 @@
 			<h1>> Utilities / Message Board</h1>
 			<p>
 				Post short anonymous notes to the public board. All messages are ephemeral and
-				automatically expire after ~30 seconds on the server. Reload anytime to refresh active notes.
+				automatically expire after ~{MESSAGE_TTL_SECONDS} seconds on the server. Reload anytime to refresh active notes.
 			</p>
 		</div>
 		<div class="header-actions">
@@ -102,7 +103,7 @@
 		<main class="feed-column">
 			<div class="feed-header">
 				<h2>> Active Broadcasts ({messages.length})</h2>
-				<span class="expiry-pill">[ ~30s TTL ]</span>
+				<span class="expiry-pill">[ ~{MESSAGE_TTL_SECONDS}s TTL ]</span>
 			</div>
 
 			{#if loading && messages.length === 0}
@@ -140,18 +141,18 @@
 			<form class="terminal-box compose-card" on:submit|preventDefault={handlePost}>
 				<div class="compose-header">
 					<h3>> Post Note</h3>
-					<span class="ttl-badge">30s TTL</span>
+					<span class="ttl-badge">{MESSAGE_TTL_SECONDS}s TTL</span>
 				</div>
 
 				<p class="compose-hint">
-					Broadcasts self-destruct after ~30s. Only URL-safe characters are permitted.
+					Broadcasts self-destruct after ~{MESSAGE_TTL_SECONDS}s. Only URL-safe characters are permitted.
 				</p>
 
 				<label for="board-message-input" class="sr-only">Message content</label>
 				<textarea
 					id="board-message-input"
 					bind:value={messageText}
-					placeholder="Type a note (vanishes in ~30s)..."
+					placeholder={`Type a note (vanishes in ~${MESSAGE_TTL_SECONDS}s)...`}
 					maxlength={MAX_LENGTH}
 					rows="4"
 					disabled={isPosting}

@@ -1,144 +1,69 @@
 # Architecture
 
-## Project Snapshot
-
-This repository is a full-stack personal website with:
-
-- a Svelte + Vite frontend,
-- a Flask backend API,
-- Terraform-managed deployment on a single GCP VM behind Cloudflare,
-- a utilities area for interactive tools.
-
-A major architectural improvement moved project write-ups to backend-hosted Markdown so project content can be updated without rebuilding frontend assets.
-
 ## Goals
 
-1. Present a clear, public portfolio and project narrative.
-2. Support multiple utilities under a shared site platform.
-3. Keep operations simple and low-cost.
-4. Support content-only updates without frontend rebuild/redeploy.
+1. Present a public portfolio and project write-ups.
+2. Host multiple interactive utilities on a shared platform.
+3. Keep operations simple and low-cost (one small VM).
+4. Update project content without rebuilding the frontend (write-ups are Markdown served by the backend).
 
 ## System Topology
 
 ```mermaid
 flowchart LR
-    User[Browser User] --> CF[Cloudflare]
+    User[Browser] --> CF[Cloudflare]
     CF -->|Tunnel| CFD[cloudflared on GCE VM]
     CFD --> Nginx[Nginx on 127.0.0.1:80]
     Nginx -->|/| FE[Svelte static build]
-    Nginx -->|/api/*| Flask[Flask app on 127.0.0.1:5000]
-    Flask --> JSON[Utility JSON files]
-    Flask --> MD[Project Markdown files]
+    Nginx -->|/api/*| Flask[Flask/Waitress on 127.0.0.1:5000]
+    Flask --> Files[Project Markdown + scheduler JSON]
+    Flask --> Disk[File share: encrypted files on local disk]
+    Flask --> Mem[Message board: in-memory store]
 ```
 
-## Stack by Layer
+## Stack
 
-### Frontend
-
-- Svelte 5
-- TypeScript
-- Vite
-- page.js client-side router
-
-Responsibilities:
-
-1. Render site routes and page content.
-2. Host utility experiences under `/utilities/*` routes.
-3. Fetch and render runtime Markdown project content.
-
-### Backend
-
-- Flask app factory + blueprint routing
-- Flask-CORS scoped to `/api/*`, enabled only in development (production is same-origin)
-- Waitress in production
-
-Responsibilities:
-
-1. Serve project and utility APIs.
-2. Serve published project metadata and Markdown body content.
-3. Enforce required environment configuration (`SECRET_KEY`).
-
-### Infrastructure
-
-- Terraform for network/VM/firewall/DNS/tunnel resources
-- Nginx for static hosting, API proxying, and security headers
-- systemd-managed Flask and `cloudflared` services
-- Cloudflare DNS + proxy + Tunnel (TLS terminates at Cloudflare)
+| Layer | Components |
+| --- | --- |
+| Frontend | Svelte 5, TypeScript, Vite, custom History API router, unified/remark/rehype Markdown pipeline, Mermaid |
+| Backend | Flask app factory + one blueprint, Waitress in production, Flask-CORS (development only), `cryptography` for file-share encryption |
+| Infrastructure | Terraform, GCE e2-micro (Debian 12), Nginx, systemd, Cloudflare DNS + Tunnel + Managed Transforms, Google Secret Manager |
 
 ## Repository Layout
 
-- `frontend/`: SPA shell, router, utility logic, project rendering pipeline.
-- `backend/`: API routes, utility/project data, project content files.
-- `deployment/`: Terraform and startup/service templates.
-- `documentation/`: architecture, implementation, deployment, and runbook docs.
+- `frontend/`: SPA, router, page components, per-utility logic in `src/lib/<utility>/`.
+- `backend/`: Flask app (`app/`), project Markdown (`app/content/projects/`), scheduler data (`app/static/json/`), tests.
+- `deployment/`: Terraform, VM startup script, systemd and Nginx templates.
+- `documentation/`: these docs.
+- `start-dev.sh`: runs backend and frontend together for local development.
 
-## Core Runtime Flows
+## Runtime Flows
 
-### Page Navigation
+**Navigation.** The router maps the URL to a page component; pages that need data fetch it on mount and switch among loading, error, and ready states. Unknown paths render a 404 page with a closest-match suggestion.
 
-1. Router maps URL to page component.
-2. Data-heavy routes (utility/project detail) trigger async loads.
-3. Components switch among loading, error, and ready states.
+**Utilities.** Each utility page calls its `/api/<utility>/` endpoints. Scheduler logic (prerequisite validation, graph layout) runs entirely in the browser; File Share and Message Board state lives on the backend. Details: [Utilities](./UTILITIES.md).
 
-### Utility Flow
+**Project content.**
 
-1. Frontend loads utility-specific data and state based on the route.
-2. Utility logic runs in-browser for responsive interactions.
-3. UI updates utility cards, controls, and visual overlays.
-4. Utility-specific details and contracts are documented in `UTILITIES.md`.
+1. `Projects.svelte` fetches `/api/projects/` (published metadata, sorted by `priority`).
+2. `ProjectDetail.svelte` fetches `/api/projects/<slug>/` (metadata + Markdown body).
+3. The Markdown is rendered client-side (GFM, heading anchors, sanitization), then Mermaid blocks are drawn.
 
-### Project Content Flow
-
-1. Frontend fetches `/api/projects` for card/index content.
-2. Detail route fetches `/api/projects/:slug` for Markdown payload.
-3. Renderer applies GFM parsing, heading anchors, and sanitization.
-4. Mermaid diagrams render client-side after DOM update.
-
-## Data and Content Strategy
-
-### Utility Data
-
-- Utility datasets and contracts are versioned per utility.
-- Frontend consumes utility data on demand via API.
-- Utility-specific persistence support is documented per utility.
-
-### Project Write-Ups
-
-- Source of truth is Markdown with YAML frontmatter in backend content directory.
-- `published` frontmatter controls public visibility.
-- Enables rapid editorial iteration without rebuilding frontend.
-
-Ordering and metadata notes:
-
-- Projects use an internal numeric `priority` frontmatter field to control list ordering. Higher `priority` values appear earlier in the `/api/projects` results. `priority` is read by the backend for ordering but is not returned in API responses to the frontend.
+The backend reads the Markdown files on every request, so editing a file changes the site without a rebuild or restart.
 
 ## Security and Trust Boundaries
 
-1. The origin has no open web ports: all traffic arrives through the Cloudflare Tunnel, and Nginx
-   and Flask listen only on loopback. Cloudflare-set headers (`CF-Connecting-IP`, location headers)
-   can therefore be trusted.
-2. CORS is enabled only in development, for `/api/*` routes.
-3. Markdown output is sanitized before frontend injection.
-4. Infra secrets are pulled from Secret Manager during provisioning.
-5. HTTPS is enforced at Cloudflare and with an Nginx redirect plus HSTS. Nginx also sets security headers
-   (CSP currently report-only).
+1. **No open web ports.** All traffic arrives through the Cloudflare Tunnel; Nginx and Flask listen only on loopback. Cloudflare-set headers (`CF-Connecting-IP`, visitor location headers) are therefore trustworthy.
+2. **HTTPS** is enforced by Cloudflare plus an Nginx redirect and HSTS. Nginx also sets security headers and rate-limits per visitor IP (CSP is currently report-only).
+3. **CORS** is enabled only when `FLASK_ENV=development`; production is same-origin.
+4. **Untrusted content.** Project Markdown is sanitized before injection; message-board text is allowlist-filtered and rendered as plain text; file-share downloads are always served as `application/octet-stream`.
+5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output.
 
-## Notable Tradeoffs
+## Tradeoffs
 
-1. Single VM simplicity vs managed-service scalability.
-2. Runtime Markdown flexibility vs additional client rendering complexity.
-3. Frontend-heavy utility logic for responsive UX vs increased client complexity.
+1. A single VM is simple and cheap but is a single failure domain.
+2. Runtime Markdown allows content-only updates at the cost of client-side rendering complexity.
+3. In-browser utility logic keeps interactions fast at the cost of a heavier client.
+4. File-share and message-board state is local to one process/disk, which rules out horizontal scaling.
 
-## Constraints
-
-1. Single-VM topology is a single failure domain.
-2. Some utility datasets may be static and drift without a refresh workflow.
-3. Utility persistence/auth is not yet standardized across tools.
-4. Test coverage is limited across backend and frontend.
-
-## Next Iterations
-
-1. Add `/api/health` and basic uptime monitoring.
-2. Add backend and frontend automated tests for critical flows.
-3. Introduce a shared persistence pattern for applicable utilities.
-4. Improve Terraform state/secrets posture for production hardening.
+Open issues are tracked in [Runbook → Known Issues](./RUNBOOK.md#known-issues).

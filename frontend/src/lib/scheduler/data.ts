@@ -22,6 +22,7 @@ async function parseJsonResponse<T>(response: Response, resourceName: string): P
   return (await response.json()) as T;
 }
 
+/** Split `"COURSE[n]"` into the course name and the requested credit count. */
 function parseCourseNameWithCredits(courseEntry: string): {
   baseCourse: string;
   requestedCredits?: number;
@@ -52,6 +53,7 @@ function parseCourseNameWithCredits(courseEntry: string): {
   return { baseCourse, requestedCredits };
 }
 
+/** Validate requested credits against the catalog; defaults to the lowest valid value. */
 function getCourseCredits(
   catalog: CourseCatalog,
   baseCourseName: string,
@@ -112,6 +114,10 @@ function toRequirements(catalog: CourseCatalog, courseName: string): Requirement
   return requirements;
 }
 
+/**
+ * Fetch the default schedule and catalog and expand them into course instances.
+ * `precollege` courses count as completed prerequisites but get no column.
+ */
 export async function loadSchedulerData(): Promise<SchedulerData> {
   const [scheduleResponse, catalogResponse] = await Promise.all([
     fetch(`${BACKEND_BASE_URL}/api/scheduler/default-schedule/`),
