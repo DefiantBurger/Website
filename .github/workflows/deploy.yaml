@@ -129,6 +129,15 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
+      # Without NumPy, gcloud's IAP tunnel uploads at a few KB/s (the 1.2 MB
+      # release took 4 minutes). Build the venv from gcloud's own interpreter so
+      # its Python version stays supported.
+      - name: Give gcloud NumPy for the IAP tunnel
+        run: |
+          "$(gcloud info --format='value(basic.python_location)')" -m venv "$RUNNER_TEMP/gcloud-python"
+          "$RUNNER_TEMP/gcloud-python/bin/pip" install --quiet --disable-pip-version-check numpy==2.5.3
+          echo "CLOUDSDK_PYTHON=$RUNNER_TEMP/gcloud-python/bin/python" >> "$GITHUB_ENV"
+
       # The deployer's only sudo right is this script (deployment/deploy.sh.tftpl).
       # It verifies the checksum, installs the release, and rolls back if the
       # health check fails.
