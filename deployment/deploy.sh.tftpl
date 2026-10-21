@@ -1,0 +1,127 @@
+#!/bin/bash
+# Installed as /usr/local/sbin/personalwebsite-deploy by startup.sh.tftpl.
+# The GitHub Actions deployer may run only this script with sudo, so treat every
+# argument and the tarball on stdin as untrusted.
+#
+#   personalwebsite-deploy <commit sha> <tarball sha256>  < release.tar.gz
+#   personalwebsite-deploy --rollback <commit sha>
+
+set -euo pipefail
+umask 022
+
+APP_PATH="${app_path}"
+RELEASES="$APP_PATH/releases"
+CURRENT="$APP_PATH/current"
+KEEP_RELEASES=5
+
+die() {
+	echo "personalwebsite-deploy: $*" >&2
+	exit 1
+}
+
+is_sha() {
+	[[ "$1" =~ ^[0-9a-f]{40}$ ]]
+}
+
+healthy() {
+	local _
+	for _ in $(seq 1 30); do
+		if curl -fsS -o /dev/null http://127.0.0.1:5000/api/health/ \
+			&& curl -fsS -o /dev/null http://127.0.0.1/; then
+			return 0
+		fi
+		sleep 1
+	done
+	return 1
+}
+
+# Point `current` at a release, atomically.
+activate() {
+	ln -sfn "$RELEASES/$1" "$CURRENT.new"
+	mv -T "$CURRENT.new" "$CURRENT"
+	systemctl restart flaskapp
+}
+
+# Switch to a release; if it fails the health check, switch back and fail.
+switch_to() {
+	local target="$1" previous=""
+	if [[ -L "$CURRENT" ]]; then
+		previous="$(basename "$(readlink "$CURRENT")")"
+	fi
+
+	activate "$target"
+	if healthy; then
+		echo "Now serving $target"
+		return 0
+	fi
+
+	echo "Release $target failed its health check" >&2
+	journalctl -u flaskapp -n 50 --no-pager >&2 || true
+	if [[ -n "$previous" && "$previous" != "$target" ]]; then
+		echo "Rolling back to $previous" >&2
+		activate "$previous"
+	fi
+	exit 1
+}
+
+# Keep the newest releases plus whatever `current` points at.
+prune() {
+	local active release
+	active="$(basename "$(readlink "$CURRENT")")"
+	ls -1t "$RELEASES" | tail -n "+$((KEEP_RELEASES + 1))" | while read -r release; do
+		if [[ "$release" != "$active" ]] && is_sha "$release"; then
+			rm -rf -- "$RELEASES/$release"
+		fi
+	done
+}
+
+[[ "$(id -u)" -eq 0 ]] || die "must run as root"
+mkdir -p "$RELEASES"
+
+if [[ "$${1:-}" == "--rollback" ]]; then
+	sha="$${2:-}"
+	is_sha "$sha" || die "usage: --rollback <40-char commit sha>"
+	[[ -f "$RELEASES/$sha/.complete" ]] || die "no release $sha in $RELEASES"
+	switch_to "$sha"
+	exit 0
+fi
+
+sha="$${1:-}"
+checksum="$${2:-}"
+is_sha "$sha" || die "first argument must be a 40-char commit sha"
+[[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || die "second argument must be a sha256 hex digest"
+
+release="$RELEASES/$sha"
+if [[ -f "$release/.complete" ]]; then
+	echo "Release $sha already exists; activating it"
+	switch_to "$sha"
+	prune
+	exit 0
+fi
+
+work="$(mktemp -d)"
+# Build in the final location (a venv records its absolute path), but remove it
+# unless it finishes; `current` doesn't point at it until switch_to.
+trap 'rm -rf -- "$work"; [[ -f "$release/.complete" ]] || rm -rf -- "$release"' EXIT
+
+cat > "$work/release.tar.gz"
+echo "$checksum  $work/release.tar.gz" | sha256sum --check --quiet - || die "checksum mismatch"
+
+rm -rf -- "$release"
+mkdir "$release"
+tar -xzf "$work/release.tar.gz" -C "$release" --no-same-owner --no-same-permissions
+[[ -f "$release/backend/main.py" && -f "$release/frontend/dist/index.html" && -f "$release/backend/requirements.txt" ]] \
+	|| die "tarball is missing backend/main.py, backend/requirements.txt or frontend/dist/index.html"
+
+# Hash-pinned wheels only: no sdist builds, nothing resolved beyond uv.lock.
+python3.11 -m venv "$release/backend/.venv"
+"$release/backend/.venv/bin/pip" install --quiet --disable-pip-version-check \
+	--require-hashes --only-binary :all: --no-deps -r "$release/backend/requirements.txt"
+
+# Root-owned and read-only to flaskapp.
+chown -R root:root "$release"
+chmod -R u+rwX,go+rX,go-w "$release"
+touch "$release/.complete"
+
+switch_to "$sha"
+prune

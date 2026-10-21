@@ -1,0 +1,147 @@
+# Tests every push and PR; on main, builds a release and deploys it to the VM.
+# See documentation/DEPLOYMENT.md#deploying-changes.
+name: Test and Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOMAIN: josephcicalese.com
+  GCE_INSTANCE: flask-vm
+  GCE_ZONE: us-central1-a
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Python version comes from backend/.python-version.
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          working-directory: backend
+      - run: uv sync --frozen
+      - run: uv run pytest --cov=app
+
+  test-frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # pnpm version comes from packageManager in frontend/package.json.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+  package:
+    needs: [ test-backend, test-frontend ]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      sha256: ${{ steps.tarball.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          working-directory: backend
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          VITE_BACKEND_URL="https://$DOMAIN" pnpm build
+
+      # The VM installs exactly these hash-pinned versions from uv.lock.
+      - name: Export backend requirements
+        working-directory: backend
+        run: uv export --frozen --no-dev --no-emit-project --format requirements-txt -o requirements.txt
+
+      - name: Create release tarball
+        id: tarball
+        run: |
+          mkdir -p release/backend release/frontend
+          cp backend/main.py backend/requirements.txt release/backend/
+          cp -r backend/app release/backend/
+          cp -r frontend/dist release/frontend/
+          find release -name __pycache__ -prune -exec rm -rf {} +
+          tar -czf release.tar.gz -C release backend frontend
+          echo "sha256=$(sha256sum release.tar.gz | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ github.sha }}
+          path: release.tar.gz
+          retention-days: 30
+          if-no-files-found: error
+
+  deploy:
+    needs: package
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # The Workload Identity provider only trusts this environment on main.
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-${{ github.sha }}
+
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      # The deployer's only sudo right is this script (deployment/deploy.sh.tftpl).
+      # It verifies the checksum, installs the release, and rolls back if the
+      # health check fails.
+      - name: Deploy release
+        env:
+          RELEASE_SHA256: ${{ needs.package.outputs.sha256 }}
+        run: |
+          gcloud compute ssh "$GCE_INSTANCE" \
+            --zone "$GCE_ZONE" \
+            --tunnel-through-iap \
+            --quiet \
+            --command "sudo /usr/local/sbin/personalwebsite-deploy $GITHUB_SHA $RELEASE_SHA256" \
+            < release.tar.gz
+
+      - name: Smoke test through Cloudflare
+        run: curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$DOMAIN/api/health/"

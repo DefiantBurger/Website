@@ -10,16 +10,10 @@ variable "app_path" {
   default     = "/opt/personalwebsite"
 }
 
-variable "repo_url" {
-  description = "Git repository URL used by VM startup bootstrap"
+variable "github_repository" {
+  description = "GitHub owner/repo allowed to deploy through Workload Identity Federation"
   type        = string
-  default     = "https://github.com/DefiantBurger/Website"
-}
-
-variable "repo_branch" {
-  description = "Git branch deployed by VM startup bootstrap"
-  type        = string
-  default     = "main"
+  default     = "DefiantBurger/Website"
 }
 
 variable "project_id" {

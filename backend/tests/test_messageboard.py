@@ -3,6 +3,7 @@ import unittest
 
 from app.messageboard import (
 	MAX_MESSAGE_LENGTH,
+	MESSAGE_TTL_SECONDS,
 	MessageBoardError,
 	MessageBoardStore,
 	RateLimiter,
@@ -194,7 +195,7 @@ class TestMessageBoardAPI(unittest.TestCase):
 		data = res.get_json()
 		self.assertIn('activeCount', data)
 		self.assertIn('retentionSeconds', data)
-		self.assertEqual(data['retentionSeconds'], 30)
+		self.assertEqual(data['retentionSeconds'], MESSAGE_TTL_SECONDS)
 
 	def test_post_via_form_data(self):
 		res = self.client.post('/api/messageboard/messages/', data={'text': 'Form data message'})

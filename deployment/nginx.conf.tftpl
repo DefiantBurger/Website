@@ -7,7 +7,7 @@ server_tokens off;
 server {
 	listen 127.0.0.1:80;
 	server_name ${domain};
-	root ${app_path}/frontend/dist;
+	root ${app_path}/current/frontend/dist;
 	index index.html;
 
 	client_max_body_size 1M;

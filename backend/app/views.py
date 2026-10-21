@@ -153,6 +153,12 @@ def _project_payload_from_file(file_path: Path) -> dict:
 		'_priority': priority_val,
 	}
 
+@views.route('/api/health/', methods=['GET'])
+def health():
+	"""Liveness check used by the deploy script and the CI smoke test."""
+	return jsonify({'status': 'ok'})
+
+
 @views.route('/static/<path:filename>')
 def static_files(filename):
 	return send_from_directory('static', filename)

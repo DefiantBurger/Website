@@ -35,6 +35,9 @@ locals {
     app_path = var.app_path
   })
   cloudflared_service = templatefile("${path.module}/cloudflared.service.tftpl", {})
+  deploy_script = templatefile("${path.module}/deploy.sh.tftpl", {
+    app_path = var.app_path
+  })
 }
 
 resource "google_service_account" "vm_runtime" {
@@ -56,11 +59,18 @@ resource "google_compute_instance" "default" {
     }
   }
 
+  metadata = {
+    # GitHub Actions deploys over IAP SSH as an OS Login user (see github_deploy.tf).
+    enable-oslogin = "TRUE"
+    # Publishes host keys so gcloud can verify them instead of trusting on first use.
+    enable-guest-attributes = "TRUE"
+  }
+
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
     domain                              = var.domain
     app_path                            = var.app_path
-    repo_url                            = var.repo_url
-    repo_branch                         = var.repo_branch
+    deploy_script                       = base64encode(local.deploy_script)
+    deployer_username                   = "sa_${google_service_account.github_deployer.unique_id}"
     flaskapp_service                    = base64encode(local.flaskapp_service)
     cloudflared_service                 = base64encode(local.cloudflared_service)
     nginx_conf                          = base64encode(local.nginx_conf)
@@ -75,7 +85,7 @@ resource "google_compute_instance" "default" {
     subnetwork = google_compute_subnetwork.default.id
 
     access_config {
-      # External IP for outbound traffic only (apt, git, the tunnel). No firewall
+      # External IP for outbound traffic only (apt, PyPI, the tunnel). No firewall
       # rule allows inbound web traffic; it all arrives through the tunnel.
     }
   }

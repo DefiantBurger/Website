@@ -1,6 +1,6 @@
 # Personal Website
 
-Svelte + Vite frontend, Flask API backend, deployed by Terraform to a single GCP VM behind a Cloudflare Tunnel. Hosts project write-ups (runtime Markdown) and interactive utilities.
+Svelte + Vite frontend, Flask API backend, on a single GCP VM (provisioned by Terraform) behind a Cloudflare Tunnel. GitHub Actions tests every push and deploys `main`. Hosts project write-ups (runtime Markdown) and interactive utilities.
 
 ## Quick Start
 

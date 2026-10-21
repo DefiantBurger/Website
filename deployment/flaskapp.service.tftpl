@@ -1,17 +1,27 @@
 [Unit]
 Description=Flask Application
 After=network.target
+# Nothing to run until GitHub Actions deploys the first release.
+ConditionPathExists=${app_path}/current/backend/main.py
 
 [Service]
 User=flaskapp
-WorkingDirectory=${app_path}/backend
+WorkingDirectory=${app_path}/current/backend
 EnvironmentFile=/etc/personalwebsite/secrets.env
 Environment="FLASK_ENV=production"
-ExecStart=${app_path}/backend/.venv/bin/python3 main.py
+Environment="PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite"
+ExecStart=${app_path}/current/backend/.venv/bin/python3 main.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+
+# Releases are root-owned and read-only; runtime data is the only writable path.
+ProtectSystem=strict
+ReadWritePaths=/var/lib/personalwebsite
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
 
 [Install]
 WantedBy=multi-user.target

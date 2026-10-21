@@ -29,7 +29,7 @@ cd frontend && pnpm run check            # svelte-check + tsc
 curl http://localhost:5000/api/projects/
 ```
 
-Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet.
+Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet. CI runs the same two checks on every push and pull request, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
 
 ## Backend
 
@@ -47,7 +47,7 @@ Data sources:
 
 - `app/content/projects/*.md`: project write-ups (frontmatter + Markdown).
 - `app/static/json/course_data.json`, `physics_courses.json`: scheduler catalog and default plan.
-- `instance/fileshare/`: file-share uploads (created at runtime, gitignored).
+- `instance/fileshare/`: file-share uploads in local development (created at runtime, gitignored). Production sets `PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite`.
 
 ## Frontend
 
@@ -94,6 +94,7 @@ All routes are defined with a trailing slash; requests without one get a `308` r
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | `/api/health/` | `{"status": "ok"}`; used by the deploy script and CI smoke test |
 | GET | `/api/projects/` | Published project metadata, highest `priority` first |
 | GET | `/api/projects/<slug>/` | One published project, including `markdown`; 404 if missing or unpublished |
 | GET | `/api/about-you/request-context/` | Request metadata for the About You page |

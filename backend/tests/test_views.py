@@ -21,6 +21,11 @@ class TestViewsAPI(unittest.TestCase):
 	def tearDown(self):
 		shutil.rmtree(self.temp_dir, ignore_errors=True)
 
+	def test_health(self):
+		res = self.client.get("/api/health/")
+		self.assertEqual(res.status_code, 200)
+		self.assertEqual(res.get_json(), {"status": "ok"})
+
 	def test_scheduler_course_data(self):
 		res = self.client.get("/api/scheduler/course-data/")
 		self.assertEqual(res.status_code, 200)

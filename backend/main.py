@@ -8,7 +8,8 @@ from app import create_app
 
 load_dotenv()
 
-app = create_app()
+# Production keeps runtime data outside the read-only release directory.
+app = create_app(instance_path=os.getenv("PERSONALWEBSITE_INSTANCE_PATH"))
 
 @app.before_request
 def log_request_info():

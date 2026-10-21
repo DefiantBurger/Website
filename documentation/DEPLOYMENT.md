@@ -1,6 +1,11 @@
 # Deployment
 
-Terraform in `deployment/` provisions everything. Always run it through `./tf.sh`, which fetches the Cloudflare API token first (see [Secrets](#secrets)).
+Provisioning and releases are separate:
+
+- **Terraform** in `deployment/` provisions the infrastructure and the VM. That happens rarely.
+- **GitHub Actions** (`.github/workflows/deploy.yaml`) tests every push. For pushes to `main`, it builds a release and deploys it to the VM (see [Deploying Changes](#deploying-changes)).
+
+Always run Terraform through `./tf.sh`, which fetches the Cloudflare API token first (see [Secrets](#secrets)).
 
 ```bash
 cd deployment
@@ -16,10 +21,13 @@ Versions (`versions.tf`): Terraform `>= 1.12.2, < 2.0.0`; providers `hashicorp/g
 | Area | Resources |
 | --- | --- |
 | Network | VPC `my-custom-mode-network`, subnet `my-custom-subnet` (`10.0.1.0/24`) |
-| Compute | `flask-vm`: e2-micro, Debian 12, runtime service account `flask-vm-runtime`, startup script from `startup.sh.tftpl` |
+| Compute | `flask-vm`: e2-micro, Debian 12, runtime service account `flask-vm-runtime`, OS Login and guest attributes enabled, startup script from `startup.sh.tftpl` |
 | Firewall | `allow-iap-ssh`: port 22 from IAP (`35.235.240.0/20`) only. No inbound web ports; the external IP is for outbound traffic only. |
 | Cloudflare | Remotely managed tunnel `personal-website` routing `${domain}` to `http://localhost:80`; proxied `@` CNAME to the tunnel; "Add visitor location headers" Managed Transform (used by About You) |
 | Secret Manager | `cloudflare-tunnel-token` secret + version; accessor IAM for the VM on it and on `flask-secret` |
+| GitHub deploys (`github_deploy.tf`) | Workload Identity pool `github-deploy` and provider `github-actions` (accepts only `${github_repository}`, `refs/heads/main`, environment `production`); service account `github-deployer` with `iap.tunnelResourceAccessor` and non-admin `compute.osLogin` on the instance, `iam.serviceAccountUser` on `flask-vm-runtime`, project `compute.viewer`; enables the IAM Credentials, IAP, OS Login, and STS APIs |
+
+Outputs `github_wif_provider` and `github_deployer_email` are the values for the GitHub repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA`.
 
 Because the VM only dials out to Cloudflare, the origin can't be reached directly or through another Cloudflare account; every request passes through this zone's WAF and rate-limit rules.
 
@@ -31,7 +39,7 @@ All have defaults in `variables.tf`:
 | --- | --- |
 | `domain` | `josephcicalese.com` |
 | `app_path` | `/opt/personalwebsite` |
-| `repo_url`, `repo_branch` | `https://github.com/DefiantBurger/Website`, `main` |
+| `github_repository` | `DefiantBurger/Website` (the repository allowed to deploy) |
 | `project_id`, `project_region`, `project_zone` | `personal-website-453120`, `us-central1`, `us-central1-a` |
 | `cloudflare_zone_id`, `cloudflare_account_id` | identifiers, not secrets |
 | `secret_name_flask`, `secret_version_flask` | `flask-secret`, `latest` |
@@ -45,7 +53,7 @@ All have defaults in `variables.tf`:
 | `cloudflare-tunnel-token` | Terraform (write-only, so not duplicated in state) | VM → `TUNNEL_TOKEN` in `/etc/cloudflared/tunnel.env` (mode 600) |
 | `cloudflare-api-token` | manually | `tf.sh` → `CLOUDFLARE_API_TOKEN` for the Cloudflare provider |
 
-The VM reads secrets at boot with its service account; no secret values pass through Terraform templates.
+The VM reads secrets on every boot with its service account, and restarts a service only if its secret changed. No secret values pass through Terraform templates. GitHub Actions holds no secrets: it authenticates through Workload Identity Federation, and its two repository variables are identifiers.
 
 `flask-secret` is also the pepper for file-share labels, so rotating it makes any current file-share files unreachable (they expire within 10 minutes anyway).
 
@@ -59,69 +67,84 @@ The Cloudflare API token needs these permissions (a 403 on one resource during `
 
 ## VM Bootstrap
 
-`startup.sh.tftpl` runs as root on **every** boot (logged to `/var/log/startup-script.log` and the serial console):
+`startup.sh.tftpl` runs as root at every boot (logged to `/var/log/startup-script.log` and the serial console). It provisions the VM only on the first boot. When that finishes, it writes `/var/lib/personalwebsite/.provisioned`.
 
-1. Remove `man-db`, `apt-get update`, install build tools, Python 3.11, git, Nginx, curl.
-2. Install Node 22 (NodeSource) and activate `pnpm@latest-10` via Corepack.
-3. Delete `app_path` and clone `repo_branch` of `repo_url` into it.
-4. Create `backend/.venv` and `pip install .`.
-5. `pnpm install --frozen-lockfile` and `pnpm build` with `VITE_BACKEND_URL=https://<domain>`.
-6. Create the `flaskapp` system user and give it ownership of `backend/`.
-7. Fetch `SECRET_KEY` from Secret Manager; install and start `flaskapp.service`.
-8. Install the Nginx config and restart Nginx.
-9. Install `cloudflared` from Cloudflare's apt repo, fetch the tunnel token, raise UDP buffer limits for QUIC (`/etc/sysctl.d/99-cloudflared.conf`), and start `cloudflared.service`.
+First boot:
+
+1. Remove `man-db`, `apt-get update`, install Python 3.11 (with `venv`), Nginx, curl.
+2. Create the `flaskapp` system user, `/opt/personalwebsite/releases` (root-owned), and `/var/lib/personalwebsite` (owned by `flaskapp`, mode 700).
+3. Install `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`. Install `/etc/sudoers.d/personalwebsite-deploy`, which lets the `github-deployer` OS Login user (`sa_<unique id>`) run that script, and nothing else, as root.
+4. Install the Nginx config and the `flaskapp` and `cloudflared` units, and enable them.
+5. Install `cloudflared` from Cloudflare's apt repo and raise UDP buffer limits for QUIC (`/etc/sysctl.d/99-cloudflared.conf`).
+
+Every boot:
+
+6. Fetch `SECRET_KEY` and the tunnel token from Secret Manager into `/etc/personalwebsite/secrets.env` and `/etc/cloudflared/tunnel.env`, and restart the matching service if a value changed.
+
+A fresh VM serves no app until a release is deployed (see [VM replacement](#deploying-changes)). `flaskapp.service` has a `ConditionPathExists` on the current release, so it stays idle until then.
+
+Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit and Nginx templates changes `metadata_startup_script`, which forces Terraform to replace the VM.
 
 ## Runtime on the VM
 
 - **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; update with `apt-get upgrade cloudflared`) holds the tunnel open and forwards to Nginx.
-- **Nginx** listens only on `127.0.0.1:80`. Cloudflare terminates visitor TLS and the tunnel encrypts the hop to the VM, so there is no origin certificate. It serves `frontend/dist` (SPA fallback to `index.html`) and proxies `/api/` to `127.0.0.1:5000`.
+- **Nginx** listens only on `127.0.0.1:80`. Cloudflare terminates visitor TLS and the tunnel encrypts the hop to the VM, so there is no origin certificate. It serves `/opt/personalwebsite/current/frontend/dist` (SPA fallback to `index.html`) and proxies `/api/` to `127.0.0.1:5000`.
   - Redirects plain-HTTP visitors (detected from `CF-Visitor`) to HTTPS.
   - Rate limit: 10 req/s per `CF-Connecting-IP`, burst 10 (no delay on `/api/fileshare/`).
   - Body limit: 1 MB, except 100 MB on `/api/fileshare/upload/`.
   - Headers: HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce the CSP, browse each page with the console open, fix or allow anything it reports, then rename `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
-- **`flaskapp`** (systemd, user `flaskapp`, `FLASK_ENV=production`) runs `backend/main.py` under Waitress on `127.0.0.1:5000`.
-- **File-share data** lives in `${app_path}/backend/instance/fileshare/`, so it is erased on every boot when the startup script deletes `app_path`.
+- **`flaskapp`** (systemd, user `flaskapp`, `FLASK_ENV=production`) runs `current/backend/main.py` under Waitress on `127.0.0.1:5000`. It is sandboxed with `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, and `NoNewPrivileges`, and can write only `/var/lib/personalwebsite`.
+- **File-share data** lives in `/var/lib/personalwebsite/fileshare/` (`PERSONALWEBSITE_INSTANCE_PATH`). It survives reboots and deploys, and files still expire after 10 minutes.
+
+### Release layout
+
+```
+/opt/personalwebsite/
+├── current -> releases/<commit sha>
+└── releases/<commit sha>/          root-owned, read-only to flaskapp; newest 5 kept
+    ├── .complete                   written once the release built successfully
+    ├── backend/{main.py,app/,requirements.txt,.venv/}
+    └── frontend/dist/
+```
+
+`personalwebsite-deploy <sha> <sha256> < release.tar.gz` does the following:
+
+1. Verify the checksum and extract the tarball into `releases/<sha>`.
+2. Create a venv and run `pip install --require-hashes --only-binary :all:` from `requirements.txt`, which CI exports from `uv.lock`.
+3. Swap `current` atomically and restart `flaskapp`.
+4. Poll `/api/health/` and Nginx for about 30 s. If the check fails, switch back to the previous release and exit 1.
+
 
 ## Deploying Changes
 
-| Change | Command (from `deployment/`) |
+| Change | How |
 | --- | --- |
-| Terraform config | `./tf.sh plan` then `./tf.sh apply` |
-| App code, full re-provision | `./tf.sh apply -replace=google_compute_instance.default` |
-| App code, keep the VM | Reboot it (`sudo reboot` over IAP SSH); the startup script re-clones and rebuilds. |
+| App code or content | Push to `main`. The workflow runs `test-backend` and `test-frontend`, then `package` and `deploy`. Pull requests run only the tests. |
+| Redeploy the tip of `main` | Actions → *Test and Deploy* → *Run workflow* on `main`. A release that already exists on the VM is reactivated without being rebuilt. |
+| Roll back | On the VM: `ls -t /opt/personalwebsite/releases`, then `sudo personalwebsite-deploy --rollback <sha>`. |
+| Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`) |
+| VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM. Then run the workflow on `main` to deploy a release. Until then the site shows Cloudflare 1033 or 502. |
 
-Push the commits first; the VM always deploys the tip of `repo_branch`. During either code deploy the site shows Cloudflare error 1033 until the startup script finishes and `cloudflared` reconnects. The VM's external IP may change on replacement; DNS doesn't depend on it.
+The pipeline:
 
-Afterwards, run the [health checks](./RUNBOOK.md#verify-service-health).
+1. **test-backend:** `uv sync --frozen` and `uv run pytest --cov=app`.
+2. **test-frontend:** `pnpm install --frozen-lockfile` and `pnpm check`. The pnpm version comes from `packageManager` in `frontend/package.json`.
+3. **package:**
+   - Build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`.
+   - Export hash-pinned backend requirements with `uv export --frozen --no-dev`.
+   - Tar `backend/{main.py,app,requirements.txt}` and `frontend/dist`, and upload the tarball as artifact `release-<sha>`.
+4. **deploy** (only on `main`, in the `production` environment, serialized by `concurrency`):
+   - Authenticate through Workload Identity Federation.
+   - Stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`.
+   - Run `curl` against `https://josephcicalese.com/api/health/`.
 
-For a quick hot fix without a reboot (the next boot overwrites it), on the VM:
+Actions are pinned to commit SHAs.
 
-```bash
-cd /opt/personalwebsite && sudo git pull
-sudo backend/.venv/bin/pip install ./backend                 # if dependencies changed
-(cd frontend && sudo VITE_BACKEND_URL=https://josephcicalese.com pnpm build)   # if frontend changed
-sudo systemctl restart flaskapp
-```
+Afterwards, if something looks wrong, run the [health checks](./RUNBOOK.md#verify-service-health).
 
-## Known Issue: Boot-Time Deployment
+### First-time setup
 
-**Status:** open. Planned fix: deploy through GitHub Actions.
-
-### Problems
-
-1. **Every boot redeploys.** GCE runs `metadata_startup_script` at every boot, so any reboot (including host maintenance and crash restarts) deletes `app_path` and re-clones the tip of `repo_branch`. An unplanned reboot can ship untested code, and anyone who compromises the GitHub repo gets code running on the VM at the next reboot.
-2. **Everything runs as root**, including the clone, `pip install .`, `pnpm install` (with package install scripts), and `curl https://deb.nodesource.com/setup_22.x | bash`.
-3. **Backend dependencies aren't locked in production.** `pip install .` resolves the `>=` ranges in `pyproject.toml` and ignores `uv.lock`. (The frontend uses `--frozen-lockfile`.)
-4. **The app user owns its code.** `chown -R flaskapp ${app_path}/backend` lets a compromised Flask process rewrite its own code.
-5. **Builds happen on the 1 GB production VM**, which needs a full Node toolchain, boots slowly, and installs an unpinned `pnpm@latest-10`.
-6. **Nothing runs tests before deploy.** `.github/workflows/deploy.yaml` is an incomplete, uncommitted stub.
-
-### Proposed Fix
-
-Separate provisioning the machine (rare, Terraform) from deploying a release (every push, GitHub Actions).
-
-1. **Provision once.** Trim the startup script to OS packages, users, Nginx, `cloudflared`, systemd units, and secrets, guarded by a marker file (e.g. `/var/lib/personalwebsite/provisioned`) so later boots only start services.
-2. **Test and build in CI** on push to `main`: a `test` job (`uv sync --frozen` + `pytest`; `pnpm install --frozen-lockfile` + `pnpm check`) and a `package` job that bundles `frontend/dist`, the backend source, and `uv.lock` into a tarball named after the commit SHA.
-3. **Deploy from CI.** Authenticate with Workload Identity Federation (`google-github-actions/auth`; no stored JSON key). Copy the tarball with `gcloud compute scp --tunnel-through-iap`, which needs `roles/iap.tunnelResourceAccessor` and OS Login (alternative: have the VM pull a pinned version from GCS). A root-owned `deploy.sh` on the VM extracts to `/opt/personalwebsite/releases/<sha>`, runs `uv sync --frozen --no-dev`, repoints the `/opt/personalwebsite/current` symlink, and restarts `flaskapp`; rollback is repointing the symlink. Optionally gate with a GitHub `production` environment requiring approval.
-4. **Fix ownership.** Make releases root-owned and read-only to `flaskapp`. Move runtime data to `/var/lib/personalwebsite` (the only path `flaskapp` can write) and add systemd hardening (`ProtectSystem=strict`, `ReadWritePaths=/var/lib/personalwebsite`, `NoNewPrivileges=yes`).
-5. **Tighten the supply chain.** With the frontend built in CI, the VM no longer needs Node, which removes `curl | bash`. Pin GitHub Actions to commit SHAs and pnpm via `packageManager` in `frontend/package.json`.
+1. `./tf.sh apply`. This creates the GitHub deploy resources (and replaces the VM when migrating from the old boot-time deploy).
+2. In GitHub → Settings → Environments, create `production` with no required reviewers and no branch restriction beyond `main`.
+3. In GitHub → Settings → Variables → Actions, set the repository variables `GCP_WIF_PROVIDER` (output `github_wif_provider`) and `GCP_DEPLOYER_SA` (output `github_deployer_email`).
+4. Run the workflow on `main`.

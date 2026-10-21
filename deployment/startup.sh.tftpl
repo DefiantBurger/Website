@@ -7,65 +7,85 @@ set -euo pipefail
 
 echo "===== Startup Script Begin ====="
 
-echo "[0/10] Pre-Setup: Removing man-db and cleaning up..."
-export DEBIAN_FRONTEND=noninteractive
-apt-get remove -y man-db
-apt-get autoremove -y
+# Provisioning runs on the first boot only. Releases are deployed by GitHub
+# Actions (deploy.sh.tftpl); later boots just refresh secrets, and the enabled
+# units start on their own.
+PROVISIONED_MARKER=/var/lib/personalwebsite/.provisioned
 
-echo "[1/10] Updating packages..."
-sudo apt-get update -yq
+if [[ ! -f "$PROVISIONED_MARKER" ]]; then
+	echo "[0/7] Pre-Setup: Removing man-db and cleaning up..."
+	export DEBIAN_FRONTEND=noninteractive
+	apt-get remove -y man-db
+	apt-get autoremove -y
 
-echo "[2/10] Installing base dependencies..."
-sudo apt-get install -yq \
-	build-essential \
-	python3.11 \
-	python3.11-venv \
-	python3 \
-	python3-pip \
-	rsync \
-	git \
-	tmux \
-	nginx \
-	curl \
-	ca-certificates \
-	gnupg
+	echo "[1/7] Updating packages..."
+	apt-get update -yq
 
-echo "[3/10] Verifying Python 3.11 runtime..."
-python3.11 --version
+	echo "[2/7] Installing base dependencies..."
+	apt-get install -yq \
+		python3.11 \
+		python3.11-venv \
+		python3 \
+		nginx \
+		curl \
+		ca-certificates \
+		gnupg
 
-echo "[4/10] Installing Node.js and enabling pnpm..."
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-sudo apt-get install -yq nodejs
-corepack enable
-corepack prepare pnpm@latest-10 --activate
+	echo "[3/7] Verifying Python 3.11 runtime..."
+	python3.11 --version
 
-echo "[5/10] Cloning application repository..."
-rm -rf ${app_path}
-git clone --branch ${repo_branch} --single-branch ${repo_url} ${app_path}
+	echo "[4/7] Creating backend runtime user and directories..."
+	if ! id -u flaskapp >/dev/null 2>&1; then
+		useradd --system --no-create-home --shell /usr/sbin/nologin flaskapp
+	fi
+	# Releases are root-owned; flaskapp can only write its runtime data.
+	install -d -m 755 -o root -g root ${app_path} ${app_path}/releases
+	install -d -m 700 -o flaskapp -g flaskapp /var/lib/personalwebsite
 
-echo "[6/10] Setting up backend virtual environment from pyproject..."
-cd ${app_path}/backend
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install .
-deactivate
+	echo "[5/7] Installing the release deploy script..."
+	printf "%s" "${deploy_script}" | base64 --decode > /usr/local/sbin/personalwebsite-deploy
+	chown root:root /usr/local/sbin/personalwebsite-deploy
+	chmod 755 /usr/local/sbin/personalwebsite-deploy
 
-echo "[7/10] Building frontend assets..."
-cd ${app_path}/frontend
-VITE_BACKEND_URL="https://${domain}" pnpm install --frozen-lockfile
-VITE_BACKEND_URL="https://${domain}" pnpm build
+	# The GitHub deployer logs in through OS Login without admin rights; this is its only sudo.
+	SUDOERS_TMP="$(mktemp)"
+	printf "%s ALL=(root) NOPASSWD: /usr/local/sbin/personalwebsite-deploy\n" "${deployer_username}" > "$SUDOERS_TMP"
+	visudo -cf "$SUDOERS_TMP"
+	install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/personalwebsite-deploy
+	rm -f "$SUDOERS_TMP"
 
-echo "[8/10] Creating backend runtime user and permissions..."
-if ! id -u flaskapp >/dev/null 2>&1; then
-	useradd --system --no-create-home --shell /usr/sbin/nologin flaskapp
+	echo "[6/7] Setting up Nginx reverse proxy and systemd units..."
+	printf "%s" "${nginx_api_proxy_params}" | base64 --decode > /etc/nginx/api_proxy_params.conf
+	printf "%s" "${nginx_conf}" | base64 --decode > /etc/nginx/sites-available/default
+	nginx -t
+
+	# flaskapp starts on the first deploy; its ConditionPathExists skips it until then.
+	printf "%s" "${flaskapp_service}" | base64 --decode > /etc/systemd/system/flaskapp.service
+
+	echo "[7/7] Installing Cloudflare Tunnel..."
+	mkdir -p --mode=0755 /usr/share/keyrings
+	curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg > /usr/share/keyrings/cloudflare-main.gpg
+	echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main" > /etc/apt/sources.list.d/cloudflared.list
+	apt-get update -yq
+	apt-get install -yq cloudflared
+
+	# quic-go (used by cloudflared) wants ~7 MiB UDP buffers; the Debian default caps them at 208 KiB.
+	cat > /etc/sysctl.d/99-cloudflared.conf <<'EOF'
+net.core.rmem_max=7500000
+net.core.wmem_max=7500000
+EOF
+	sysctl -p /etc/sysctl.d/99-cloudflared.conf
+
+	printf "%s" "${cloudflared_service}" | base64 --decode > /etc/systemd/system/cloudflared.service
+
+	systemctl daemon-reload
+	systemctl enable flaskapp nginx cloudflared
+else
+	echo "Already provisioned; refreshing secrets only."
 fi
-chown -R flaskapp:flaskapp ${app_path}/backend
 
-echo "[9/10] Creating systemd service for Flask app..."
-printf "%s" "${flaskapp_service}" | base64 --decode > /etc/systemd/system/flaskapp.service
-
-echo "[9.1/10] Fetching runtime secrets from Secret Manager..."
+# Every boot, so rotating a secret only needs a reboot.
+echo "Fetching runtime secrets from Secret Manager..."
 METADATA_HEADER="Metadata-Flavor: Google"
 ACCESS_TOKEN="$(curl -fsS -H "$METADATA_HEADER" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
 
@@ -78,49 +98,33 @@ fetch_secret_value() {
 	curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "$url" | python3 -c 'import base64,json,sys; print(base64.b64decode(json.load(sys.stdin)["payload"]["data"]).decode("utf-8"), end="")'
 }
 
-mkdir -p /etc/personalwebsite
-{
-	echo "SECRET_KEY=$(fetch_secret_value "${secret_name_flask}" "${secret_version_flask}")"
-} > /etc/personalwebsite/secrets.env
-chown root:flaskapp /etc/personalwebsite/secrets.env
-chmod 640 /etc/personalwebsite/secrets.env
+# Write a secrets file; restart the unit only if the contents changed, since
+# enabled units have already started with the previous file at this point.
+install_secret_file() {
+	local path="$1" owner="$2" mode="$3" unit="$4" content="$5"
+	local tmp
+	tmp="$(mktemp)"
+	printf "%s\n" "$content" > "$tmp"
+	chown "$owner" "$tmp"
+	chmod "$mode" "$tmp"
+	if [[ -f "$path" ]] && cmp -s "$tmp" "$path"; then
+		rm -f "$tmp"
+	else
+		mv "$tmp" "$path"
+		systemctl try-restart "$unit"
+	fi
+}
 
-echo "Enabling and starting flaskapp.service..."
-systemctl daemon-reload
-systemctl enable flaskapp
-systemctl start flaskapp
+mkdir -p /etc/personalwebsite /etc/cloudflared
+install_secret_file /etc/personalwebsite/secrets.env root:flaskapp 640 flaskapp \
+	"SECRET_KEY=$(fetch_secret_value "${secret_name_flask}" "${secret_version_flask}")"
+install_secret_file /etc/cloudflared/tunnel.env root:root 600 cloudflared \
+	"TUNNEL_TOKEN=$(fetch_secret_value "${secret_name_cloudflare_tunnel_token}" "latest")"
 
-echo "[10/10] Setting up Nginx reverse proxy..."
-printf "%s" "${nginx_api_proxy_params}" | base64 --decode > /etc/nginx/api_proxy_params.conf
-printf "%s" "${nginx_conf}" | base64 --decode > /etc/nginx/sites-available/default
-
-nginx -t
-systemctl restart nginx
-
-echo "[10.1/10] Installing and starting Cloudflare Tunnel..."
-mkdir -p --mode=0755 /usr/share/keyrings
-curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg > /usr/share/keyrings/cloudflare-main.gpg
-echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main" > /etc/apt/sources.list.d/cloudflared.list
-apt-get update -yq
-apt-get install -yq cloudflared
-
-mkdir -p /etc/cloudflared
-(
-	umask 077
-	echo "TUNNEL_TOKEN=$(fetch_secret_value "${secret_name_cloudflare_tunnel_token}" "latest")" > /etc/cloudflared/tunnel.env
-)
-
-# quic-go (used by cloudflared) wants ~7 MiB UDP buffers; the Debian default caps them at 208 KiB.
-cat > /etc/sysctl.d/99-cloudflared.conf <<'EOF'
-net.core.rmem_max=7500000
-net.core.wmem_max=7500000
-EOF
-sysctl -p /etc/sysctl.d/99-cloudflared.conf
-
-printf "%s" "${cloudflared_service}" | base64 --decode > /etc/systemd/system/cloudflared.service
-systemctl daemon-reload
-systemctl enable cloudflared
-systemctl restart cloudflared
-
+if [[ ! -f "$PROVISIONED_MARKER" ]]; then
+	systemctl restart nginx
+	systemctl start cloudflared
+	touch "$PROVISIONED_MARKER"
+fi
 
 echo "===== Startup Script Complete ====="
