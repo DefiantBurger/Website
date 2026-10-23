@@ -27,6 +27,8 @@ Versions (`versions.tf`): Terraform `>= 1.12.2, < 2.0.0`; providers `hashicorp/g
 | Secret Manager | `cloudflare-tunnel-token` secret + version; accessor IAM for the VM on it and on `flask-secret` |
 | GitHub deploys (`github_deploy.tf`) | Workload Identity pool `github-deploy` and provider `github-actions` (accepts only `${github_repository}`, `refs/heads/main`, environment `production`); service account `github-deployer` with `iap.tunnelResourceAccessor` and non-admin `compute.osLogin` on the instance, `iam.serviceAccountUser` on `flask-vm-runtime`, project `compute.viewer`; enables the IAM Credentials, IAP, OS Login, and STS APIs |
 
+Not managed by Terraform: the `status` CNAME to `statuspage.betteruptime.com` (Better Stack status page). It was added by hand in the Cloudflare dashboard and must stay **DNS only** (unproxied), or Better Stack can't serve the page.
+
 Outputs `github_wif_provider` and `github_deployer_email` are the values for the GitHub repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA`.
 
 Because the VM only dials out to Cloudflare, the origin can't be reached directly or through another Cloudflare account; every request passes through this zone's WAF and rate-limit rules.

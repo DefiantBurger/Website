@@ -69,14 +69,24 @@
       {/each}
     </ul>
 
-    <button
-      type="button"
-      class="theme-toggle"
-      on:click={toggleTheme}
-      aria-label="Toggle light and dark theme"
-    >
-      {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-    </button>
+    <div class="nav-actions">
+      <a
+        class="status-link"
+        href="https://status.josephcicalese.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Status
+      </a>
+      <button
+        type="button"
+        class="theme-toggle"
+        on:click={toggleTheme}
+        aria-label="Toggle light and dark theme"
+      >
+        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+      </button>
+    </div>
   </div>
 </nav>
 
@@ -125,6 +135,27 @@
     flex-wrap: wrap;
     margin-right: auto;
     margin-left: 1.5rem;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+  }
+
+  .status-link {
+    font-size: 0.8rem;
+    color: var(--color-text-primary);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    text-shadow: none;
+  }
+
+  .status-link:hover {
+    color: var(--color-text-hover);
+    border-bottom: 1px solid var(--color-text-primary);
+    text-shadow: none;
   }
 
   .theme-toggle {

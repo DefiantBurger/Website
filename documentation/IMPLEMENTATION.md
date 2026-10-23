@@ -73,7 +73,7 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles are in `src
 
 ### Shared Components
 
-- `lib/components/Nav.svelte`: navigation with active states and a light/dark toggle (persisted in `localStorage`, applied via `data-theme`).
+- `lib/components/Nav.svelte`: navigation with active states, a link to the external status page, and a light/dark toggle (persisted in `localStorage`, applied via `data-theme`).
 - `lib/components/PageHeader.svelte`, `lib/components/StatusMessage.svelte`: page header and loading/error states.
 
 ### API Clients

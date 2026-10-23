@@ -1,9 +1,5 @@
 # Known Issues
 
-## Backend
-
-1. No uptime monitoring or alerting (`/api/health/` exists, but nothing polls it).
-
 ## Frontend
 
 1. `Home.svelte` shows hard-coded placeholder "Featured Projects" instead of using `/api/projects/`.
@@ -14,6 +10,7 @@
 
 1. Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking. It contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. GCS).
 2. Deploys auto-run on every green push to `main`. Adding required reviewers to the `production` environment would gate them.
+3. The `status` CNAME for the Better Stack status page lives outside Terraform (see [Deployment](./DEPLOYMENT.md#resources)), so it won't show up in `plan` and could be lost if the zone is rebuilt.
 
 ## Utilities
 

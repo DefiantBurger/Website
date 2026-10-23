@@ -4,6 +4,8 @@ For deploys and VM access, see [Deployment](./DEPLOYMENT.md#deploying-changes).
 
 ## Verify Service Health
 
+Uptime is monitored externally by Better Stack (free plan), with a public status page at <https://status.josephcicalese.com/> (linked from the nav bar). Check it first; it shows when an outage started.
+
 ```bash
 curl -I https://josephcicalese.com
 curl https://josephcicalese.com/api/health/
