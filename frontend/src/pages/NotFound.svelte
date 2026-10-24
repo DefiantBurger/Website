@@ -1,50 +1,22 @@
 <script lang="ts">
-  import { closest } from "fastest-levenshtein";
-  import { navigate } from "../lib/router";
-  import { currentRoute } from "../lib/router";
+  import { closest } from 'fastest-levenshtein';
+  import { navigate, router, staticPaths } from '../lib/router.svelte';
 
-  const suggestions = [
-    "/",
-    "/projects",
-    "/about",
-    "/about-you",
-    "/contact",
-    "/utilities",
-    "/utilities/scheduler",
-    "/utilities/fileshare",
-    "/utilities/message-board"
-  ];
-
-  $: suggestedRoute = closest($currentRoute, suggestions);
-
-  function goHome() {
-    navigate("/");
-  }
+  const suggestedRoute = $derived(closest(router.path, staticPaths()));
 </script>
 
 <svelte:head>
   <title>404 - Not Found</title>
-  <meta
-    name="description"
-    content="The page you requested could not be found."
-  />
+  <meta name="description" content="The page you requested could not be found." />
 </svelte:head>
 
 <section class="not-found terminal-box">
   <h1>> 404</h1>
   <p>The page you requested does not exist.</p>
   {#if suggestedRoute}
-    <p class="suggestion">
-      Did you mean <a
-        href={suggestedRoute}
-        on:click|preventDefault={() => navigate(suggestedRoute)}
-        >{suggestedRoute}</a
-      >?
-    </p>
+    <p>Did you mean <a href={suggestedRoute}>{suggestedRoute}</a>?</p>
   {/if}
-  <div class="actions">
-    <button type="button" on:click={goHome}>Go Home</button>
-  </div>
+  <button type="button" onclick={() => navigate('/')}>Go Home</button>
 </section>
 
 <style>
@@ -57,27 +29,8 @@
     align-items: center;
   }
 
-  .not-found h1 {
+  h1 {
     margin: 0;
     font-size: 2.25rem;
-  }
-
-  .not-found p {
-    margin: 0;
-  }
-
-  .suggestion {
-    font-size: 1rem;
-  }
-
-  .suggestion a {
-    display: inline;
-  }
-
-  .actions {
-    display: flex;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-    justify-content: center;
   }
 </style>

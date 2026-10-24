@@ -1,39 +1,24 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import './app.css';
   import Nav from './lib/components/Nav.svelte';
-  import { currentPage, currentRoute, initRouter } from './lib/router';
+  import { initRouter, router } from './lib/router.svelte';
+  import { notFoundRoute, routes } from './lib/routes';
 
-  onMount(() => {
-    initRouter();
-  });
+  initRouter(routes, notFoundRoute);
+
+  const Page = $derived(router.route?.page);
 </script>
 
-<div id="app">
-  <Nav />
-  <main class="container" class:container-wide={$currentRoute.startsWith('/utilities/scheduler') || $currentRoute.startsWith('/utilities/fileshare') || $currentRoute.startsWith('/utilities/message-board') || $currentRoute.startsWith('/utilities/messageboard')}>
-    {#if $currentPage}
-      <svelte:component this={$currentPage} />
-    {:else}
-      <div class="loading">
-        > Loading...
-      </div>
-    {/if}
-  </main>
-</div>
+<Nav />
+<main class="container" class:container-wide={router.route?.wide}>
+  <!-- Keyed so every navigation (including between projects) mounts a fresh page. -->
+  {#key router.path}
+    <div class="page-frame">
+      <Page />
+    </div>
+  {/key}
+</main>
 
 <style>
-  :global(html, body) {
-    margin: 0;
-    padding: 0;
-  }
-
-  #app {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
   main {
     flex: 1;
   }
@@ -51,10 +36,17 @@
     padding-right: 1.2rem;
   }
 
-  .loading {
-    color: var(--color-text-primary);
-    text-align: center;
-    font-size: 1.5rem;
-    margin-top: 3rem;
+  .page-frame {
+    animation: fadeIn 0.5s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0.5;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
 </style>

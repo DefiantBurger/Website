@@ -1,5 +1,4 @@
-const BACKEND_BASE_URL =
-	(import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:5000';
+import { apiFetch, apiJson } from '../api';
 
 export interface FileShareStatus {
 	activeFileCount: number;
@@ -31,22 +30,12 @@ export interface FileShareListResult {
 	files: FileShareListItem[];
 }
 
-function parseJsonResponse<T>(response: Response): Promise<T> {
-	return response.json() as Promise<T>;
-}
-
-async function readErrorMessage(response: Response): Promise<string> {
-	const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
-	if (contentType.includes('application/json')) {
-		try {
-			const payload = (await response.json()) as { error?: string };
-			return payload.error ?? 'Request failed.';
-		} catch {
-			return 'Request failed.';
-		}
+function postForm(fields: Record<string, string | Blob>): RequestInit {
+	const body = new FormData();
+	for (const [name, value] of Object.entries(fields)) {
+		body.append(name, value);
 	}
-
-	return (await response.text()).slice(0, 160) || 'Request failed.';
+	return { method: 'POST', body };
 }
 
 export function formatBytes(bytes: number): string {
@@ -67,42 +56,17 @@ export function formatBytes(bytes: number): string {
 	return `${value.toFixed(precision)} ${units[unitIndex]}`;
 }
 
-export async function fetchFileShareStatus(): Promise<FileShareStatus> {
-	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/status/`);
-	if (!response.ok) {
-		throw new Error(await readErrorMessage(response));
-	}
-
-	return parseJsonResponse<FileShareStatus>(response);
+export function fetchFileShareStatus(): Promise<FileShareStatus> {
+	return apiJson<FileShareStatus>('/api/fileshare/status/');
 }
 
 /** Upload files one at a time; the first clears the key's existing files, so each call replaces the previous batch. */
-export async function uploadFileShare(
-	files: File | File[],
-	password: string,
-): Promise<FileShareUploadResult[]> {
-	const fileArray = Array.isArray(files) ? files : [files];
+export async function uploadFileShare(files: File[], password: string): Promise<FileShareUploadResult[]> {
 	const results: FileShareUploadResult[] = [];
 
-	for (let i = 0; i < fileArray.length; i++) {
-		const file = fileArray[i];
-		const isFirst = i === 0;
-		const formData = new FormData();
-		formData.append('file', file);
-		formData.append('password', password);
-		formData.append('clearExisting', isFirst ? 'true' : 'false');
-
-		const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/upload/`, {
-			method: 'POST',
-			body: formData,
-		});
-
-		if (!response.ok) {
-			throw new Error(await readErrorMessage(response));
-		}
-
-		const result = await parseJsonResponse<FileShareUploadResult>(response);
-		results.push(result);
+	for (const [index, file] of files.entries()) {
+		const init = postForm({ file, password, clearExisting: index === 0 ? 'true' : 'false' });
+		results.push(await apiJson<FileShareUploadResult>('/api/fileshare/upload/', init));
 	}
 
 	return results;
@@ -113,47 +77,22 @@ export async function downloadFileShare(
 	occurrenceIndex: number = 1,
 	expectedFilename?: string,
 ): Promise<{ blob: Blob; filename: string }> {
-	const formData = new FormData();
-	formData.append('password', password);
-	formData.append('occurrenceIndex', occurrenceIndex.toString());
+	const response = await apiFetch(
+		'/api/fileshare/access/',
+		postForm({ password, occurrenceIndex: occurrenceIndex.toString() }),
+	);
 
-	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/access/`, {
-		method: 'POST',
-		body: formData,
-	});
-
-	if (!response.ok) {
-		throw new Error(await readErrorMessage(response));
-	}
-
-	// If we have the filename from the caller, use it directly
-	// Otherwise try to extract from content-disposition header as fallback
-	let filename = expectedFilename ?? 'download';
-	
-	if (!expectedFilename) {
+	// Prefer the filename the caller already knows; fall back to content-disposition.
+	let filename = expectedFilename;
+	if (!filename) {
 		const disposition = response.headers.get('content-disposition') ?? '';
 		const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
-		filename = filenameMatch?.[1] ?? filenameMatch?.[2] ?? 'download';
+		filename = decodeURIComponent(filenameMatch?.[1] ?? filenameMatch?.[2] ?? 'download');
 	}
 
-	return {
-		blob: await response.blob(),
-		filename: decodeURIComponent(filename),
-	};
+	return { blob: await response.blob(), filename };
 }
 
-export async function listFileShareFiles(password: string): Promise<FileShareListResult> {
-	const formData = new FormData();
-	formData.append('password', password);
-
-	const response = await fetch(`${BACKEND_BASE_URL}/api/fileshare/list/`, {
-		method: 'POST',
-		body: formData,
-	});
-
-	if (!response.ok) {
-		throw new Error(await readErrorMessage(response));
-	}
-
-	return parseJsonResponse<FileShareListResult>(response);
+export function listFileShareFiles(password: string): Promise<FileShareListResult> {
+	return apiJson<FileShareListResult>('/api/fileshare/list/', postForm({ password }));
 }

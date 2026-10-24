@@ -1,38 +1,34 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { navigate } from '../lib/router';
-  import StatusMessage from '../lib/components/StatusMessage.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
 
-  interface Project {
-    title: string;
-    description: string;
-  }
+  const sectionLinks = [
+    { label: 'About', href: '/about' },
+    { label: 'Projects', href: '/projects' },
+    { label: 'Utilities', href: '/utilities' },
+    { label: 'Contact', href: '/contact' }
+  ];
 
-  let projects: Project[] = [];
-  let loading = false;
-  let error: string | null = null;
-
-  onMount(async () => {
-    loading = true;
-    try {
-      // Placeholder: will connect to API later
-      projects = [
-        {
-          title: 'Personal Website',
-          description: 'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.'
-        },
-        {
-          title: 'Project 2',
-          description: 'Description coming soon...'
-        }
-      ];
-    } catch (e) {
-      error = 'Failed to load projects';
-    } finally {
-      loading = false;
+  const featuredProjects = [
+    {
+      title: 'Personal Website',
+      description: 'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.'
+    },
+    {
+      title: 'Project 2',
+      description: 'Description coming soon...'
     }
-  });
+  ];
+
+  const quickLinks = [
+    { title: 'About Me', text: 'Learn more about who I am and what I do.', href: '/about', cta: 'Read →' },
+    {
+      title: 'Utilities',
+      text: 'Interactive tools including the class scheduler utility.',
+      href: '/utilities',
+      cta: 'Open →'
+    },
+    { title: 'Contact', text: 'Get in touch with me.', href: '/contact', cta: 'Reach Out →' }
+  ];
 </script>
 
 <svelte:head>
@@ -40,130 +36,86 @@
   <meta name="description" content="Personal portfolio and projects by me." />
 </svelte:head>
 
-<div class="home page-frame">
-  <PageHeader title="Welcome" description="I'm a developer. This is my website.">
-    <p class="mt-1">
-      <a href="/" on:click={(e) => { e.preventDefault(); navigate('/about'); }}>About</a> • 
-      <a href="/" on:click={(e) => { e.preventDefault(); navigate('/projects'); }}>Projects</a> • 
-      <a href="/" on:click={(e) => { e.preventDefault(); navigate('/utilities'); }}>Utilities</a> • 
-      <a href="/" on:click={(e) => { e.preventDefault(); navigate('/contact'); }}>Contact</a>
-    </p>
-  </PageHeader>
+<PageHeader title="Welcome" description="I'm a developer. This is my website.">
+  <p class="section-links">
+    {#each sectionLinks as link, index (link.href)}
+      {#if index > 0}{' • '}{/if}<a href={link.href}>{link.label}</a>
+    {/each}
+  </p>
+</PageHeader>
 
-  <section class="featured-projects">
-    <h2>> Featured Projects</h2>
-    
-    {#if loading}
-      <StatusMessage kind="loading" message="Loading projects..." />
-    {:else if error}
-      <StatusMessage kind="error" message={error} />
-    {:else}
-      <div class="projects-grid">
-        {#each projects as project}
-          <div class="project-card terminal-box">
-            <h3>{project.title}</h3>
-            <p>{project.description}</p>
-            <a href="/" on:click={(e) => { e.preventDefault(); navigate('/projects'); }} class="view-more">> View More</a>
-          </div>
-        {/each}
-      </div>
-    {/if}
-  </section>
+<section>
+  <h2>> Featured Projects</h2>
 
-  <section class="quick-links">
-    <h2>> Quick Links</h2>
-    <div class="links-grid">
-      <div class="link-item terminal-box">
-        <strong>> About Me</strong>
-        <p>Learn more about who I am and what I do.</p>
-        <a href="/" on:click={(e) => { e.preventDefault(); navigate('/about'); }}>Read →</a>
+  <div class="card-grid projects-grid">
+    {#each featuredProjects as project (project.title)}
+      <div class="terminal-box hover-lift">
+        <h3>{project.title}</h3>
+        <p>{project.description}</p>
+        <a href="/projects" class="card-link">> View More</a>
       </div>
-      <div class="link-item terminal-box">
-        <strong>> Utilities</strong>
-        <p>Interactive tools including the class scheduler utility.</p>
-        <a href="/" on:click={(e) => { e.preventDefault(); navigate('/utilities'); }}>Open →</a>
+    {/each}
+  </div>
+</section>
+
+<section>
+  <h2>> Quick Links</h2>
+
+  <div class="card-grid links-grid">
+    {#each quickLinks as link (link.href)}
+      <div class="terminal-box hover-lift quick-link">
+        <strong>> {link.title}</strong>
+        <p>{link.text}</p>
+        <a href={link.href}>{link.cta}</a>
       </div>
-      <div class="link-item terminal-box">
-        <strong>> Contact</strong>
-        <p>Get in touch with me.</p>
-        <a href="/" on:click={(e) => { e.preventDefault(); navigate('/contact'); }}>Reach Out →</a>
-      </div>
-    </div>
-  </section>
-</div>
+    {/each}
+  </div>
+</section>
 
 <style>
-  .featured-projects {
+  .section-links {
+    margin-top: 1rem;
+  }
+
+  section {
     margin: 3rem 0;
   }
 
-  .projects-grid {
+  .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 1.5rem;
     margin-top: 1.5rem;
   }
 
-  .project-card {
-    transition: all 0.2s ease;
+  .projects-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 
-  .project-card:hover {
-    box-shadow: 0 0 20px var(--color-primary-opacity-30);
-    transform: translateY(-2px);
+  .links-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   }
 
-  .project-card h3 {
-    margin-top: 0;
+  h3 {
     margin-bottom: 0.5rem;
   }
 
-  .view-more {
+  .card-link {
     display: inline-block;
     margin-top: 1rem;
   }
 
-  .quick-links {
-    margin: 3rem 0;
-  }
-
-  .links-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-  }
-
-  .link-item {
-    transition: all 0.2s ease;
-  }
-
-  .link-item:hover {
-    box-shadow: 0 0 20px var(--color-primary-opacity-30);
-    transform: translateY(-2px);
-  }
-
-  .link-item strong {
+  .quick-link strong {
     display: block;
     margin-bottom: 0.5rem;
   }
 
-  .link-item p {
+  .quick-link p {
     margin-bottom: 1rem;
     font-size: 0.95rem;
   }
 
   @media (max-width: 768px) {
-    .hero h1 {
-      font-size: 2rem;
-    }
-
-    .hero p {
-      font-size: 1rem;
-    }
-
-    .projects-grid,
-    .links-grid {
+    .card-grid {
       grid-template-columns: 1fr;
     }
   }

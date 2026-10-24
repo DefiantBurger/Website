@@ -62,3 +62,9 @@ override.tf.json
 
 # instance files
 backend/instance/*
+
+# MCPs
+.mcp.json
+
+# Playwright
+.playwright-mcp/*

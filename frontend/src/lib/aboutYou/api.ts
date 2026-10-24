@@ -1,3 +1,5 @@
+import { apiJson } from '../api';
+
 export type RequestContextSnapshot = {
   timestamp: string;
   request: {
@@ -30,14 +32,6 @@ export type RequestContextSnapshot = {
   };
 };
 
-const BACKEND_BASE_URL =
-  (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:5000';
-
-export async function loadRequestContextSnapshot(): Promise<RequestContextSnapshot> {
-  const response = await fetch(`${BACKEND_BASE_URL}/api/about-you/request-context/`);
-  if (!response.ok) {
-    throw new Error('Failed to load request context snapshot.');
-  }
-
-  return (await response.json()) as RequestContextSnapshot;
+export function loadRequestContextSnapshot(): Promise<RequestContextSnapshot> {
+  return apiJson<RequestContextSnapshot>('/api/about-you/request-context/');
 }

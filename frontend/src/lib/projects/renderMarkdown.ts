@@ -72,11 +72,6 @@ const sanitizeSchema: any = {
   }
 };
 
-export async function renderProjectMarkdown(markdown: string): Promise<string> {
-  const { html } = await renderProjectMarkdownWithDebug(markdown);
-  return html;
-}
-
 export async function renderProjectMarkdownWithDebug(
   markdown: string
 ): Promise<{ html: string; debug: MarkdownRenderDebug }> {

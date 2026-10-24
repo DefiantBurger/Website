@@ -1,6 +1,5 @@
+import { PRECOLLEGE_SEMESTER } from './catalog';
 import type { PrereqEdge, Requirement, SchedulerGraph } from './types';
-
-const PRECOLLEGE_SEMESTER = 'precollege';
 
 interface ComputeGraphParams {
   coursesById: Record<string, { id: string; name: string; semester: string }>;

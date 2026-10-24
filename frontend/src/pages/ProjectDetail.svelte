@@ -1,313 +1,151 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
   import mermaid from 'mermaid';
 
-  import { navigate, routeParams } from '../lib/router';
+  import { navigate, router } from '../lib/router.svelte';
+  import { theme } from '../lib/theme.svelte';
   import { loadProjectBySlug } from '../lib/projects/api';
-  import {
-    renderProjectMarkdownWithDebug,
-    type MarkdownRenderDebug
-  } from '../lib/projects/renderMarkdown';
-  import type { ProjectDetail as ProjectDetailType } from '../lib/projects/types';
+  import { renderProjectMarkdownWithDebug } from '../lib/projects/renderMarkdown';
   import { recordProjectView } from '../lib/aboutYou/interactionStore';
+  import StatusMessage from '../lib/components/StatusMessage.svelte';
+  import TagList from '../lib/components/TagList.svelte';
+  import { errorMessage } from '../lib/api';
 
-  let loading = true;
-  let error: string | null = null;
-  let project: ProjectDetailType | null = null;
-  let renderedHtml = '';
-  let articleEl: HTMLElement | null = null;
-  let currentSlug = '';
-  let isMounted = false;
-  let pendingMermaidRender = false;
-  let currentMermaidTheme = '';
-  let debugEnabled = false;
-  let debugInfo: {
-    slug: string;
-    markdownLength: number;
-    render: MarkdownRenderDebug | null;
+  // App remounts this page on every path change, so the slug is fixed per instance.
+  const slug = router.params.slug;
+  const debugEnabled = new URLSearchParams(window.location.search).get('debugMermaid') === '1';
+
+  let mermaidRun = $state<{
     domMermaidNodes: number;
     domMermaidCodeNodes: number;
     firstMermaidSource: string;
-    mermaidRunStatus: 'not-run' | 'success' | 'error';
-    mermaidRunError: string;
-  } = {
-    slug: '',
-    markdownLength: 0,
-    render: null,
-    domMermaidNodes: 0,
-    domMermaidCodeNodes: 0,
-    firstMermaidSource: '',
-    mermaidRunStatus: 'not-run',
-    mermaidRunError: ''
-  };
+    status: 'not-run' | 'success' | 'error';
+    error: string;
+  }>({ domMermaidNodes: 0, domMermaidCodeNodes: 0, firstMermaidSource: '', status: 'not-run', error: '' });
 
-  function resolveMermaidTheme(): 'dark' | 'default' {
-    const appTheme = document.documentElement.getAttribute('data-theme');
-    return appTheme === 'dark' ? 'dark' : 'default';
+  async function loadPage() {
+    const project = await loadProjectBySlug(slug);
+    recordProjectView(slug);
+    const rendered = await renderProjectMarkdownWithDebug(project.markdown);
+    return { project, html: rendered.html, renderDebug: rendered.debug };
   }
 
-  function configureMermaidForCurrentTheme() {
-    const nextTheme = resolveMermaidTheme();
-    if (nextTheme === currentMermaidTheme) {
-      return;
-    }
+  const pagePromise = loadPage();
 
+  /** Attachment: render Mermaid diagrams, and re-render them when the site theme changes. */
+  function renderMermaid(article: HTMLElement) {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
-      theme: nextTheme
+      theme: theme.current === 'dark' ? 'dark' : 'default'
     });
-    currentMermaidTheme = nextTheme;
+    void runMermaid(article);
   }
 
-  async function loadPage() {
-    loading = true;
-    error = null;
-    pendingMermaidRender = false;
-    debugEnabled =
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('debugMermaid') === '1';
+  async function runMermaid(article: HTMLElement) {
+    const nodes = Array.from(article.querySelectorAll<HTMLElement>('.mermaid'));
+    const codeNodes = Array.from(article.querySelectorAll<HTMLElement>('pre > code.language-mermaid'));
 
-    const slug = $routeParams.slug;
-    if (!slug) {
-      error = 'Missing project slug in route.';
-      loading = false;
-      return;
-    }
-
-    try {
-      project = await loadProjectBySlug(slug);
-      recordProjectView(slug);
-
-      debugInfo = {
-        slug,
-        markdownLength: project.markdown.length,
-        render: null,
-        domMermaidNodes: 0,
-        domMermaidCodeNodes: 0,
-        firstMermaidSource: '',
-        mermaidRunStatus: 'not-run',
-        mermaidRunError: ''
-      };
-
-      const rendered = await renderProjectMarkdownWithDebug(project.markdown);
-      renderedHtml = rendered.html;
-      debugInfo.render = rendered.debug;
-      pendingMermaidRender = true;
-    } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to load project details.';
-    } finally {
-      loading = false;
-
-      if (pendingMermaidRender) {
-        await tick();
-        await renderMermaidIntoArticle();
-      }
-    }
-  }
-
-  async function renderMermaidIntoArticle() {
-    if (!articleEl) {
-      return;
-    }
-
-    configureMermaidForCurrentTheme();
-
-    const nodes = Array.from(articleEl.querySelectorAll<HTMLElement>('.mermaid'));
-    const codeNodes = Array.from(
-      articleEl.querySelectorAll<HTMLElement>('pre > code.language-mermaid')
-    );
-
-    debugInfo.domMermaidNodes = nodes.length;
-    debugInfo.domMermaidCodeNodes = codeNodes.length;
-    debugInfo.firstMermaidSource =
-      nodes[0]?.textContent?.trim().slice(0, 220) ??
-      codeNodes[0]?.textContent?.trim().slice(0, 220) ??
-      '';
+    mermaidRun.domMermaidNodes = nodes.length;
+    mermaidRun.domMermaidCodeNodes = codeNodes.length;
+    mermaidRun.firstMermaidSource = (nodes[0] ?? codeNodes[0])?.textContent?.trim().slice(0, 220) ?? '';
 
     if (nodes.length > 0) {
       try {
+        // Restore each diagram's source so a theme change can re-render it.
         for (const node of nodes) {
-          if (!node.dataset.mermaidSource) {
-            node.dataset.mermaidSource = node.textContent?.trim() ?? '';
-          }
-
+          node.dataset.mermaidSource ??= node.textContent?.trim() ?? '';
           node.removeAttribute('data-processed');
           node.textContent = node.dataset.mermaidSource;
         }
 
-        await mermaid.run({
-          nodes
-        });
-        debugInfo.mermaidRunStatus = 'success';
+        await mermaid.run({ nodes });
+        mermaidRun.status = 'success';
       } catch (mermaidError) {
-        debugInfo.mermaidRunStatus = 'error';
-        debugInfo.mermaidRunError =
-          mermaidError instanceof Error ? mermaidError.message : String(mermaidError);
+        mermaidRun.status = 'error';
+        mermaidRun.error = errorMessage(mermaidError, String(mermaidError));
         console.error('Mermaid rendering failed', mermaidError);
       }
-    } else {
-      debugInfo.mermaidRunStatus = 'not-run';
     }
 
     if (debugEnabled) {
-      console.group('Mermaid Debug');
-      console.log('slug', debugInfo.slug);
-      console.log('markdownLength', debugInfo.markdownLength);
-      console.log('render', debugInfo.render);
-      console.log('domMermaidNodes', debugInfo.domMermaidNodes);
-      console.log('domMermaidCodeNodes', debugInfo.domMermaidCodeNodes);
-      console.log('mermaidRunStatus', debugInfo.mermaidRunStatus);
-      if (debugInfo.mermaidRunError) {
-        console.log('mermaidRunError', debugInfo.mermaidRunError);
-      }
-      console.log('firstMermaidSource', debugInfo.firstMermaidSource);
-      console.groupEnd();
+      console.log('Mermaid Debug', $state.snapshot(mermaidRun));
     }
   }
 
-  onMount(() => {
-    isMounted = true;
-    configureMermaidForCurrentTheme();
-
-    const observer = new MutationObserver(async () => {
-      const nextTheme = resolveMermaidTheme();
-      if (nextTheme !== currentMermaidTheme && articleEl && !loading && !error) {
-        await renderMermaidIntoArticle();
-      }
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['data-theme']
-    });
-
-    const slug = $routeParams.slug;
-    if (slug && slug !== currentSlug) {
-      currentSlug = slug;
-      void loadPage();
-    }
-
-    return () => {
-      observer.disconnect();
-    };
-  });
-
-  $: {
-    if (isMounted) {
-      const slug = $routeParams.slug;
-      if (slug && slug !== currentSlug) {
-        currentSlug = slug;
-        void loadPage();
-      }
-    }
-  }
-
-  function goBackToProjects() {
-    navigate('/projects');
-  }
+  const yesNo = (value: boolean) => (value ? 'yes' : 'no');
 </script>
 
 <svelte:head>
-  <title>{project?.title || 'Project Details'}</title>
-  <meta name="description" content={project?.summary || 'Explore this project in detail.'} />
+  {#await pagePromise}
+    <title>Project Details</title>
+    <meta name="description" content="Explore this project in detail." />
+  {:then { project }}
+    <title>{project.title}</title>
+    <meta name="description" content={project.summary || 'Explore this project in detail.'} />
+  {/await}
 </svelte:head>
 
-<div class="project-detail">
-  <button class="back-button" on:click={goBackToProjects}>&lt; Back to Projects</button>
+<button class="back-button" onclick={() => navigate('/projects')}>&lt; Back to Projects</button>
 
-  {#if loading}
-    <div class="loading">> Loading project...</div>
-  {:else if error}
-    <div class="error">> {error}</div>
-  {:else if project}
-    <header class="project-header terminal-box">
-      <h1>> {project.title}</h1>
-      {#if project.tags.length > 0}
-        <div class="tag-list">
-          {#each project.tags as tag}
-            <span class="tag">{tag}</span>
-          {/each}
-        </div>
+{#await pagePromise}
+  <StatusMessage kind="loading" message="Loading project..." />
+{:then { project, html, renderDebug }}
+  <header class="terminal-box">
+    <h1>> {project.title}</h1>
+    <TagList tags={project.tags} />
+
+    <div class="project-links">
+      {#if project.repo}
+        <a href={project.repo} target="_blank" rel="noreferrer">Repository</a>
+      {/if}
+      {#if project.demo}
+        <a href={project.demo} target="_blank" rel="noreferrer">Live Site</a>
+      {/if}
+    </div>
+  </header>
+
+  <article class="project-content terminal-box" {@attach renderMermaid}>
+    {@html html}
+  </article>
+
+  {#if debugEnabled}
+    {@const debugRows = [
+      ['Slug', slug],
+      ['Markdown length', project.markdown.length],
+      ['Input has mermaid fence', yesNo(renderDebug.inputHasMermaidFence)],
+      ['Transformed mermaid blocks', renderDebug.transformedMermaidBlocks],
+      ['Output has .mermaid div', yesNo(renderDebug.outputHasMermaidDiv)],
+      ['Output still has language-mermaid code', yesNo(renderDebug.outputHasMermaidCodeFence)],
+      ['Rendered HTML length', renderDebug.htmlLength],
+      ['DOM .mermaid nodes', mermaidRun.domMermaidNodes],
+      ['DOM mermaid code nodes', mermaidRun.domMermaidCodeNodes],
+      ['Mermaid run status', mermaidRun.status]
+    ]}
+    <section class="debug-panel terminal-box">
+      <h2>> Mermaid Debug Panel</h2>
+      {#each debugRows as [label, value] (label)}
+        <p><strong>{label}:</strong> {value}</p>
+      {/each}
+
+      {#if mermaidRun.error}
+        <pre class="debug-error">{mermaidRun.error}</pre>
       {/if}
 
-      <div class="project-links">
-        {#if project.repo}
-          <a href={project.repo} target="_blank" rel="noreferrer">Repository</a>
-        {/if}
-        {#if project.demo}
-          <a href={project.demo} target="_blank" rel="noreferrer">Live Site</a>
-        {/if}
-      </div>
-    </header>
+      {#if mermaidRun.firstMermaidSource}
+        <p><strong>First Mermaid source preview:</strong></p>
+        <pre>{mermaidRun.firstMermaidSource}</pre>
+      {/if}
 
-    <article class="project-content terminal-box" bind:this={articleEl}>
-      {@html renderedHtml}
-    </article>
-
-    {#if debugEnabled}
-      <section class="debug-panel terminal-box">
-        <h2>> Mermaid Debug Panel</h2>
-        <p><strong>Slug:</strong> {debugInfo.slug}</p>
-        <p><strong>Markdown length:</strong> {debugInfo.markdownLength}</p>
-
-        {#if debugInfo.render}
-          <p><strong>Input has mermaid fence:</strong> {debugInfo.render.inputHasMermaidFence ? 'yes' : 'no'}</p>
-          <p><strong>Transformed mermaid blocks:</strong> {debugInfo.render.transformedMermaidBlocks}</p>
-          <p><strong>Output has .mermaid div:</strong> {debugInfo.render.outputHasMermaidDiv ? 'yes' : 'no'}</p>
-          <p><strong>Output still has language-mermaid code:</strong> {debugInfo.render.outputHasMermaidCodeFence ? 'yes' : 'no'}</p>
-          <p><strong>Rendered HTML length:</strong> {debugInfo.render.htmlLength}</p>
-        {/if}
-
-        <p><strong>DOM .mermaid nodes:</strong> {debugInfo.domMermaidNodes}</p>
-        <p><strong>DOM mermaid code nodes:</strong> {debugInfo.domMermaidCodeNodes}</p>
-        <p><strong>Mermaid run status:</strong> {debugInfo.mermaidRunStatus}</p>
-
-        {#if debugInfo.mermaidRunError}
-          <pre class="debug-error">{debugInfo.mermaidRunError}</pre>
-        {/if}
-
-        {#if debugInfo.firstMermaidSource}
-          <p><strong>First Mermaid source preview:</strong></p>
-          <pre>{debugInfo.firstMermaidSource}</pre>
-        {/if}
-
-        <p class="debug-hint">Append <code>?debugMermaid=1</code> to this page URL to show this panel.</p>
-      </section>
-    {/if}
+      <p class="debug-hint">Append <code>?debugMermaid=1</code> to this page URL to show this panel.</p>
+    </section>
   {/if}
-</div>
+{:catch error}
+  <StatusMessage kind="error" message={errorMessage(error, 'Failed to load project details.')} />
+{/await}
 
 <style>
-  .project-detail {
-    animation: fadeIn 0.35s ease-in;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0.5;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
   .back-button {
     margin-bottom: 1rem;
-  }
-
-  .tag-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-
-  .tag {
-    border: 1px solid var(--color-text-primary);
-    padding: 0.15rem 0.45rem;
-    border-radius: 3px;
-    font-size: 0.85rem;
   }
 
   .project-links {
@@ -342,8 +180,9 @@
   }
 
   .project-content :global(ul > li) {
-    margin-left: .5rem;
+    margin-left: 0.5rem;
   }
+
   .project-content :global(ol > li) {
     margin-left: 1.5rem;
   }

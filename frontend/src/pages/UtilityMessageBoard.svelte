@@ -6,26 +6,28 @@
 		postBoardMessage,
 		type BoardMessage,
 	} from '../lib/messageboard/api';
+	import { errorMessage } from '../lib/api';
+	import PageHeader from '../lib/components/PageHeader.svelte';
+	import StatusMessage from '../lib/components/StatusMessage.svelte';
 
 	const MAX_LENGTH = 280;
 
-	let messages: BoardMessage[] = [];
-	let loading = true;
-	let error: string | null = null;
+	let messages = $state<BoardMessage[]>([]);
+	let loading = $state(true);
+	let error = $state<string | null>(null);
 
-	let messageText = '';
-	let isPosting = false;
-	let postError: string | null = null;
-	let postSuccess: string | null = null;
+	let messageText = $state('');
+	let isPosting = $state(false);
+	let postError = $state<string | null>(null);
+	let postSuccess = $state<string | null>(null);
 
 	async function loadMessages(): Promise<void> {
 		loading = true;
 		error = null;
 		try {
-			const res = await fetchActiveMessages();
-			messages = res.messages;
+			messages = (await fetchActiveMessages()).messages;
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load messages.';
+			error = errorMessage(err, 'Failed to load messages.');
 		} finally {
 			loading = false;
 		}
@@ -54,23 +56,22 @@
 			postSuccess = `Message posted! It will remain active on the server for ~${MESSAGE_TTL_SECONDS}s.`;
 			await loadMessages();
 		} catch (err) {
-			postError = err instanceof Error ? err.message : 'Failed to post message.';
+			postError = errorMessage(err, 'Failed to post message.');
 		} finally {
 			isPosting = false;
 		}
 	}
 
 	function formatTimestamp(isoString: string): string {
-		try {
-			const date = new Date(isoString);
-			return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-		} catch {
+		const date = new Date(isoString);
+		if (Number.isNaN(date.getTime())) {
 			return isoString;
 		}
+		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 	}
 
 	onMount(() => {
-		loadMessages();
+		void loadMessages();
 	});
 </script>
 
@@ -78,168 +79,110 @@
 	<title>Message Board</title>
 	<meta
 		name="description"
-		content={`Ephemeral anonymous message board where notes vanish after around ${MESSAGE_TTL_SECONDS} seconds.`}
+		content="Ephemeral anonymous message board where notes vanish after around {MESSAGE_TTL_SECONDS} seconds."
 	/>
 </svelte:head>
 
-<div class="page page-frame">
-	<header class="page-header">
-		<div>
-			<h1>> Utilities / Message Board</h1>
-			<p>
-				Post short anonymous notes to the public board. All messages are ephemeral and
-				automatically expire after ~{MESSAGE_TTL_SECONDS} seconds on the server. Reload anytime to refresh active notes.
-			</p>
-		</div>
-		<div class="header-actions">
-			<button type="button" class="btn secondary reload-btn" on:click={loadMessages} disabled={loading || isPosting}>
-				{loading ? 'Refreshing...' : 'Reload Board'}
-			</button>
-		</div>
-	</header>
+<PageHeader
+	title="Utilities / Message Board"
+	description="Post short anonymous notes to the public board. All messages are ephemeral and automatically expire after ~{MESSAGE_TTL_SECONDS} seconds on the server. Reload anytime to refresh active notes."
+>
+	{#snippet actions()}
+		<button type="button" class="reload-btn" onclick={loadMessages} disabled={loading || isPosting}>
+			{loading ? 'Refreshing...' : 'Reload Board'}
+		</button>
+	{/snippet}
+</PageHeader>
 
-	<div class="board-layout">
-		<!-- Main area: The Message Board -->
-		<main class="feed-column">
-			<div class="feed-header">
-				<h2>> Active Broadcasts ({messages.length})</h2>
-				<span class="expiry-pill">[ ~{MESSAGE_TTL_SECONDS}s TTL ]</span>
+<div class="board-layout">
+	<section class="feed-column">
+		<div class="feed-header">
+			<h2>> Active Broadcasts ({messages.length})</h2>
+			<span class="pill">[ ~{MESSAGE_TTL_SECONDS}s TTL ]</span>
+		</div>
+
+		{#if loading && messages.length === 0}
+			<div class="terminal-box empty-card">
+				<StatusMessage kind="loading" message="Fetching active broadcasts..." />
+			</div>
+		{:else if error}
+			<StatusMessage kind="error" message={error} />
+		{:else if messages.length === 0}
+			<div class="terminal-box empty-card">
+				<p class="empty-title">[ NO ACTIVE BROADCASTS ]</p>
+				<p class="empty-desc">
+					The board is clear right now. Post a message using the compose box on the side,
+					then reload to see it before it expires!
+				</p>
+			</div>
+		{:else}
+			<div class="message-grid">
+				{#each messages as msg (msg.id)}
+					<article class="terminal-box hover-lift message-card">
+						<header class="card-meta">
+							<span class="prompt-icon">></span>
+							<span class="card-id">#{msg.id.slice(0, 6)}</span>
+							<span class="card-time">{formatTimestamp(msg.createdAt)}</span>
+						</header>
+						<p class="message-text">{msg.text}</p>
+					</article>
+				{/each}
+			</div>
+		{/if}
+	</section>
+
+	<aside class="sidebar-column">
+		<form class="terminal-box compose-card" onsubmit={handlePost}>
+			<div class="compose-header">
+				<h3>> Post Note</h3>
+				<span class="pill small">{MESSAGE_TTL_SECONDS}s TTL</span>
 			</div>
 
-			{#if loading && messages.length === 0}
-				<div class="terminal-box status-card">
-					<p class="loading">> Fetching active broadcasts...</p>
-				</div>
-			{:else if error}
-				<div class="error" role="alert">> {error}</div>
-			{:else if messages.length === 0}
-				<div class="terminal-box empty-card">
-					<p class="empty-title">[ NO ACTIVE BROADCASTS ]</p>
-					<p class="empty-desc">
-						The board is clear right now. Post a message using the compose box on the side,
-						then reload to see it before it expires!
-					</p>
-				</div>
-			{:else}
-				<div class="message-grid">
-					{#each messages as msg (msg.id)}
-						<article class="terminal-box message-card">
-							<header class="card-meta">
-								<span class="prompt-icon">></span>
-								<span class="card-id">#{msg.id.slice(0, 6)}</span>
-								<span class="card-time">{formatTimestamp(msg.createdAt)}</span>
-							</header>
-							<p class="message-text">{msg.text}</p>
-						</article>
-					{/each}
-				</div>
+			<p class="compose-hint">
+				Broadcasts self-destruct after ~{MESSAGE_TTL_SECONDS}s. Only URL-safe characters are permitted.
+			</p>
+
+			<label for="board-message-input" class="sr-only">Message content</label>
+			<textarea
+				id="board-message-input"
+				bind:value={messageText}
+				placeholder="Type a note (vanishes in ~{MESSAGE_TTL_SECONDS}s)..."
+				maxlength={MAX_LENGTH}
+				rows="4"
+				disabled={isPosting}
+			></textarea>
+
+			<div class="compose-meta">
+				<span class="char-count" class:near-limit={messageText.length > MAX_LENGTH - 30}>
+					{messageText.length}/{MAX_LENGTH}
+				</span>
+				<button type="submit" class="submit-btn" disabled={isPosting || !messageText.trim()}>
+					{isPosting ? 'Posting...' : 'Post Note'}
+				</button>
+			</div>
+
+			{#if postError}
+				<StatusMessage kind="error" message={postError} compact />
 			{/if}
-		</main>
-
-		<!-- Side area: Smaller Compose Box -->
-		<aside class="sidebar-column">
-			<form class="terminal-box compose-card" on:submit|preventDefault={handlePost}>
-				<div class="compose-header">
-					<h3>> Post Note</h3>
-					<span class="ttl-badge">{MESSAGE_TTL_SECONDS}s TTL</span>
-				</div>
-
-				<p class="compose-hint">
-					Broadcasts self-destruct after ~{MESSAGE_TTL_SECONDS}s. Only URL-safe characters are permitted.
-				</p>
-
-				<label for="board-message-input" class="sr-only">Message content</label>
-				<textarea
-					id="board-message-input"
-					bind:value={messageText}
-					placeholder={`Type a note (vanishes in ~${MESSAGE_TTL_SECONDS}s)...`}
-					maxlength={MAX_LENGTH}
-					rows="4"
-					disabled={isPosting}
-				></textarea>
-
-				<div class="compose-meta">
-					<span class="char-count" class:near-limit={messageText.length > MAX_LENGTH - 30}>
-						{messageText.length}/{MAX_LENGTH}
-					</span>
-					<button type="submit" class="btn submit-btn" disabled={isPosting || !messageText.trim()}>
-						{isPosting ? 'Posting...' : 'Post Note'}
-					</button>
-				</div>
-
-				{#if postError}
-					<div class="error compact-alert" role="alert">> {postError}</div>
-				{/if}
-
-				{#if postSuccess}
-					<div class="success compact-alert" role="status">> {postSuccess}</div>
-				{/if}
-			</form>
-		</aside>
-	</div>
+			{#if postSuccess}
+				<StatusMessage kind="success" message={postSuccess} compact />
+			{/if}
+		</form>
+	</aside>
 </div>
 
 <style>
-	.page {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-	}
-
-	.page-header {
-		display: flex;
-		gap: 1.5rem;
-		justify-content: space-between;
-		align-items: flex-start;
-		margin-bottom: 2rem;
-		padding-bottom: 1.5rem;
-		border-bottom: 1px dashed var(--color-text-primary);
-		flex-wrap: wrap;
-	}
-
-	.page-header h1 {
-		font-size: 2.5rem;
-		margin-bottom: 0.5rem;
-		border-bottom: none;
-		padding-bottom: 0;
-	}
-
-	.page-header p {
-		line-height: 1.8;
-		opacity: 0.9;
-		max-width: 800px;
-		margin: 0;
-	}
-
-	.header-actions {
-		display: flex;
-		align-items: center;
-	}
-
 	.reload-btn {
 		white-space: nowrap;
-	}
-
-	.btn.secondary {
 		background-color: transparent;
-		border-color: var(--color-text-primary);
 	}
 
-	.btn.secondary:hover {
-		background-color: var(--color-primary-opacity-15);
-	}
-
-	/* Two-column layout with message board as main and small post box to the side */
+	/* Message board as the main column, compose box to the side. */
 	.board-layout {
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) 320px;
 		gap: 2rem;
 		align-items: start;
-		width: 100%;
-	}
-
-	.feed-column {
-		min-width: 0;
 	}
 
 	.feed-header {
@@ -257,7 +200,7 @@
 		font-size: 1.4rem;
 	}
 
-	.expiry-pill {
+	.pill {
 		font-size: 0.85rem;
 		padding: 0.2rem 0.55rem;
 		border: 1px solid var(--color-text-primary);
@@ -265,7 +208,11 @@
 		background: var(--color-primary-opacity-10);
 	}
 
-	/* Grid of active message cards */
+	.pill.small {
+		font-size: 0.75rem;
+		padding: 0.15rem 0.4rem;
+	}
+
 	.message-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -278,15 +225,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-		background-color: var(--color-bg-surface);
-		border-left: 3px solid var(--color-text-primary);
+		border-left-width: 3px;
 		min-height: 110px;
-		transition: transform 0.15s ease, box-shadow 0.15s ease;
-	}
-
-	.message-card:hover {
-		box-shadow: 0 0 12px var(--color-primary-opacity-20);
-		transform: translateY(-2px);
 	}
 
 	.card-meta {
@@ -301,11 +241,9 @@
 
 	.prompt-icon {
 		font-weight: bold;
-		color: var(--color-text-primary);
 	}
 
 	.card-id {
-		font-family: inherit;
 		opacity: 0.6;
 	}
 
@@ -314,14 +252,12 @@
 	}
 
 	.message-text {
-		margin: 0;
 		white-space: pre-wrap;
 		word-break: break-word;
 		line-height: 1.7;
 		font-size: 1.05rem;
 	}
 
-	.status-card,
 	.empty-card {
 		text-align: center;
 		padding: 3rem 1.5rem;
@@ -341,7 +277,6 @@
 		line-height: 1.7;
 	}
 
-	/* Sidebar compose panel */
 	.sidebar-column {
 		position: sticky;
 		top: 5rem;
@@ -363,46 +298,18 @@
 
 	.compose-header h3 {
 		margin: 0;
-		border: 0;
 		font-size: 1.2rem;
-	}
-
-	.ttl-badge {
-		font-size: 0.75rem;
-		padding: 0.15rem 0.4rem;
-		border: 1px solid var(--color-text-primary);
-		border-radius: 2px;
-		background: var(--color-primary-opacity-10);
 	}
 
 	.compose-hint {
 		font-size: 0.82rem;
-		margin: 0;
 		opacity: 0.8;
 		line-height: 1.5;
 	}
 
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		padding: 0;
-		margin: -1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-		border-width: 0;
-	}
-
 	textarea {
 		width: 100%;
-		box-sizing: border-box;
-		background-color: var(--color-bg-dark);
-		color: var(--color-text-primary);
-		border: 1px solid var(--color-text-primary);
-		border-radius: 3px;
 		padding: 0.75rem;
-		font-family: inherit;
 		font-size: 0.95rem;
 		line-height: 1.5;
 		resize: vertical;
@@ -437,12 +344,6 @@
 		font-size: 0.9rem;
 	}
 
-	.compact-alert {
-		margin: 0.25rem 0 0 0;
-		padding: 0.5rem 0.65rem;
-		font-size: 0.85rem;
-	}
-
 	@media (max-width: 900px) {
 		.board-layout {
 			grid-template-columns: 1fr;
@@ -451,10 +352,6 @@
 		.sidebar-column {
 			position: static;
 			order: -1;
-		}
-
-		.page-header h1 {
-			font-size: 2rem;
 		}
 	}
 </style>

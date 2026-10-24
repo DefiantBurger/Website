@@ -32,13 +32,12 @@ export interface CourseInstance {
 
 export type CourseCatalog = Record<string, CourseCatalogRecord>;
 
-export interface SchedulerData {
+/** The editable schedule: which course instances exist and how each column is ordered. */
+export interface ScheduleState {
+  // Columns left to right; excludes the precollege pseudo-semester.
   semesterOrder: string[];
-  semesterToIndex: Record<string, number>;
-  catalog: CourseCatalog;
   coursesById: Record<string, CourseInstance>;
   columnCourseIds: Record<string, string[]>;
-  prereqsByCourseId: Record<string, Requirement[]>;
 }
 
 export type RequirementStatus = 'valid' | 'invalid' | 'concurrent';

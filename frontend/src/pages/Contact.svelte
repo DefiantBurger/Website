@@ -1,5 +1,16 @@
 <script lang="ts">
   import PageHeader from '../lib/components/PageHeader.svelte';
+
+  const contacts = [
+    { label: 'email', text: 'joseph.cicalese@gmail.com', href: 'mailto:joseph.cicalese@gmail.com' },
+    { label: 'github', text: 'github.com/DefiantBurger', href: 'https://github.com/DefiantBurger' },
+    {
+      label: 'linkedin',
+      text: 'linkedin.com/in/joseph-cicalese',
+      href: 'https://www.linkedin.com/in/joseph-cicalese/'
+    },
+    { label: 'location', text: 'Madison, WI & Philadelphia, PA' }
+  ];
 </script>
 
 <svelte:head>
@@ -7,17 +18,23 @@
   <meta name="description" content="Get in touch with me." />
 </svelte:head>
 
-<div class="page page-frame">
-  <PageHeader title="Contact" />
+<PageHeader title="Contact" />
 
-  <div class="content terminal-box">
-    <ul class="contact-list">
-      <li><span class="label">email:</span> <a href="mailto:joseph.cicalese@gmail.com">joseph.cicalese@gmail.com</a></li>
-      <li><span class="label">github:</span> <a href="https://github.com/DefiantBurger" target="_blank" rel="noreferrer">github.com/DefiantBurger</a></li>
-      <li><span class="label">linkedin:</span> <a href="https://www.linkedin.com/in/joseph-cicalese/" target="_blank" rel="noreferrer">linkedin.com/in/joseph-cicalese</a></li>
-      <li><span class="label">location:</span> Madison, WI & Philadelphia, PA</li>
-    </ul>
-  </div>
+<div class="content terminal-box">
+  <ul class="contact-list">
+    {#each contacts as contact (contact.label)}
+      <li>
+        <span class="label">{contact.label}:</span>
+        {#if contact.href?.startsWith('http')}
+          <a href={contact.href} target="_blank" rel="noreferrer">{contact.text}</a>
+        {:else if contact.href}
+          <a href={contact.href}>{contact.text}</a>
+        {:else}
+          {contact.text}
+        {/if}
+      </li>
+    {/each}
+  </ul>
 </div>
 
 <style>
@@ -27,8 +44,6 @@
 
   .contact-list {
     list-style: none;
-    padding: 0;
-    margin: 0;
     display: grid;
     gap: 0.75rem;
   }
@@ -39,7 +54,7 @@
   }
 
   .label {
-    color: var(--color-accent, #2ebdff);
+    color: #2ebdff;
     font-weight: 700;
   }
 

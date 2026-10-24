@@ -3,8 +3,7 @@
 ## Frontend
 
 1. `Home.svelte` shows hard-coded placeholder "Featured Projects" instead of using `/api/projects/`.
-2. `src/app.css` ends with leftover Vite template styles (from `body { margin: 0; }` onward) that reference undefined variables (`--heading`, `--text-h`); `src/lib/Counter.svelte` is unused template code.
-3. No frontend tests (scheduler logic is the best first target).
+2. No frontend tests (scheduler logic is the best first target).
 
 ## Infrastructure
 

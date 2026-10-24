@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { currentRoute, navigate } from '../router';
+  import { router } from '../router.svelte';
+  import { theme } from '../theme.svelte';
 
   const links = [
     { label: 'Home', path: '/' },
@@ -10,61 +10,21 @@
     { label: 'Contact', path: '/contact' }
   ];
 
-  function handleClick(path: string) {
-    navigate(path);
-  }
-
+  // A section link stays active on its subpages (e.g. Projects on /projects/foo).
   function isActive(path: string): boolean {
-    if (path === '/utilities') {
-      return $currentRoute.startsWith('/utilities');
-    }
-    if (path === '/projects') {
-      return $currentRoute.startsWith('/projects');
-    }
-    return $currentRoute === path;
+    return router.path === path || (path !== '/' && router.path.startsWith(`${path}/`));
   }
-
-  type Theme = 'dark' | 'light';
-  let theme: Theme = 'light';
-
-  function applyTheme(nextTheme: Theme): void {
-    theme = nextTheme;
-    document.documentElement.setAttribute('data-theme', nextTheme);
-    localStorage.setItem('theme', nextTheme);
-  }
-
-  function toggleTheme(): void {
-    applyTheme(theme === 'dark' ? 'light' : 'dark');
-  }
-
-  onMount(() => {
-    const storedTheme = localStorage.getItem('theme');
-    if (storedTheme === 'light' || storedTheme === 'dark') {
-      applyTheme(storedTheme);
-      return;
-    }
-
-    applyTheme('light');
-  });
 </script>
 
 <nav class="nav">
   <div class="nav-container">
     <div class="nav-brand">
-      <a href="/" on:click={(e) => { e.preventDefault(); handleClick('/'); }}>
-        > JosephCicalese.com
-      </a>
+      <a href="/">> JosephCicalese.com</a>
     </div>
     <ul class="nav-links">
-      {#each links as link}
+      {#each links as link (link.path)}
         <li>
-          <a 
-            href={link.path}
-            on:click={(e) => { e.preventDefault(); handleClick(link.path); }}
-            class:active={isActive(link.path)}
-          >
-            {link.label}
-          </a>
+          <a href={link.path} class:active={isActive(link.path)}>{link.label}</a>
         </li>
       {/each}
     </ul>
@@ -81,10 +41,10 @@
       <button
         type="button"
         class="theme-toggle"
-        on:click={toggleTheme}
+        onclick={() => theme.toggle()}
         aria-label="Toggle light and dark theme"
       >
-        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+        {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>
     </div>
   </div>
@@ -102,7 +62,6 @@
   }
 
   .nav-container {
-    max-width: none;
     padding: 0 2rem;
     display: flex;
     align-items: center;
@@ -117,14 +76,11 @@
   .nav-brand a {
     font-size: 1.25rem;
     font-weight: bold;
-    color: var(--color-text-primary);
-    text-shadow: none;
     border: none;
   }
 
   .nav-brand a:hover {
     color: var(--color-text-hover);
-    text-shadow: none;
     border: none;
   }
 
@@ -146,16 +102,11 @@
 
   .status-link {
     font-size: 0.8rem;
-    color: var(--color-text-primary);
-    text-decoration: none;
     border-bottom: 1px solid transparent;
-    text-shadow: none;
   }
 
   .status-link:hover {
-    color: var(--color-text-hover);
     border-bottom: 1px solid var(--color-text-primary);
-    text-shadow: none;
   }
 
   .theme-toggle {
@@ -166,22 +117,13 @@
   }
 
   .nav-links a {
-    color: var(--color-text-primary);
-    text-decoration: none;
     border-bottom: 2px solid transparent;
-    transition: all 0.2s ease;
     padding-bottom: 0.25rem;
   }
 
-  .nav-links a:hover {
-    border-bottom: 2px solid var(--color-text-primary);
-    color: var(--color-text-hover);
-    text-shadow: none;
-  }
-
+  .nav-links a:hover,
   .nav-links a.active {
     border-bottom: 2px solid var(--color-text-primary);
-    text-shadow: none;
   }
 
   @media (max-width: 768px) {

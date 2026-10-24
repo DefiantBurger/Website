@@ -125,8 +125,8 @@ The page loads messages on mount, after posting, and on "Reload Board" (no polli
 
 ## Adding a Utility
 
-1. Add the route to `matchRoute()` in `frontend/src/lib/router.ts`, and to the wide-layout check in `App.svelte` if needed.
-2. Add the page in `frontend/src/pages/` and its logic/API client in `frontend/src/lib/<name>/`.
-3. Add a card in `Utilities.svelte` and the route to the suggestions list in `NotFound.svelte`.
+1. Add the route to `frontend/src/lib/routes.ts` (with `wide: true` for the wider layout). The 404 suggestions pick it up automatically.
+2. Add the page in `frontend/src/pages/` and its logic/API client in `frontend/src/lib/<name>/`, using the helpers in `lib/api.ts`.
+3. Add a card to the `utilities` list in `Utilities.svelte`.
 4. Add backend routes under `/api/<name>/` in `backend/app/views.py` (logic in its own module) with tests in `backend/tests/`.
 5. Document it here, and list any gaps in [Known Issues](./KNOWN-ISSUES.md#utilities).

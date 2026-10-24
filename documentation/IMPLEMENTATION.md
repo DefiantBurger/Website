@@ -51,11 +51,11 @@ Data sources:
 
 ## Frontend
 
-Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles are in `src/app.css`. `App.svelte` uses a wider layout for utility pages.
+Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme tokens, typography, buttons, form controls, `.terminal-box`, `.hover-lift`, `.sr-only`) are in `src/app.css`. Components use Svelte 5 runes throughout. `App.svelte` renders the current route's page, keyed by path so each navigation mounts a fresh page with the fade-in, and uses a wider layout for routes marked `wide`.
 
 ### Routing
 
-`src/lib/router.ts` is a small History API router (no library). It strips trailing slashes, maps paths to page components, and exposes the stores `currentPage`, `currentRoute`, and `routeParams`. Use `navigate(path)` for client-side links.
+`src/lib/router.svelte.ts` is a small History API router (no library). It strips trailing slashes, matches the route table, and exposes reactive state `router.path`, `router.route`, and `router.params`. It also intercepts left-clicks on same-origin `<a href>` links, so pages use plain links; `navigate(path)` is only needed for programmatic navigation (e.g. buttons). The route table lives in `src/lib/routes.ts` (separate so pages can import the router without an import cycle). To add a page, add an entry there; the 404 page's suggestions and the nav's active state derive from it.
 
 | Path | Page |
 | --- | --- |
@@ -71,14 +71,22 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles are in `src
 | `/utilities/message-board` (alias `/utilities/messageboard`) | `UtilityMessageBoard.svelte` |
 | anything else | `NotFound.svelte` (suggests the closest route by Levenshtein distance) |
 
-### Shared Components
+### Shared Code
 
-- `lib/components/Nav.svelte`: navigation with active states, a link to the external status page, and a light/dark toggle (persisted in `localStorage`, applied via `data-theme`).
-- `lib/components/PageHeader.svelte`, `lib/components/StatusMessage.svelte`: page header and loading/error states.
+- `lib/components/Nav.svelte`: navigation with active states, a link to the external status page, and the light/dark toggle.
+- `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`); `ProjectDetail` re-renders Mermaid diagrams when it changes.
+- `lib/components/PageHeader.svelte`: page title with optional description, extra content, and an `actions` snippet for header buttons.
+- `lib/components/StatusMessage.svelte`: loading, error, and success messages (`compact` for sidebars and forms).
+- `lib/components/TagList.svelte`: project tags.
+- `lib/download.ts`: `saveBlob` for client-side file downloads.
 
 ### API Clients
 
-Each feature has its own client under `src/lib/<feature>/`, all using `VITE_BACKEND_URL` (default `http://localhost:5000`) as the base URL. The production build sets it to `https://<domain>`.
+`src/lib/api.ts` holds the shared fetch helpers: `apiFetch` (throws `ApiError` with the backend's `{ error }` message on non-2xx), `apiJson` (also rejects non-JSON responses with a preview of the body), and `errorMessage`. Each feature's client under `src/lib/<feature>/` builds on them. The base URL is `VITE_BACKEND_URL` (default `http://localhost:5000`); the production build sets it to `https://<domain>`.
+
+### Scheduler
+
+`lib/scheduler/catalog.ts` converts between schedule files and course instances (`buildSchedule`, `exportSchedule`), validates credits, and searches the catalog; both the initial load (`data.ts`) and JSON import use it. `logic.ts` computes prerequisite edges and progress and the detangle ordering. `UtilityScheduler.svelte` keeps only the schedule (`semesterOrder`, `coursesById`, `columnCourseIds`) as state; requirements, the prerequisite graph, and credit totals are derived from it.
 
 ### Project Rendering
 
