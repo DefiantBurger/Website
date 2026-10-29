@@ -45,6 +45,21 @@ server {
 		client_max_body_size 100M;
 	}
 
+	# Vite content-hashes these filenames, so cache them forever. A missing asset
+	# (e.g. requested by a stale index.html) must 404: the SPA fallback would serve
+	# HTML, which nosniff makes the browser reject as CSS/JS.
+	# `expires` rather than add_header, so the security headers above still apply.
+	location /assets/ {
+		try_files $uri =404;
+		expires max;
+	}
+
+	# Always revalidate the shell so browsers never reuse one that points at a
+	# previous release's assets. `/` and the SPA fallback both end up here.
+	location = /index.html {
+		expires epoch;
+	}
+
 	location / {
 		try_files $uri $uri/ /index.html;
 	}

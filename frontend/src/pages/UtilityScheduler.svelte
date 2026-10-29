@@ -464,7 +464,7 @@
 </PageHeader>
 
 {#if loading}
-	<StatusMessage kind="loading" message="Bootstrapping scheduler..." />
+	<StatusMessage kind="loading" message="Loading scheduler..." />
 {:else if loadError}
 	<StatusMessage kind="error" message={loadError} />
 {:else}

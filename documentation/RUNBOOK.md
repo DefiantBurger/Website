@@ -44,6 +44,23 @@ sudo personalwebsite-deploy --rollback <commit sha>
 
 The next push to `main` deploys forward again. To stop that, revert the bad commit instead.
 
+## Update the Nginx Config in Place
+
+Pushes don't touch Nginx ([Deploying Changes](./DEPLOYMENT.md#deploying-changes)). To apply an edited `deployment/nginx.conf.tftpl` without replacing the VM, run this from the repo root:
+
+```bash
+sed -e 's|${domain}|josephcicalese.com|' -e 's|${app_path}|/opt/personalwebsite|' \
+  deployment/nginx.conf.tftpl > /tmp/nginx-default
+gcloud compute scp /tmp/nginx-default flask-vm:/tmp/nginx-default --zone us-central1-a --tunnel-through-iap
+gcloud compute ssh flask-vm --zone us-central1-a --tunnel-through-iap --command '
+  sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.bak &&
+  sudo install -m 644 -o root -g root /tmp/nginx-default /etc/nginx/sites-available/default &&
+  { sudo nginx -t && sudo systemctl reload nginx; } ||
+  { sudo cp /etc/nginx/sites-available/default.bak /etc/nginx/sites-available/default; echo "Restored previous config"; exit 1; }'
+```
+
+If `nginx -t` fails, the previous config is restored and Nginx keeps running. The `${...}` values are the defaults in `deployment/variables.tf`.
+
 ## Incidents
 
 ### Deploy workflow fails

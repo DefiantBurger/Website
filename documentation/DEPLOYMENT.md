@@ -91,6 +91,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit and Nginx templates 
 
 - **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; update with `apt-get upgrade cloudflared`) holds the tunnel open and forwards to Nginx.
 - **Nginx** listens only on `127.0.0.1:80`. Cloudflare terminates visitor TLS and the tunnel encrypts the hop to the VM, so there is no origin certificate. It serves `/opt/personalwebsite/current/frontend/dist` (SPA fallback to `index.html`) and proxies `/api/` to `127.0.0.1:5000`.
+  - Caching: `index.html` is sent with `Cache-Control: no-cache` so browsers always pick up the current release's asset names. Hashed files under `/assets/` are cached for a year and return a real `404` when missing instead of the SPA fallback (an HTML response to a CSS/JS request is rejected under `nosniff`, leaving the page unstyled or blank).
   - Redirects plain-HTTP visitors (detected from `CF-Visitor`) to HTTPS.
   - Rate limit: 10 req/s per `CF-Connecting-IP`, burst 10 (no delay on `/api/fileshare/`).
   - Body limit: 1 MB, except 100 MB on `/api/fileshare/upload/`.
@@ -119,6 +120,8 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit and Nginx templates 
 
 ## Deploying Changes
 
+The workflow ships only the release tarball (`backend/` app code and `frontend/dist`). Everything under `deployment/` reaches the VM only at provisioning, so a push alone does not apply it.
+
 | Change | How |
 | --- | --- |
 | App code or content | Push to `main`. The workflow runs `test-backend` and `test-frontend`, then `package` and `deploy`. Pull requests run only the tests. |
@@ -126,6 +129,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit and Nginx templates 
 | Roll back | On the VM: `ls -t /opt/personalwebsite/releases`, then `sudo personalwebsite-deploy --rollback <sha>`. |
 | Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`) |
 | VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM. Then run the workflow on `main` to deploy a release. Until then the site shows Cloudflare 1033 or 502. |
+| Nginx config only, without downtime | Edit `nginx.conf.tftpl`, then apply the same change to the running VM by hand ([Runbook](./RUNBOOK.md#update-the-nginx-config-in-place)). The next `./tf.sh apply` still replaces the VM, with the same result. |
 
 The pipeline:
 

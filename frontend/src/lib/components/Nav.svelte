@@ -42,7 +42,6 @@
         type="button"
         class="theme-toggle"
         onclick={() => theme.toggle()}
-        aria-label="Toggle light and dark theme"
       >
         {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>
