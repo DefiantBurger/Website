@@ -10,6 +10,7 @@
   --color-error: #ff6b6b;
   --color-success: #85c79a;
   --color-concurrent: #00e7ff;
+  --color-red: #ff2d2d;
 
   /* Transparency Variants */
   --color-primary-opacity-10: rgba(184, 216, 197, 0.1);
@@ -31,6 +32,7 @@
 
   --color-error: #c94444;
   --color-success: #3e8a58;
+  --color-red: #e01b1b;
 
   --color-primary-opacity-10: rgba(49, 68, 79, 0.06);
   --color-primary-opacity-15: rgba(49, 68, 79, 0.1);

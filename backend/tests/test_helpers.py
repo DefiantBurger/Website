@@ -85,6 +85,14 @@ class TestCloudflareGeolocation(unittest.TestCase):
 		self.assertFalse(result['available'])
 		self.assertIn('not present', result['reason'])
 
+	def test_missing_headers_use_nyc_in_debug(self):
+		self.app.debug = True
+		with self.app.test_request_context('/'):
+			result = _cloudflare_geolocation()
+		self.assertTrue(result['available'])
+		self.assertEqual(result['provider'], 'Development default')
+		self.assertEqual(result['city'], 'New York')
+
 	def test_reads_visitor_location_headers(self):
 		headers = {
 			'CF-IPCountry': 'US',

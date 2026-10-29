@@ -147,14 +147,14 @@
 	.radius {
 		width: 140px;
 		height: 140px;
-		border: 2px dashed var(--color-concurrent);
-		background: color-mix(in srgb, var(--color-concurrent) 12%, transparent);
+		border: 2px dashed var(--color-red);
+		background: color-mix(in srgb, var(--color-red) 12%, transparent);
 	}
 
 	.marker {
 		width: 14px;
 		height: 14px;
-		background: var(--color-concurrent);
+		background: var(--color-red);
 		box-shadow: 0 0 0 3px var(--color-bg-dark);
 		animation: pulse 2s ease-out infinite;
 	}
@@ -163,7 +163,7 @@
 		0% {
 			box-shadow:
 				0 0 0 3px var(--color-bg-dark),
-				0 0 0 3px var(--color-concurrent);
+				0 0 0 3px var(--color-red);
 		}
 		100% {
 			box-shadow:

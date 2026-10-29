@@ -5,7 +5,7 @@ import ipaddress
 
 import yaml
 
-from flask import Blueprint, abort, jsonify, request, send_file, send_from_directory
+from flask import Blueprint, abort, current_app, jsonify, request, send_file, send_from_directory
 
 from .fileshare import (
 	FileShareError,
@@ -29,6 +29,19 @@ _JSON_DATA_DIR = (
 	Path(__file__).resolve().parent / 'static' / 'json'
 )
 _PROJECTS_CONTENT_DIR = Path(__file__).resolve().parent / 'content' / 'projects'
+
+# Stand-in location for the local dev server, which never sees Cloudflare headers.
+_DEV_GEOLOCATION = {
+	'available': True,
+	'provider': 'Development default',
+	'country': 'US',
+	'region': 'New York',
+	'city': 'New York',
+	'postal': '10001',
+	'timezone': 'America/New_York',
+	'latitude': 40.7128,
+	'longitude': -74.006,
+}
 
 
 def _resolve_client_ip() -> tuple[str, str]:
@@ -92,6 +105,8 @@ def _cloudflare_geolocation() -> dict:
 	country = _cloudflare_header('CF-IPCountry')
 	city = _cloudflare_header('CF-IPCity')
 	if not country and not city:
+		if current_app.debug:
+			return dict(_DEV_GEOLOCATION)
 		return {
 			'available': False,
 			'reason': 'Cloudflare location headers were not present.',
