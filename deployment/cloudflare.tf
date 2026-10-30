@@ -50,6 +50,49 @@ resource "cloudflare_record" "website" {
   }
 }
 
+# Originally created by hand in the dashboard.
+import {
+  to = cloudflare_record.www
+  id = "${var.cloudflare_zone_id}/313cd5c0c7a68ae405aae8fa8271f0d5"
+}
+
+# Proxied so www resolves to Cloudflare. The redirect rule below answers every
+# request, so nothing is ever forwarded to the apex through this record.
+resource "cloudflare_record" "www" {
+  zone_id = var.cloudflare_zone_id
+  name    = "www"
+  content = var.domain
+  type    = "CNAME"
+  proxied = true
+  comment = "Redirected to the apex by cloudflare_ruleset.www_redirect"
+}
+
+# A zone allows only one ruleset per phase, so any other dynamic redirects
+# belong in this resource as additional rules.
+resource "cloudflare_ruleset" "www_redirect" {
+  zone_id = var.cloudflare_zone_id
+  name    = "Redirect www to apex"
+  kind    = "zone"
+  phase   = "http_request_dynamic_redirect"
+
+  rules {
+    action      = "redirect"
+    expression  = "(http.host eq \"www.${var.domain}\")"
+    description = "301 www to apex"
+    enabled     = true
+
+    action_parameters {
+      from_value {
+        status_code           = 301
+        preserve_query_string = true
+        target_url {
+          expression = "concat(\"https://${var.domain}\", http.request.uri.path)"
+        }
+      }
+    }
+  }
+}
+
 # Adds cf-ipcity, cf-region, cf-postal-code, etc. to requests sent to the origin.
 # Used by /api/about-you/request-context/ instead of a third-party lookup.
 resource "cloudflare_managed_headers" "website" {
