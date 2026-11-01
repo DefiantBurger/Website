@@ -29,7 +29,7 @@ cd frontend && pnpm run check            # svelte-check + tsc
 curl http://localhost:5000/api/projects/
 ```
 
-Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet. CI runs the same two checks on every push and pull request, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
+Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet. CI runs the same two checks on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
 
 ## Backend
 

@@ -3,7 +3,7 @@
 Provisioning and releases are separate:
 
 - **Terraform** in `deployment/` provisions the infrastructure and the VM. That happens rarely.
-- **GitHub Actions** (`.github/workflows/deploy.yaml`) tests every push. For pushes to `main`, it builds a release and deploys it to the VM (see [Deploying Changes](#deploying-changes)).
+- **GitHub Actions** (`.github/workflows/deploy.yaml`) tests pull requests and pushes to `main`. For pushes to `main`, it builds a release and deploys it to the VM. Pushes that only change docs skip the workflow (see [Deploying Changes](#deploying-changes)).
 
 Always run Terraform through `./tf.sh`, which fetches the Cloudflare API token first (see [Secrets](#secrets)).
 
@@ -125,7 +125,8 @@ The workflow ships only the release tarball (`backend/` app code and `frontend/d
 | Change | How |
 | --- | --- |
 | App code or content | Push to `main`. The workflow runs `test-backend` and `test-frontend`, then `package` and `deploy`. Pull requests run only the tests. |
-| Redeploy the tip of `main` | Actions → *Test and Deploy* → *Run workflow* on `main`. A release that already exists on the VM is reactivated without being rebuilt. |
+| Docs only (`documentation/**` or any `README.md`) | Push to `main`. The workflow doesn't run, so nothing is tested or deployed. A push that also changes anything else runs the whole workflow. Project write-ups are under `backend/`, so they count as content. |
+| Redeploy the tip of `main` | Actions → *Test and Deploy* → *Run workflow* on `main`. A release that already exists on the VM is reactivated without being rebuilt. Use this to retry a failed deploy, since a docs-only push won't. |
 | Roll back | On the VM: `ls -t /opt/personalwebsite/releases`, then `sudo personalwebsite-deploy --rollback <sha>`. |
 | Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`) |
 | VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM. Then run the workflow on `main` to deploy a release. Until then the site shows Cloudflare 1033 or 502. |

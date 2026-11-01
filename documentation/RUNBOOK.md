@@ -42,7 +42,7 @@ ls -t /opt/personalwebsite/releases                      # newest first; the las
 sudo personalwebsite-deploy --rollback <commit sha>
 ```
 
-The next push to `main` deploys forward again. To stop that, revert the bad commit instead.
+The next push to `main` that isn't [docs-only](./DEPLOYMENT.md#deploying-changes) deploys forward again. To stop that, revert the bad commit instead.
 
 ## Update the Nginx Config in Place
 

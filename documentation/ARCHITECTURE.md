@@ -35,7 +35,7 @@ flowchart LR
 - `frontend/`: SPA, router, page components, per-utility logic in `src/lib/<utility>/`.
 - `backend/`: Flask app (`app/`), project Markdown (`app/content/projects/`), scheduler data (`app/static/json/`), tests.
 - `deployment/`: Terraform, VM startup script, release deploy script, systemd and Nginx templates.
-- `.github/workflows/deploy.yaml`: tests every push and PR; deploys `main`.
+- `.github/workflows/deploy.yaml`: tests PRs and pushes to `main`; deploys `main`. Docs-only pushes skip it.
 - `documentation/`: these docs.
 - `start-dev.sh`: runs backend and frontend together for local development.
 

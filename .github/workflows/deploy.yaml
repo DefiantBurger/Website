@@ -1,10 +1,16 @@
-# Tests every push and PR; on main, builds a release and deploys it to the VM.
+# Tests every PR and push to main; on main, builds a release and deploys it to
+# the VM. Pushes that only change docs skip the workflow.
 # See documentation/DEPLOYMENT.md#deploying-changes.
 name: Test and Deploy
 
 on:
   push:
     branches: [ main ]
+    # Neither is in the release. Project write-ups live in backend/app/content,
+    # so they still deploy.
+    paths-ignore:
+      - 'documentation/**'
+      - '**/README.md'
   pull_request:
   workflow_dispatch:
 
