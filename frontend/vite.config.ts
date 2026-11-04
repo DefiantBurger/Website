@@ -28,19 +28,25 @@ function publishedProjectSlugs(): string[] {
     .sort()
 }
 
-/** Emit dist/sitemap.xml at build time from the app's parameterless routes and the project files. */
+/** Sitemap XML from the app's parameterless routes and the project files. */
+function sitemapXml(): string {
+  const paths = [...staticRoutePaths(), ...publishedProjectSlugs().map((slug) => `/projects/${slug}`)]
+  const urls = paths.map((path) => `  <url><loc>${SITE_ORIGIN}${path}</loc></url>`).join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
+}
+
+/** Writes dist/sitemap.xml at build time and serves /sitemap.xml from the dev server. */
 function sitemap(): Plugin {
   return {
     name: 'sitemap',
-    apply: 'build',
-    generateBundle() {
-      const paths = [...staticRoutePaths(), ...publishedProjectSlugs().map((slug) => `/projects/${slug}`)]
-      const urls = paths.map((path) => `  <url><loc>${SITE_ORIGIN}${path}</loc></url>`).join('\n')
-      this.emitFile({
-        type: 'asset',
-        fileName: 'sitemap.xml',
-        source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`,
+    configureServer(server) {
+      server.middlewares.use('/sitemap.xml', (_req, res) => {
+        res.setHeader('Content-Type', 'application/xml; charset=utf-8')
+        res.end(sitemapXml())
       })
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml() })
     },
   }
 }
