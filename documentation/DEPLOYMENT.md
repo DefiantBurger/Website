@@ -3,7 +3,7 @@
 Provisioning and releases are separate:
 
 - **Terraform** in `deployment/` provisions the infrastructure and the VM. That happens rarely.
-- **GitHub Actions** (`.github/workflows/deploy.yaml`) tests pull requests and pushes to `main`. For pushes to `main`, it builds a release and deploys it to the VM. Pushes that only change docs skip the workflow (see [Deploying Changes](#deploying-changes)).
+- **GitHub Actions** (`.github/workflows/deploy.yaml`) tests pull requests and pushes to `main`. When run by hand on `main`, it also builds a release and deploys it to the VM; pushes and merges never deploy. Pushes that only change docs skip the workflow (see [Deploying Changes](#deploying-changes)).
 
 Always run Terraform through `./tf.sh`, which fetches the Cloudflare API token first (see [Secrets](#secrets)).
 
@@ -124,9 +124,9 @@ The workflow ships only the release tarball (`backend/` app code and `frontend/d
 
 | Change | How |
 | --- | --- |
-| App code or content | Push to `main`. The workflow runs `test-backend` and `test-frontend`, then `package` and `deploy`. Pull requests run only the tests. |
-| Docs only (`documentation/**` or any `README.md`) | Push to `main`. The workflow doesn't run, so nothing is tested or deployed. A push that also changes anything else runs the whole workflow. Project write-ups are under `backend/`, so they count as content. |
-| Redeploy the tip of `main` | Actions → *Test and Deploy* → *Run workflow* on `main`. A release that already exists on the VM is reactivated without being rebuilt. Use this to retry a failed deploy, since a docs-only push won't. |
+| App code or content | Push or merge to `main`; the workflow runs only `test-backend` and `test-frontend`, as on pull requests. Nothing deploys until you run the workflow by hand (next row). |
+| Deploy the tip of `main` | Actions → *Test and Deploy* → *Run workflow* on `main`, or `gh workflow run deploy.yaml --ref main`. The run tests, then runs `package` and `deploy`. A release that already exists on the VM is reactivated without being rebuilt, so this also retries a failed deploy. |
+| Docs only (`documentation/**` or any `README.md`) | Push to `main`. The workflow doesn't run, so nothing is tested. A push that also changes anything else runs the tests. Project write-ups are under `backend/`, so they count as content and need a deploy to go live. |
 | Roll back | On the VM: `ls -t /opt/personalwebsite/releases`, then `sudo personalwebsite-deploy --rollback <sha>`. |
 | Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`) |
 | VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM. Then run the workflow on `main` to deploy a release. Until then the site shows Cloudflare 1033 or 502. |
@@ -136,11 +136,11 @@ The pipeline:
 
 1. **test-backend:** `uv sync --frozen` and `uv run pytest --cov=app`.
 2. **test-frontend:** `pnpm install --frozen-lockfile` and `pnpm check`. The pnpm version comes from `packageManager` in `frontend/package.json`.
-3. **package:**
+3. **package** (only on a manual run on `main`):
    - Build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`.
    - Export hash-pinned backend requirements with `uv export --frozen --no-dev`.
    - Tar `backend/{main.py,app,requirements.txt}` and `frontend/dist`, and upload the tarball as artifact `release-<sha>`.
-4. **deploy** (only on `main`, in the `production` environment, serialized by `concurrency`):
+4. **deploy** (only on a manual run on `main`, in the `production` environment, serialized by `concurrency`):
    - Authenticate through Workload Identity Federation.
    - Stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`.
    - Run `curl` against `https://josephcicalese.com/api/health/`.

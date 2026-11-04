@@ -1,13 +1,14 @@
-# Tests every PR and push to main; on main, builds a release and deploys it to
-# the VM. Pushes that only change docs skip the workflow.
-# See documentation/DEPLOYMENT.md#deploying-changes.
+# Tests every PR and push to main. Deploys only when run by hand
+# (Actions → Run workflow, or `gh workflow run deploy.yaml`) on main: builds a
+# release and deploys it to the VM. Pushes that only change docs skip the
+# workflow. See documentation/DEPLOYMENT.md#deploying-changes.
 name: Test and Deploy
 
 on:
   push:
     branches: [ main ]
-    # Neither is in the release. Project write-ups live in backend/app/content,
-    # so they still deploy.
+    # Neither affects the tests. Project write-ups live in backend/app/content,
+    # so they're still tested.
     paths-ignore:
       - 'documentation/**'
       - '**/README.md'
@@ -67,7 +68,8 @@ jobs:
 
   package:
     needs: [ test-backend, test-frontend ]
-    if: github.event_name != 'pull_request'
+    # Merges and pushes never ship; deploys are always a deliberate manual run.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       sha256: ${{ steps.tarball.outputs.sha256 }}
@@ -118,7 +120,7 @@ jobs:
 
   deploy:
     needs: package
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     # The Workload Identity provider only trusts this environment on main.
     environment: production
