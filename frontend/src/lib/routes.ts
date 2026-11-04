@@ -1,5 +1,8 @@
-// The site's route table. Kept apart from the router so pages can import the
-// router without an import cycle.
+// The site's route table: the paths in routeDefinitions.ts paired with their
+// pages. Kept apart from the router so pages can import the router without an
+// import cycle. To add a page, add its path there and its component here.
+import type { Component } from 'svelte';
+
 import Home from '../pages/Home.svelte';
 import Projects from '../pages/Projects.svelte';
 import ProjectDetail from '../pages/ProjectDetail.svelte';
@@ -11,24 +14,25 @@ import UtilityScheduler from '../pages/UtilityScheduler.svelte';
 import UtilityFileShare from '../pages/UtilityFileShare.svelte';
 import UtilityMessageBoard from '../pages/UtilityMessageBoard.svelte';
 import NotFound from '../pages/NotFound.svelte';
+import { routeDefinitions, type RouteKey } from './routeDefinitions';
 import type { Route } from './router.svelte';
 
-export const routes: Route[] = [
-  { path: '/', page: Home },
-  { path: '/projects', page: Projects },
-  { path: '/projects/:slug', page: ProjectDetail },
-  { path: '/about', page: About },
-  { path: '/about-you', page: AboutYou },
-  { path: '/contact', page: Contact },
-  { path: '/utilities', page: Utilities },
-  { path: '/utilities/scheduler', page: UtilityScheduler, wide: true },
-  { path: '/utilities/fileshare', page: UtilityFileShare, wide: true },
-  {
-    path: '/utilities/message-board',
-    aliases: ['/utilities/messageboard'],
-    page: UtilityMessageBoard,
-    wide: true
-  }
-];
+const pages: Record<RouteKey, Component> = {
+  home: Home,
+  projects: Projects,
+  projectDetail: ProjectDetail,
+  about: About,
+  aboutYou: AboutYou,
+  contact: Contact,
+  utilities: Utilities,
+  scheduler: UtilityScheduler,
+  fileShare: UtilityFileShare,
+  messageBoard: UtilityMessageBoard,
+};
+
+export const routes: Route[] = (Object.keys(routeDefinitions) as RouteKey[]).map((key) => ({
+  ...routeDefinitions[key],
+  page: pages[key],
+}));
 
 export const notFoundRoute: Route = { path: '/404', page: NotFound };

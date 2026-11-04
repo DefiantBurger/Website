@@ -12,7 +12,8 @@ server {
 
 	client_max_body_size 1M;
 
-	limit_req zone=limit burst=10 delay=5;
+	# 429 rather than the default 503, so rate limiting doesn't look like an outage.
+	limit_req_status 429;
 
 	# CF-Visitor carries the visitor's original scheme through the tunnel.
 	if ($http_cf_visitor ~ '"scheme":"http"') {
@@ -30,8 +31,11 @@ server {
 	# style-src needs 'unsafe-inline' for Mermaid diagrams and Svelte transitions.
 	add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
 
+	# Rate-limit the API only: a page load requests ~20 assets at once, which
+	# would trip the limit on a cold Cloudflare cache.
 	location /api/ {
 		include api_proxy_params.conf;
+		limit_req zone=limit burst=10 delay=5;
 	}
 
 	location /api/fileshare/ {

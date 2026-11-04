@@ -17,7 +17,7 @@ Prerequisites: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, pnpm
 | `FLASK_ENV` | `development` | `development`: Flask debug server + CORS on `/api/*`. `production` (the default when running `main.py` directly): Waitress on `127.0.0.1`. |
 | `PORT` | `5000` | Backend port. |
 | `SECRET_KEY` | `local-dev-secret` | Required by the backend; also the file-share label pepper. |
-| `VITE_BACKEND_URL` | `http://localhost:$PORT` | Base URL the frontend uses for API calls. |
+| `VITE_BACKEND_URL` | `http://localhost:$PORT` | Base URL the frontend uses for API calls. If unset, dev builds use `http://localhost:5000` and production builds use the page's own origin. |
 
 `backend/main.py` also loads a `backend/.env` file if present.
 
@@ -55,7 +55,7 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme toke
 
 ### Routing
 
-`src/lib/router.svelte.ts` is a small History API router (no library). It strips trailing slashes, matches the route table, and exposes reactive state `router.path`, `router.route`, and `router.params`. It also intercepts left-clicks on same-origin `<a href>` links, so pages use plain links; `navigate(path)` is only needed for programmatic navigation (e.g. buttons). The route table lives in `src/lib/routes.ts` (separate so pages can import the router without an import cycle). To add a page, add an entry there; the 404 page's suggestions and the nav's active state derive from it.
+`src/lib/router.svelte.ts` is a small History API router (no library). It strips trailing slashes, matches the route table, and exposes reactive state `router.path`, `router.route`, and `router.params`. It also intercepts left-clicks on same-origin `<a href>` links, so pages use plain links; `navigate(path)` is only needed for programmatic navigation (e.g. buttons). Paths and route options live in `src/lib/routeDefinitions.ts`, which has no Svelte imports so `vite.config.ts` can read it too. `src/lib/routes.ts` pairs each key with its page component (separate so pages can import the router without an import cycle), and TypeScript fails the check if a key has no page. To add a page, add its path to `routeDefinitions.ts` and its component to `routes.ts`; the 404 page's suggestions, the nav's active state, and `sitemap.xml` (generated at build time, with project pages read from `backend/app/content/projects/`) all derive from them.
 
 | Path | Page |
 | --- | --- |
@@ -82,7 +82,7 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme toke
 
 ### API Clients
 
-`src/lib/api.ts` holds the shared fetch helpers: `apiFetch` (throws `ApiError` with the backend's `{ error }` message on non-2xx), `apiJson` (also rejects non-JSON responses with a preview of the body), and `errorMessage`. Each feature's client under `src/lib/<feature>/` builds on them. The base URL is `VITE_BACKEND_URL` (default `http://localhost:5000`); the production build sets it to `https://<domain>`.
+`src/lib/api.ts` holds the shared fetch helpers: `apiFetch` (throws `ApiError` with the backend's `{ error }` message on non-2xx), `apiJson` (also rejects non-JSON responses with a preview of the body), and `errorMessage`. Each feature's client under `src/lib/<feature>/` builds on them. The base URL is `VITE_BACKEND_URL` (default `http://localhost:5000` in dev and same-origin in production builds); the production build sets it to `https://<domain>`. Non-JSON error bodies (e.g. Nginx's HTML error pages) are never shown; users get a status-based message instead.
 
 ### Scheduler
 

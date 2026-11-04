@@ -2,6 +2,7 @@ import os
 
 from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 def create_app(test_config: dict | None = None, instance_path: str | None = None):
@@ -25,6 +26,9 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 	if secret_key is None:
 		raise ValueError("SECRET_KEY environment variable is not set")
 	app.config['SECRET_KEY'] = secret_key
+	# Nginx is the only hop in front of the app and sets X-Forwarded-For (the
+	# visitor's IP) and X-Forwarded-Proto, so redirects and remote_addr are correct.
+	app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 	# Matches nginx's 100M upload limit, plus headroom for multipart form overhead.
 	app.config['MAX_CONTENT_LENGTH'] = 101 * 1024 * 1024
 

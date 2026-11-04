@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>404 - Not Found</title>
+  <title>404 - Not Found · JosephCicalese.com</title>
   <meta name="description" content="The page you requested could not be found." />
 </svelte:head>
 

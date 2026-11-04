@@ -25,7 +25,7 @@
 </script>
 
 <svelte:head>
-  <title>Utilities</title>
+  <title>Utilities · JosephCicalese.com</title>
   <meta name="description" content="Interactive tools and experiments, including a class scheduler, file sharing utility, and message board." />
 </svelte:head>
 

@@ -14,7 +14,7 @@
 </script>
 
 <svelte:head>
-  <title>Contact</title>
+  <title>Contact · JosephCicalese.com</title>
   <meta name="description" content="Get in touch with me." />
 </svelte:head>
 

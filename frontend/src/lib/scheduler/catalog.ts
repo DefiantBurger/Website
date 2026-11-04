@@ -4,8 +4,13 @@ import type { CourseCatalog, CourseInstance, Requirement, ScheduleFile, Schedule
 /** Courses taken before college: they satisfy prerequisites but get no column. */
 export const PRECOLLEGE_SEMESTER = 'precollege';
 
+/** Own-property lookup, so names like `constructor` don't match `Object.prototype`. */
+function lookupCourse(catalog: CourseCatalog, courseName: string) {
+  return Object.hasOwn(catalog, courseName) ? catalog[courseName] : undefined;
+}
+
 function catalogEntry(catalog: CourseCatalog, courseName: string) {
-  const item = catalog[courseName];
+  const item = lookupCourse(catalog, courseName);
   if (!item) {
     throw new Error(`Course '${courseName}' is not in the loaded course catalog.`);
   }
@@ -36,7 +41,7 @@ export function parseCourseEntry(entry: string): { courseName: string; requested
 
 /** Credit options for a course, lowest (the default) first. */
 export function getValidCredits(catalog: CourseCatalog, courseName: string): number[] {
-  const item = catalog[courseName];
+  const item = lookupCourse(catalog, courseName);
   if (!item) {
     return [];
   }
@@ -69,7 +74,7 @@ function resolveCredits(catalog: CourseCatalog, courseName: string, requestedCre
 }
 
 export function buildRequirements(catalog: CourseCatalog, courseName: string): Requirement[] {
-  const item = catalog[courseName];
+  const item = lookupCourse(catalog, courseName);
   if (!item) {
     return [];
   }
@@ -210,7 +215,7 @@ export function resolveCourseQuery(
   const names = Object.keys(catalog);
 
   return (
-    (catalog[code] ? code : undefined) ??
+    (lookupCourse(catalog, code) ? code : undefined) ??
     names.find((name) => name.toLowerCase() === code.toLowerCase()) ??
     names.find((name) => compactKey(name) === compactKey(code)) ??
     suggestions.find((item) => item.display.toLowerCase() === candidate.toLowerCase())?.name ??

@@ -94,7 +94,7 @@ The UI uploads one or more files under one key (the first upload sends `clearExi
 
 ## Message Board
 
-Anonymous board where messages expire 30 seconds after posting.
+Anonymous board where messages expire 60 seconds after posting.
 
 ### API
 

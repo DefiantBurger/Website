@@ -129,6 +129,18 @@ class TestFileShareSanitizationAndParsing(unittest.TestCase):
 		self.assertEqual(_sanitize_original_filename("   "), "download")
 		self.assertEqual(_sanitize_original_filename("///"), "download")
 
+	def test_sanitize_original_filename_non_ascii(self):
+		self.assertEqual(_sanitize_original_filename("café résumé.pdf"), "cafe_resume.pdf")
+		# Nothing survives ASCII conversion: a stable placeholder keeps the extension.
+		japanese = _sanitize_original_filename("日本語.pdf")
+		self.assertRegex(japanese, r"^file-[0-9a-f]{8}\.pdf$")
+		self.assertEqual(japanese, _sanitize_original_filename("日本語.pdf"))
+		self.assertNotEqual(japanese, _sanitize_original_filename("中文.pdf"))
+		self.assertRegex(_sanitize_original_filename("файл.txt"), r"^file-[0-9a-f]{8}\.txt$")
+		self.assertRegex(_sanitize_original_filename("файл"), r"^file-[0-9a-f]{8}$")
+		# Partly ASCII names keep what survives.
+		self.assertEqual(_sanitize_original_filename("report_日本.pdf"), "report_.pdf")
+
 	def test_extract_occurrence_index(self):
 		# From payload dict
 		self.assertEqual(_extract_occurrence_index(Path("foo.json"), {"occurrence_index": 3}), 3)
@@ -263,6 +275,17 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 		deleted = cleanup_expired_records()
 		self.assertGreaterEqual(deleted, 1)
 		self.assertFalse(corrupt_meta.exists())
+
+	def test_cleanup_corrupted_record_removes_payload(self):
+		file_obj = self._create_mock_file("doc.txt", b"payload bytes")
+		record = save_upload(file_obj, "corrupt-key")
+		meta_path, payload_path = _record_paths(record.label, record.occurrence_index)
+		meta_path.write_text("invalid json content")
+
+		cleanup_expired_records()
+		self.assertFalse(meta_path.exists())
+		self.assertFalse(payload_path.exists())
+		self.assertEqual(get_storage_status()["usedBytes"], 0)
 
 	def test_storage_status(self):
 		status = get_storage_status()

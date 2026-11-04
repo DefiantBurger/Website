@@ -290,7 +290,7 @@
 <svelte:window ononline={refreshLocalSnapshot} onoffline={refreshLocalSnapshot} />
 
 <svelte:head>
-	<title>About You</title>
+	<title>About You · JosephCicalese.com</title>
 	<meta
 		name="description"
 		content="See what your browser and requests reveal during your visit. Read-only, no analytics profile created."

@@ -6,7 +6,17 @@
   initRouter(routes, notFoundRoute);
 
   const Page = $derived(router.route?.page);
+  // Aliases (e.g. /utilities/messageboard) point at their route's main path.
+  const canonicalPath = $derived(
+    router.route && !router.route.path.includes(':') ? router.route.path : router.path
+  );
 </script>
+
+<svelte:head>
+  {#if router.route && router.route !== notFoundRoute}
+    <link rel="canonical" href="{window.location.origin}{canonicalPath}" />
+  {/if}
+</svelte:head>
 
 <Nav />
 <main class="container" class:container-wide={router.route?.wide}>

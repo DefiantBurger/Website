@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import threading
+import unicodedata
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
@@ -211,11 +212,14 @@ def cleanup_expired_records(now: datetime | None = None) -> int:
 	for meta_path in root.glob(f'*{META_SUFFIX}'):
 		record = _load_record(meta_path)
 		if record is None:
+			# Remove the payload too, or it lingers on disk outside the storage quota.
+			payload_path = meta_path.with_name(meta_path.name.removesuffix(META_SUFFIX) + PAYLOAD_SUFFIX)
 			deleted_count += 1
-			try:
-				meta_path.unlink()
-			except FileNotFoundError:
-				pass
+			for path in (meta_path, payload_path):
+				try:
+					path.unlink()
+				except FileNotFoundError:
+					pass
 			continue
 
 		try:
@@ -315,8 +319,22 @@ def _decrypt_bytes(password: str, record: FileShareRecord, ciphertext: bytes) ->
 	return AESGCM(key).decrypt(nonce, ciphertext, None)
 
 
+def _to_ascii(text: str) -> str:
+	"""Strip accents deterministically (`café` -> `cafe`); characters with no ASCII form are dropped."""
+	return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+
+
 def _sanitize_original_filename(filename: str) -> str:
-	clean_name = secure_filename(filename).strip()
+	clean_name = secure_filename(_to_ascii(filename)).strip()
+
+	stem, ext = os.path.splitext(os.path.basename(filename.replace('\\', '/')))
+	if not filename.isascii() and stem.strip() and not secure_filename(_to_ascii(stem)):
+		# Nothing in the name survives ASCII conversion (e.g. `日本語.pdf`), so keep the
+		# extension and use a placeholder stem that is stable for the same name.
+		digest = hashlib.sha256(stem.encode('utf-8')).hexdigest()[:8]
+		clean_ext = secure_filename(_to_ascii(ext.lstrip('.')))
+		clean_name = f'file-{digest}.{clean_ext}' if clean_ext else f'file-{digest}'
+
 	return clean_name or 'download'
 
 

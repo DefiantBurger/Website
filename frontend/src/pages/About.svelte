@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-  <title>About</title>
+  <title>About · JosephCicalese.com</title>
   <meta name="description" content="Learn more about the developer behind this website." />
 </svelte:head>
 

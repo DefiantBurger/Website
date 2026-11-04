@@ -1,6 +1,16 @@
 // Shared fetch helpers for every feature's API client.
+// Without VITE_BACKEND_URL, dev talks to the local Flask server and production
+// builds use the page's own origin (never the visitor's localhost).
 export const BACKEND_BASE_URL =
-  (import.meta.env.VITE_BACKEND_URL as string | undefined) ?? 'http://localhost:5000';
+  (import.meta.env.VITE_BACKEND_URL as string | undefined) ??
+  (import.meta.env.DEV ? 'http://localhost:5000' : '');
+
+// Shown for non-JSON error bodies (e.g. Nginx's HTML pages), which aren't meant for users.
+const STATUS_MESSAGES: Record<number, string> = {
+  413: 'The upload is too large.',
+  429: 'Too many requests. Please wait a moment and try again.',
+  503: 'The service is temporarily unavailable. Please try again shortly.'
+};
 
 /** A non-2xx response; `message` is the backend's `{ error }` text when it sent one. */
 export class ApiError extends Error {
@@ -23,7 +33,14 @@ async function readErrorMessage(response: Response): Promise<string> {
     }
   }
 
-  return (await response.text()).slice(0, 160) || 'Request failed.';
+  if (contentType.includes('text/plain')) {
+    const text = (await response.text()).trim().slice(0, 160);
+    if (text) {
+      return text;
+    }
+  }
+
+  return STATUS_MESSAGES[response.status] ?? `Request failed (${response.status}).`;
 }
 
 /** Fetch `path` from the backend, throwing an `ApiError` unless the response is 2xx. */

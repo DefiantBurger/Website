@@ -32,7 +32,7 @@
 </script>
 
 <svelte:head>
-  <title>Home</title>
+  <title>JosephCicalese.com</title>
   <meta name="description" content="Personal portfolio and projects by me." />
 </svelte:head>
 

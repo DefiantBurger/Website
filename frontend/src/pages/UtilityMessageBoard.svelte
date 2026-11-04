@@ -76,7 +76,7 @@
 </script>
 
 <svelte:head>
-	<title>Message Board</title>
+	<title>Message Board · JosephCicalese.com</title>
 	<meta
 		name="description"
 		content="Ephemeral anonymous message board where notes vanish after around {MESSAGE_TTL_SECONDS} seconds."

@@ -2,6 +2,8 @@ import os
 import unittest
 from unittest.mock import patch
 
+from flask import request
+
 from app import create_app
 
 
@@ -31,6 +33,32 @@ class TestAppFactory(unittest.TestCase):
 				instance_path=tmp_dir,
 			)
 			self.assertEqual(app.instance_path, tmp_dir)
+
+
+class TestProxyHeaders(unittest.TestCase):
+	def setUp(self):
+		self.app = create_app(test_config={"SECRET_KEY": "test-key", "TESTING": True})
+		self.client = self.app.test_client()
+
+	def test_redirect_uses_forwarded_scheme(self):
+		response = self.client.get(
+			"/api/health",
+			headers={"X-Forwarded-Proto": "https", "Host": "example.com"},
+		)
+		self.assertEqual(response.status_code, 308)
+		self.assertEqual(response.headers["Location"], "https://example.com/api/health/")
+
+	def test_remote_addr_uses_forwarded_for(self):
+		# ProxyFix runs as WSGI middleware, so check through a real request.
+		captured = {}
+
+		@self.app.get("/_test_remote_addr")
+		def _remote_addr():
+			captured["addr"] = request.remote_addr
+			return ""
+
+		self.client.get("/_test_remote_addr", headers={"X-Forwarded-For": "203.0.113.7"})
+		self.assertEqual(captured["addr"], "203.0.113.7")
 
 
 class TestAppErrorHandlersAndCORS(unittest.TestCase):

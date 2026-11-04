@@ -4,15 +4,11 @@
 import type { Component } from 'svelte';
 
 import { recordRouteVisit } from './aboutYou/interactionStore';
+import type { RouteDefinition } from './routeDefinitions';
 
-export type Route = {
-  // Pattern; `:name` segments become route params. Also recorded as the
-  // About You page's navigation history entry.
-  path: string;
+// `path` is also recorded as the About You page's navigation history entry.
+export type Route = RouteDefinition & {
   page: Component;
-  aliases?: string[];
-  // Use the wide page container.
-  wide?: boolean;
 };
 
 let routes: Route[] = [];
@@ -43,7 +39,12 @@ function matchPattern(pattern: string, pathname: string): Record<string, string>
   const params: Record<string, string> = {};
   for (const [index, part] of patternParts.entries()) {
     if (part.startsWith(':')) {
-      params[part.slice(1)] = decodeURIComponent(pathParts[index]);
+      try {
+        params[part.slice(1)] = decodeURIComponent(pathParts[index]);
+      } catch {
+        // Malformed escape (e.g. `%ZZ`): no match, so the 404 page renders.
+        return null;
+      }
     } else if (part !== pathParts[index]) {
       return null;
     }

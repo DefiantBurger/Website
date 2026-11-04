@@ -24,6 +24,7 @@
 	let uploadError = $state<string | null>(null);
 	let uploadSuccess = $state<string | null>(null);
 	let uploadBusy = $state(false);
+	let uploadInput = $state<HTMLInputElement | null>(null);
 
 	let accessPassword = $state('');
 	let accessError = $state<string | null>(null);
@@ -85,6 +86,10 @@
 			uploadSuccess = `Stored ${results.length} file(s): ${fileNames}.`;
 			uploadPassword = '';
 			uploadFiles = [];
+			// The input keeps its own FileList, so clear it to match `uploadFiles`.
+			if (uploadInput) {
+				uploadInput.value = '';
+			}
 			await loadStatus();
 		} catch (error) {
 			uploadError = errorMessage(error, 'Upload failed.');
@@ -192,7 +197,7 @@
 </script>
 
 <svelte:head>
-	<title>File Share</title>
+	<title>File Share · JosephCicalese.com</title>
 	<meta
 		name="description"
 		content="Upload files, protect them with an access key-derived label, and retrieve them through the same access key."
@@ -245,6 +250,7 @@
 			<input
 				type="file"
 				multiple
+				bind:this={uploadInput}
 				onchange={(event) => (uploadFiles = Array.from(event.currentTarget.files ?? []))}
 			/>
 		</label>
@@ -314,7 +320,7 @@
 	</div>
 	<p>
 		Each access key hashes to one label. Uploading with an existing access key will override all
-		previous files for that key. All files expire together after 10 minutes of inactivity, and the payloads
+		previous files for that key. Each file expires 10 minutes after it is uploaded, and the payloads
 		remain encrypted on disk using a key derived from the same access key.
 	</p>
 </section>

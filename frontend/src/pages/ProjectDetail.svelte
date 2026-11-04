@@ -77,10 +77,10 @@
 
 <svelte:head>
   {#await pagePromise}
-    <title>Project Details</title>
+    <title>Project Details · JosephCicalese.com</title>
     <meta name="description" content="Explore this project in detail." />
   {:then { project }}
-    <title>{project.title}</title>
+    <title>{project.title} · JosephCicalese.com</title>
     <meta name="description" content={project.summary || 'Explore this project in detail.'} />
   {/await}
 </svelte:head>

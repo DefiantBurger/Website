@@ -451,7 +451,7 @@
 </script>
 
 <svelte:head>
-	<title>Scheduler</title>
+	<title>Scheduler · JosephCicalese.com</title>
 	<meta name="description" content="Interactive course scheduler with prerequisite validation and dependency visualization." />
 </svelte:head>
 

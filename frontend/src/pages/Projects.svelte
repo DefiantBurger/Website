@@ -8,7 +8,7 @@
 </script>
 
 <svelte:head>
-  <title>Projects</title>
+  <title>Projects · JosephCicalese.com</title>
   <meta name="description" content="A collection of projects I'm proud of." />
 </svelte:head>
 
@@ -20,7 +20,7 @@
   <div class="projects-grid">
     {#each projects as project (project.slug)}
       <div class="project-item terminal-box hover-lift">
-        <h3>{project.title}</h3>
+        <h2>{project.title}</h2>
         <p>{project.summary || 'Project details coming soon.'}</p>
         <TagList tags={project.tags} />
         <a href="/projects/{project.slug}" class="project-link">> View Project →</a>
@@ -48,9 +48,15 @@
     transform: translateY(-4px);
   }
 
-  .project-item h3 {
-    margin-bottom: 0.5rem;
+  /* An h2 for heading order (h1 -> h2), styled like the card titles elsewhere. */
+  .project-item h2 {
+    margin: 0 0 0.5rem;
+    padding-bottom: 0;
+    border-bottom: none;
     font-size: 1.3rem;
+    font-weight: bold;
+    line-height: normal;
+    letter-spacing: normal;
   }
 
   .project-item p {
