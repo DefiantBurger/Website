@@ -1,18 +1,25 @@
-from pathlib import Path
+import ipaddress
 from datetime import datetime, timezone
 from io import BytesIO
-import ipaddress
+from pathlib import Path
 
 import yaml
-
-from flask import Blueprint, abort, current_app, jsonify, request, send_file, send_from_directory
+from flask import (
+	Blueprint,
+	abort,
+	current_app,
+	jsonify,
+	request,
+	send_file,
+	send_from_directory,
+)
 
 from .fileshare import (
 	FileShareError,
 	cleanup_expired_records,
 	decrypt_record_payload,
-	get_record_for_password,
 	get_all_records_for_password,
+	get_record_for_password,
 	get_storage_status,
 	save_upload,
 	transfer_slot,
@@ -186,7 +193,7 @@ def scheduler_course_data():
 
 @views.route('/api/scheduler/default-schedule/', methods=['GET'])
 def scheduler_default_schedule():
-	return send_from_directory(_JSON_DATA_DIR, 'physics_courses.json')
+	return send_from_directory(_JSON_DATA_DIR, 'my_courses.json')
 
 
 @views.route('/api/projects/', methods=['GET'])

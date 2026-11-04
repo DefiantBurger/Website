@@ -46,7 +46,7 @@ Dependencies (`backend/pyproject.toml`): Flask, Flask-CORS, Waitress, python-dot
 Data sources:
 
 - `app/content/projects/*.md`: project write-ups (frontmatter + Markdown).
-- `app/static/json/course_data.json`, `physics_courses.json`: scheduler catalog and default plan.
+- `app/static/json/course_data.json`, `my_courses.json`: scheduler catalog and default plan.
 - `instance/fileshare/`: file-share uploads in local development (created at runtime, gitignored). Production sets `PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite`.
 
 ## Frontend

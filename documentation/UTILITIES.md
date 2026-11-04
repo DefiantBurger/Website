@@ -12,7 +12,7 @@ Semester planner that validates prerequisites and draws them as a dependency gra
 
 ### API
 
-- `GET /api/scheduler/default-schedule/` → `backend/app/static/json/physics_courses.json`
+- `GET /api/scheduler/default-schedule/` → `backend/app/static/json/my_courses.json`
 - `GET /api/scheduler/course-data/` → `backend/app/static/json/course_data.json`
 
 ### Data Model

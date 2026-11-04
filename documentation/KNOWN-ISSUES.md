@@ -81,7 +81,7 @@ The items below come from code review and function-level tests, not live uploads
 1. Sanitizing silently removes characters: `don't` becomes `dont`, and `café ñ 你好 🎉` becomes `caf`. The UI calls the allowlist "URL-safe", yet it strips `&`, `#`, `%`, `+`, and `@`.
 2. [Utilities](./UTILITIES.md#message-board) says messages expire after 30 seconds, but the code uses 60.
 
-## Appendix: Not Issues
+## Appendix: Non-Issues
 
 These are deliberate. Don't report or "fix" them without revisiting the decision.
 
