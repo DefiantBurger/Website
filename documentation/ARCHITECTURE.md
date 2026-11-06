@@ -38,6 +38,7 @@ flowchart LR
 - `.github/workflows/deploy.yaml`: tests PRs and pushes to `main`; deploys `main` only when run by hand. Docs-only pushes skip it.
 - `documentation/`: these docs.
 - `start-dev.sh`: runs backend and frontend together for local development.
+- `test.sh`: runs every local check (backend tests, frontend unit tests, check, and build, browser smoke test and a11y scan).
 
 ## Runtime Flows
 

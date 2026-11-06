@@ -16,6 +16,11 @@ export PORT="${PORT:-5000}"
 export SECRET_KEY="${SECRET_KEY:-local-dev-secret}"
 export VITE_BACKEND_URL="${VITE_BACKEND_URL:-http://localhost:${PORT}}"
 
+# Job control gives each background server its own process group, so cleanup
+# can signal the whole tree. Killing just the subshell PID orphans whatever it
+# spawned (pnpm -> sh -> vite), leaving the port held after a plain `kill`.
+set -m
+
 echo "Starting backend on http://localhost:${PORT}"
 (cd "$BACKEND_DIR" && "$BACKEND_PYTHON" main.py) &
 BACKEND_PID=$!
@@ -28,13 +33,8 @@ cleanup() {
   echo
   echo "Stopping services..."
 
-  if kill -0 "$BACKEND_PID" >/dev/null 2>&1; then
-    kill "$BACKEND_PID" >/dev/null 2>&1 || true
-  fi
-
-  if kill -0 "$FRONTEND_PID" >/dev/null 2>&1; then
-    kill "$FRONTEND_PID" >/dev/null 2>&1 || true
-  fi
+  # With set -m, each background job's PID is also its process group ID.
+  kill -TERM -- "-$BACKEND_PID" "-$FRONTEND_PID" >/dev/null 2>&1 || true
 
   wait "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true
 }

@@ -24,15 +24,24 @@ Prerequisites: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, pnpm
 ### Checks
 
 ```bash
+./test.sh                                # all of the below; --no-browser skips smoke + a11y
 cd backend && uv run pytest --cov=app    # also runs under python -m unittest
+cd frontend && pnpm test                 # unit tests (node:test)
 cd frontend && pnpm run check            # svelte-check + tsc
+cd frontend && pnpm smoke                # browser smoke test; needs ./start-dev.sh running
 cd frontend && pnpm a11y                 # axe-core scan; needs ./start-dev.sh running
 curl http://localhost:5000/api/projects/
 ```
 
-Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet.
+`test.sh` runs backend tests, `pnpm test`, `pnpm check`, `pnpm build`, `pnpm smoke`, and `pnpm a11y`, continuing past failures and printing a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000 and :5173, or starts `start-dev.sh` itself (output in `$TMPDIR/test-sh-dev.log`) and stops it afterward.
 
-`pnpm a11y` (`frontend/scripts/a11y.ts`) runs [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.2 A/AA plus best practices) on every route in `routeDefinitions.ts`, one project page, and the 404 page, in both themes at desktop and phone width, and exits 1 on any violation. It drives the installed Google Chrome through `playwright-core`, so nothing extra is downloaded; without Chrome, run `pnpm exec playwright-core install chromium`. Set `A11Y_BASE_URL` to scan another host. Mermaid diagrams are excluded (see Known Issues). axe can't judge screen-reader flow, focus handling, or drag-and-drop, so check those by hand. CI doesn't run it yet, because it needs the backend running. CI runs the same two checks on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
+Backend tests live in `backend/tests/` and use a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage. Frontend test scripts live in `frontend/tests/`.
+
+`pnpm test` runs the unit tests in `frontend/tests/unit/*.test.ts` with Node's built-in runner (`node:test`), so there's no test framework dependency. They cover pure logic only (scheduler, Markdown sanitizing, route matching); code that uses runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep logic worth testing in plain `.ts` modules. Node won't resolve the source's extensionless imports, so `tests/unit/resolve-ts.ts` is loaded first to retry them with `.ts`. A test marked `{ todo }` documents a known bug: it runs and reports but doesn't fail the suite.
+
+`pnpm smoke` (`frontend/tests/smoke.ts`) loads the same routes as the a11y scan and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, and theme persistence. It shares browser setup with the a11y scan (`tests/browser.ts`).
+
+`pnpm a11y` (`frontend/tests/a11y.ts`) runs [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.2 A/AA plus best practices) on every route in `routeDefinitions.ts`, one project page, and the 404 page, in both themes at desktop and phone width, and exits 1 on any violation. It drives the installed Google Chrome through `playwright-core`, so nothing extra is downloaded; without Chrome, run `pnpm exec playwright-core install chromium`. Set `TEST_BASE_URL` to point either browser script at another host. Mermaid diagrams are excluded (see Known Issues). axe can't judge screen-reader flow, focus handling, or drag-and-drop, so check those by hand. CI doesn't run the browser checks yet, because they need the backend running. CI runs `pnpm check` and `pnpm test` on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
 
 ## Backend
 

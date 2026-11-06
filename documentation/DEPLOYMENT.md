@@ -135,7 +135,7 @@ The workflow ships only the release tarball (`backend/` app code and `frontend/d
 The pipeline:
 
 1. **test-backend:** `uv sync --frozen` and `uv run pytest --cov=app`.
-2. **test-frontend:** `pnpm install --frozen-lockfile` and `pnpm check`. The pnpm version comes from `packageManager` in `frontend/package.json`.
+2. **test-frontend:** `pnpm install --frozen-lockfile`, `pnpm check`, and `pnpm test`. The pnpm version comes from `packageManager` in `frontend/package.json`.
 3. **package** (only on a manual run on `main`):
    - Build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`.
    - Export hash-pinned backend requirements with `uv export --frozen --no-dev`.

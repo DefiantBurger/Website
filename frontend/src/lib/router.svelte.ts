@@ -5,6 +5,7 @@ import type { Component } from 'svelte';
 
 import { recordRouteVisit } from './aboutYou/interactionStore';
 import type { RouteDefinition } from './routeDefinitions';
+import { matchPattern, normalizePath } from './routeMatching';
 
 /** Layout options a page declares with `export const layout` in `<script module>`. */
 export type PageLayout = {
@@ -29,35 +30,6 @@ class RouterState {
 }
 
 export const router = new RouterState();
-
-/** Drop query, hash, and trailing slashes so each route has one canonical path. */
-function normalizePath(path: string): string {
-  const pathname = path.split(/[?#]/)[0];
-  return pathname.replace(/\/+$/, '') || '/';
-}
-
-function matchPattern(pattern: string, pathname: string): Record<string, string> | null {
-  const patternParts = pattern.split('/');
-  const pathParts = pathname.split('/');
-  if (patternParts.length !== pathParts.length) {
-    return null;
-  }
-
-  const params: Record<string, string> = {};
-  for (const [index, part] of patternParts.entries()) {
-    if (part.startsWith(':')) {
-      try {
-        params[part.slice(1)] = decodeURIComponent(pathParts[index]);
-      } catch {
-        // Malformed escape (e.g. `%ZZ`): no match, so the 404 page renders.
-        return null;
-      }
-    } else if (part !== pathParts[index]) {
-      return null;
-    }
-  }
-  return params;
-}
 
 function applyRoute(pathname: string) {
   let route = notFoundRoute;

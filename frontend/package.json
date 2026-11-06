@@ -9,7 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
-    "a11y": "node scripts/a11y.ts"
+    "a11y": "node tests/a11y.ts",
+    "test": "node --import ./tests/unit/resolve-ts.ts --test 'tests/unit/*.test.ts'",
+    "smoke": "node tests/smoke.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
