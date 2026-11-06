@@ -309,7 +309,7 @@
 
 <section class="terminal-box hero" aria-label="Summary">
 	<div class="dossier">
-		<p class="eyebrow">> Based on your IP address, you're probably in</p>
+		<p class="prompt eyebrow">Based on your IP address, you're probably in</p>
 
 		{#if requestContextLoading}
 			<p class="place">Locating you<span class="cursor">_</span></p>
@@ -370,7 +370,7 @@
 
 <div class="groups">
 	<section class="terminal-box group">
-		<h2>> What the Server Sees</h2>
+		<h2 class="prompt">What the Server Sees</h2>
 		<p class="source">From your request to this site's API</p>
 		{#if requestContextLoading}
 			<p>Loading request context...</p>
@@ -382,31 +382,31 @@
 	</section>
 
 	<section class="terminal-box group">
-		<h2>> Your Device</h2>
+		<h2 class="prompt">Your Device</h2>
 		<p class="source">Read by JavaScript in this tab</p>
 		<FactList facts={deviceFacts} />
 	</section>
 
 	<section class="terminal-box group">
-		<h2>> Your Browser</h2>
+		<h2 class="prompt">Your Browser</h2>
 		<p class="source">Read by JavaScript in this tab</p>
 		<FactList facts={browserFacts} />
 	</section>
 
 	<section class="terminal-box group">
-		<h2>> Your Preferences</h2>
+		<h2 class="prompt">Your Preferences</h2>
 		<p class="source">Settings your browser shares with every site</p>
 		<FactList facts={preferenceFacts} />
 	</section>
 
 	<section class="terminal-box group">
-		<h2>> This Visit</h2>
+		<h2 class="prompt">This Visit</h2>
 		<p class="source">In memory only; gone when you close the tab</p>
 		<FactList facts={visitFacts} />
 	</section>
 
 	<section class="terminal-box group">
-		<h2>> Not Collected</h2>
+		<h2 class="prompt">Not Collected</h2>
 		<p class="source">Possible, but deliberately skipped</p>
 		<FactList facts={NOT_COLLECTED} />
 	</section>
@@ -503,7 +503,7 @@
 		display: grid;
 		place-items: center;
 		border: 1px dashed var(--color-text-primary);
-		opacity: 0.7;
+		color: var(--color-text-muted);
 		text-align: center;
 		padding: 1rem;
 	}
@@ -522,7 +522,7 @@
 	.source {
 		margin-bottom: 0.5rem;
 		font-size: 0.85rem;
-		opacity: 0.75;
+		color: var(--color-text-muted);
 	}
 
 	.error {

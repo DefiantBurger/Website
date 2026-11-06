@@ -26,10 +26,13 @@ Prerequisites: Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, pnpm
 ```bash
 cd backend && uv run pytest --cov=app    # also runs under python -m unittest
 cd frontend && pnpm run check            # svelte-check + tsc
+cd frontend && pnpm a11y                 # axe-core scan; needs ./start-dev.sh running
 curl http://localhost:5000/api/projects/
 ```
 
-Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet. CI runs the same two checks on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
+Backend tests use a temporary instance directory per test (`tests/conftest.py`), so they never touch real file-share storage. There are no frontend tests yet.
+
+`pnpm a11y` (`frontend/scripts/a11y.ts`) runs [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.2 A/AA plus best practices) on every route in `routeDefinitions.ts`, one project page, and the 404 page, in both themes at desktop and phone width, and exits 1 on any violation. It drives the installed Google Chrome through `playwright-core`, so nothing extra is downloaded; without Chrome, run `pnpm exec playwright-core install chromium`. Set `A11Y_BASE_URL` to scan another host. Mermaid diagrams are excluded (see Known Issues). axe can't judge screen-reader flow, focus handling, or drag-and-drop, so check those by hand. CI doesn't run it yet, because it needs the backend running. CI runs the same two checks on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
 
 ## Backend
 
@@ -57,6 +60,8 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme toke
 
 `src/lib/router.svelte.ts` is a small History API router (no library). It strips trailing slashes, matches the route table, and exposes reactive state `router.path`, `router.route`, and `router.params`. It also intercepts left-clicks on same-origin `<a href>` links, so pages use plain links; `navigate(path)` is only needed for programmatic navigation (e.g. buttons). Paths and route options live in `src/lib/routeDefinitions.ts`, which has no Svelte imports so `vite.config.ts` can read it too. `src/lib/routes.ts` pairs each key with its page component (separate so pages can import the router without an import cycle), and TypeScript fails the check if a key has no page. To add a page, add its path to `routeDefinitions.ts` and its component to `routes.ts`; the 404 page's suggestions, the nav's active state, and `sitemap.xml` (generated at build time, with project pages read from `backend/app/content/projects/`) all derive from them.
 
+On each client-side navigation (not the first load), `App.svelte` moves focus to `<main id="main">` and announces the new `document.title` through a polite live region, so screen readers notice the page change. A skip link (`Skip to content`) also targets `#main`.
+
 | Path | Page |
 | --- | --- |
 | `/` | `Home.svelte` |
@@ -71,12 +76,19 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme toke
 | `/utilities/message-board` (alias `/utilities/messageboard`) | `UtilityMessageBoard.svelte` |
 | anything else | `NotFound.svelte` (suggests the closest route by Levenshtein distance) |
 
+### Accessibility Conventions
+
+- Secondary text uses `--color-text-muted`, not `opacity`, so it stays at 4.5:1 in both themes (stacked opacities were the main contrast failure).
+- For the terminal `> ` prompt, add `class="prompt"` (defined in `app.css`) instead of typing `>`, so screen readers don't read headings as "greater than …".
+- Keyboard focus shows a dashed outline (`:focus-visible` in `app.css`); don't remove outlines.
+- Links that navigate stay `<a>` (styled with `.button` if needed); use `<button>` for actions only. Repeated generic link text (e.g. "View Project") gets an `aria-label` that starts with the visible text.
+
 ### Shared Code
 
 - `lib/components/Nav.svelte`: navigation with active states, a link to the external status page, and the light/dark toggle.
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`); `ProjectDetail` re-renders Mermaid diagrams when it changes.
 - `lib/components/PageHeader.svelte`: page title with optional description, extra content, and an `actions` snippet for header buttons.
-- `lib/components/StatusMessage.svelte`: loading, error, and success messages (`compact` for sidebars and forms).
+- `lib/components/StatusMessage.svelte`: loading, error, and success messages (`compact` for sidebars and forms). It's a live region that renders empty and fills in ~100 ms after mounting, because screen readers ignore content a live region is inserted with.
 - `lib/components/TagList.svelte`: project tags.
 - `lib/download.ts`: `saveBlob` for client-side file downloads.
 

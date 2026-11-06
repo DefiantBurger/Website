@@ -53,14 +53,14 @@
 		overflow-wrap: anywhere;
 	}
 
-	.muted {
-		opacity: 0.6;
+	.muted,
+	small {
+		color: var(--color-text-muted);
 	}
 
 	small {
 		display: block;
 		font-size: 0.8rem;
-		opacity: 0.75;
 	}
 
 	@media (max-width: 600px) {

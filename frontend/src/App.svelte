@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+
   import Nav from './lib/components/Nav.svelte';
   import { initRouter, router } from './lib/router.svelte';
   import { notFoundRoute, routes } from './lib/routes';
@@ -10,6 +12,26 @@
   const canonicalPath = $derived(
     router.route && !router.route.path.includes(':') ? router.route.path : router.path
   );
+
+  let mainElement: HTMLElement;
+  let announcement = $state('');
+  let isFirstRoute = true;
+
+  // A client-side navigation doesn't reload the page, so screen readers would
+  // stay on the clicked link and hear nothing. Move focus to the new content
+  // and announce its title, as a full page load would.
+  $effect(() => {
+    void router.path;
+    if (isFirstRoute) {
+      isFirstRoute = false;
+      return;
+    }
+    // Wait for <svelte:head> to update the title.
+    void tick().then(() => {
+      mainElement.focus({ preventScroll: true });
+      announcement = document.title;
+    });
+  });
 </script>
 
 <svelte:head>
@@ -18,8 +40,15 @@
   {/if}
 </svelte:head>
 
+<a class="skip-link" href="#main">Skip to content</a>
 <Nav />
-<main class="container" class:container-wide={router.route?.layout?.wide}>
+<main
+  id="main"
+  tabindex="-1"
+  bind:this={mainElement}
+  class="container"
+  class:container-wide={router.route?.layout?.wide}
+>
   <!-- Keyed so every navigation (including between projects) mounts a fresh page. -->
   {#key router.path}
     <div class="page-frame">
@@ -27,10 +56,16 @@
     </div>
   {/key}
 </main>
+<div class="sr-only" aria-live="polite" aria-atomic="true">{announcement}</div>
 
 <style>
   main {
     flex: 1;
+  }
+
+  /* Focus lands here on navigation and via the skip link; it isn't a control. */
+  main:focus {
+    outline: none;
   }
 
   .container {

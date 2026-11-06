@@ -1,6 +1,6 @@
 <script lang="ts">
   import { closest } from 'fastest-levenshtein';
-  import { navigate, router, staticPaths } from '../lib/router.svelte';
+  import { router, staticPaths } from '../lib/router.svelte';
 
   const suggestedRoute = $derived(closest(router.path, staticPaths()));
 </script>
@@ -11,12 +11,12 @@
 </svelte:head>
 
 <section class="not-found terminal-box">
-  <h1>> 404</h1>
+  <h1 class="prompt">404</h1>
   <p>The page you requested does not exist.</p>
   {#if suggestedRoute}
     <p>Did you mean <a href={suggestedRoute}>{suggestedRoute}</a>?</p>
   {/if}
-  <button type="button" onclick={() => navigate('/')}>Go Home</button>
+  <a class="button" href="/">Go Home</a>
 </section>
 
 <style>

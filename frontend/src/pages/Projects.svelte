@@ -23,7 +23,11 @@
         <h2>{project.title}</h2>
         <p>{project.summary || 'Project details coming soon.'}</p>
         <TagList tags={project.tags} />
-        <a href="/projects/{project.slug}" class="project-link stretched-link">> View Project →</a>
+        <a
+          href="/projects/{project.slug}"
+          class="project-link stretched-link prompt"
+          aria-label="View project: {project.title}">View Project →</a
+        >
       </div>
     {/each}
   </div>

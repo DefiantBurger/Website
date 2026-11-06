@@ -526,6 +526,7 @@
 										{@attach trackCourseElement(courseId)}
 										class="course-card"
 										class:selected={selectedCourseId === courseId}
+										aria-pressed={selectedCourseId === courseId}
 										draggable="true"
 										onpointerdown={() => (selectedCourseId = courseId)}
 										onfocus={() => (selectedCourseId = courseId)}
@@ -542,13 +543,15 @@
 											handleDrop(semester, courseId);
 										}}
 									>
-										<header>
-											<h3>{course.name}</h3>
-											<span>{course.credits}cr</span>
-										</header>
+										<!-- Spans, not a heading: buttons may only contain phrasing content. -->
+										<span class="course-header">
+											<span class="course-name">{course.name}</span>
+											<span class="course-credits">{course.credits}cr</span>
+										</span>
 
 										{#if progress !== null}
-											<div class="progress-wrap">
+											<span class="sr-only">, prerequisites {progress}% met</span>
+											<div class="progress-wrap" aria-hidden="true">
 												<div class="progress-fill" style:width="{progress}%"></div>
 											</div>
 										{/if}
@@ -577,6 +580,7 @@
 								onchange={(event) =>
 									updateSelectedCourseCredits(Number(event.currentTarget.value))}
 								title="Change course credits"
+								aria-label="Credits for {selectedCourse.name}"
 							>
 								{#each selectedCourseCredits as creditOption (creditOption)}
 									<option value={creditOption}>{creditOption}</option>
@@ -622,6 +626,7 @@
 				<h3>Add Class</h3>
 				<input
 					type="text"
+					aria-label="Course to add"
 					placeholder="Search by course code or title"
 					bind:value={addCourseQuery}
 					list="course-catalog-options"
@@ -632,7 +637,7 @@
 					{/each}
 				</datalist>
 
-				<select bind:value={addSemester}>
+				<select bind:value={addSemester} aria-label="Semester to add the course to">
 					{#each semesterOrder as semester (semester)}
 						<option value={semester}>{semester}</option>
 					{/each}
@@ -696,7 +701,7 @@
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
-		/* Above card backgrounds and progress bars, below card text (see .course-card header). */
+		/* Above card backgrounds and progress bars, below card text (see .course-header). */
 		z-index: 1;
 	}
 
@@ -792,22 +797,24 @@
 		cursor: grabbing;
 	}
 
-	.course-card header {
+	.course-header {
+		display: flex;
 		position: relative;
 		z-index: 2;
-		display: flex;
 		justify-content: space-between;
 		gap: 0.5rem;
 		align-items: baseline;
 	}
 
-	.course-card h3 {
+	/* Was an h3; keep the global heading look. */
+	.course-name {
 		font-size: 0.95rem;
-		margin: 0;
+		font-weight: bold;
 		line-height: 1.35;
+		text-shadow: 0 0 2px var(--color-primary-opacity-30);
 	}
 
-	.course-card span {
+	.course-credits {
 		font-size: 0.8rem;
 		opacity: 0.85;
 	}
@@ -867,9 +874,10 @@
 		font-size: 0.9rem;
 	}
 
+	/* Muted, but still 3:1 against the panel so the fields are visible. */
 	.panel input,
 	.panel select {
-		border-color: var(--color-primary-opacity-30);
+		border-color: var(--color-text-muted);
 		padding: 0.45rem 0.55rem;
 		font-size: 0.85rem;
 	}

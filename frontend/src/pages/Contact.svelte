@@ -50,11 +50,11 @@
 
   .contact-list li {
     padding: 0.5rem 0;
-    border-bottom: 1px dashed rgba(255, 255, 255, 0.15);
+    border-bottom: 1px dashed var(--color-primary-opacity-30);
   }
 
   .label {
-    color: #2ebdff;
+    color: var(--color-accent);
     font-weight: 700;
   }
 

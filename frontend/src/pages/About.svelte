@@ -14,7 +14,7 @@
 </div>
 
 <div class="about-you-cta">
-  <a href="/about-you">> About You: see what this site can learn from your visit</a>
+  <a href="/about-you" class="prompt">About You: see what this site can learn from your visit</a>
 </div>
 
 <style>

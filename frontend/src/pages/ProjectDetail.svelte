@@ -1,7 +1,7 @@
 <script lang="ts">
   import mermaid from 'mermaid';
 
-  import { navigate, router } from '../lib/router.svelte';
+  import { router } from '../lib/router.svelte';
   import { theme } from '../lib/theme.svelte';
   import { loadProjectBySlug } from '../lib/projects/api';
   import { renderProjectMarkdownWithDebug } from '../lib/projects/renderMarkdown';
@@ -85,13 +85,13 @@
   {/await}
 </svelte:head>
 
-<button class="back-button" onclick={() => navigate('/projects')}>&lt; Back to Projects</button>
+<a class="button back-button" href="/projects">&lt; Back to Projects</a>
 
 {#await pagePromise}
   <StatusMessage kind="loading" message="Loading project..." />
 {:then { project, html, renderDebug }}
   <header class="terminal-box">
-    <h1>> {project.title}</h1>
+    <h1 class="prompt">{project.title}</h1>
     <TagList tags={project.tags} />
 
     <div class="project-links">
@@ -122,7 +122,7 @@
       ['Mermaid run status', mermaidRun.status]
     ]}
     <section class="debug-panel terminal-box">
-      <h2>> Mermaid Debug Panel</h2>
+      <h2 class="prompt">Mermaid Debug Panel</h2>
       {#each debugRows as [label, value] (label)}
         <p><strong>{label}:</strong> {value}</p>
       {/each}
@@ -250,6 +250,6 @@
   }
 
   .debug-hint {
-    opacity: 0.8;
+    color: var(--color-text-muted);
   }
 </style>

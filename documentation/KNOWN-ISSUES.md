@@ -25,11 +25,10 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### Accessibility
 
-Lighthouse has only been run against the homepage.
+`pnpm a11y` (axe-core) reports no violations. It excludes Mermaid diagrams (item 1) and can't judge screen-reader flow or drag-and-drop.
 
-1. Low contrast in the light theme: Contact labels (2.13:1) and dividers (white-based), About You `.muted` (3.31:1), and Scheduler `.danger` (4.28:1).
-2. **Possible:** one Scheduler `<select>` has no label.
-3. No skip link or `aria-current`, and focus isn't moved on navigation.
+1. **Minor:** Mermaid edge labels in project diagrams are #ccc on #585858 (4.43:1). The colors come from Mermaid's built-in theme; `themeVariables` in `ProjectDetail.svelte` could override them.
+2. **Minor:** links that open a new tab (Status, Contact, project repo/demo, OpenStreetMap) don't say so to screen readers.
 
 ## Backend
 

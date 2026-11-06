@@ -243,7 +243,7 @@
 
 <section class="grid">
 	<form class="terminal-box panel" onsubmit={handleUploadSubmit}>
-		<h2>> Upload Files</h2>
+		<h2 class="prompt">Upload Files</h2>
 		<p>
 			Limit: 100 MB per file. Files expire after 10 minutes. When active storage approaches the 1 GB
 			cap, the backend evicts oldest files to free space before accepting new uploads. Uploading with an
@@ -280,7 +280,7 @@
 	</form>
 
 	<form class="terminal-box panel" onsubmit={handleListSubmit}>
-		<h2>> Access Files</h2>
+		<h2 class="prompt">Access Files</h2>
 		<p>
 			Enter the access key used for upload. The backend hashes it to locate all matching
 			active files.
@@ -318,7 +318,7 @@
 </section>
 
 <section class="terminal-box info-panel">
-	<h2>> Storage Rules</h2>
+	<h2 class="prompt">Storage Rules</h2>
 	<div class="stats">
 		{#each stats as [label, value] (label)}
 			<div><strong>{label}</strong><span>{value}</span></div>

@@ -103,7 +103,7 @@
 <div class="board-layout">
 	<section class="feed-column">
 		<div class="feed-header">
-			<h2>> Active Broadcasts ({messages.length})</h2>
+			<h2 class="prompt">Active Broadcasts ({messages.length})</h2>
 			<span class="pill">[ ~{MESSAGE_TTL_SECONDS}s TTL ]</span>
 		</div>
 
@@ -126,7 +126,7 @@
 				{#each messages as msg (msg.id)}
 					<article class="terminal-box hover-lift message-card">
 						<header class="card-meta">
-							<span class="prompt-icon">></span>
+							<span class="prompt-icon" aria-hidden="true">></span>
 							<span class="card-id">#{msg.id.slice(0, 6)}</span>
 							<span class="card-time">{formatTimestamp(msg.createdAt)}</span>
 						</header>
@@ -140,7 +140,7 @@
 	<aside class="sidebar-column">
 		<form class="terminal-box compose-card" onsubmit={handlePost}>
 			<div class="compose-header">
-				<h3>> Post Note</h3>
+				<h3 class="prompt">Post Note</h3>
 				<span class="pill small">{MESSAGE_TTL_SECONDS}s TTL</span>
 			</div>
 
@@ -240,17 +240,13 @@
 		align-items: center;
 		gap: 0.5rem;
 		font-size: 0.85rem;
-		opacity: 0.75;
+		color: var(--color-text-muted);
 		border-bottom: 1px dashed var(--color-primary-opacity-30);
 		padding-bottom: 0.35rem;
 	}
 
 	.prompt-icon {
 		font-weight: bold;
-	}
-
-	.card-id {
-		opacity: 0.6;
 	}
 
 	.card-time {
@@ -319,7 +315,6 @@
 		font-size: 0.95rem;
 		line-height: 1.5;
 		resize: vertical;
-		outline: none;
 		transition: border-color 0.2s ease, box-shadow 0.2s ease;
 	}
 
@@ -337,7 +332,7 @@
 
 	.char-count {
 		font-size: 0.82rem;
-		opacity: 0.75;
+		color: var(--color-text-muted);
 	}
 
 	.char-count.near-limit {

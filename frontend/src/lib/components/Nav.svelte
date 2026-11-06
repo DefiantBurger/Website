@@ -14,17 +14,29 @@
   function isActive(path: string): boolean {
     return router.path === path || (path !== '/' && router.path.startsWith(`${path}/`));
   }
+
+  // 'page' for the exact page; 'true' marks the section a subpage belongs to.
+  function ariaCurrent(path: string): 'page' | 'true' | undefined {
+    if (router.path === path) {
+      return 'page';
+    }
+    return isActive(path) ? 'true' : undefined;
+  }
 </script>
 
-<nav class="nav">
+<nav class="nav" aria-label="Main">
   <div class="nav-container">
     <div class="nav-brand">
-      <a href="/">> JosephCicalese.com</a>
+      <a href="/" class="prompt">JosephCicalese.com</a>
     </div>
     <ul class="nav-links">
       {#each links as link (link.path)}
         <li>
-          <a href={link.path} class:active={isActive(link.path)}>{link.label}</a>
+          <a
+            href={link.path}
+            class:active={isActive(link.path)}
+            aria-current={ariaCurrent(link.path)}>{link.label}</a
+          >
         </li>
       {/each}
     </ul>

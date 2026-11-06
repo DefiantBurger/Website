@@ -20,14 +20,14 @@
   ];
 
   const quickLinks = [
-    { title: 'About Me', text: 'Learn more about who I am and what I do.', href: '/about', cta: 'Read →' },
+    { title: 'About Me', text: 'Learn more about who I am and what I do.', href: '/about', cta: 'Read' },
     {
       title: 'Utilities',
       text: 'Interactive tools including the class scheduler utility.',
       href: '/utilities',
-      cta: 'Open →'
+      cta: 'Open'
     },
-    { title: 'Contact', text: 'Get in touch with me.', href: '/contact', cta: 'Reach Out →' }
+    { title: 'Contact', text: 'Get in touch with me.', href: '/contact', cta: 'Reach Out' }
   ];
 </script>
 
@@ -45,28 +45,29 @@
 </PageHeader>
 
 <section>
-  <h2>> Featured Projects</h2>
+  <h2 class="prompt">Featured Projects</h2>
 
   <div class="card-grid projects-grid">
     {#each featuredProjects as project (project.title)}
       <div class="terminal-box hover-lift clickable-card">
         <h3>{project.title}</h3>
         <p>{project.description}</p>
-        <a href="/projects" class="card-link stretched-link">> View More</a>
+        <a href="/projects" class="card-link stretched-link prompt" aria-label="View more projects">View More</a>
       </div>
     {/each}
   </div>
 </section>
 
 <section>
-  <h2>> Quick Links</h2>
+  <h2 class="prompt">Quick Links</h2>
 
   <div class="card-grid links-grid">
     {#each quickLinks as link (link.href)}
       <div class="terminal-box hover-lift clickable-card quick-link">
-        <strong>> {link.title}</strong>
+        <strong class="prompt">{link.title}</strong>
         <p>{link.text}</p>
-        <a href={link.href} class="stretched-link">{link.cta}</a>
+        <!-- The label names the destination, since the visible CTAs are generic. -->
+        <a href={link.href} class="stretched-link" aria-label="{link.cta}: {link.title}">{link.cta} →</a>
       </div>
     {/each}
   </div>

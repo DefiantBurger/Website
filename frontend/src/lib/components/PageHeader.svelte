@@ -18,7 +18,7 @@
 
 <header class="page-header" class:has-body={description || children} class:has-actions={actions}>
   <div class="main">
-    <h1>> {title}</h1>
+    <h1 class="prompt">{title}</h1>
 
     {#if description}
       <p>{description}</p>

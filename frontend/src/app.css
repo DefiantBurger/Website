@@ -5,11 +5,15 @@
   --color-bg-surface: #151a29;
   --color-text-primary: #b8d8c5;
   --color-text-hover: #d7ecdf;
+  /* Secondary text. Use this, not opacity, so it keeps 4.5:1 contrast. */
+  --color-text-muted: #8fa89a;
+  /* Labels and highlights (e.g. Contact labels). */
+  --color-accent: #2ebdff;
 
   /* Status Colors */
   --color-error: #ff6b6b;
   --color-success: #85c79a;
-  --color-concurrent: #00e7ff;
+  --color-concurrent: #c792ea;
   --color-red: #ff2d2d;
 
   /* Transparency Variants */
@@ -29,9 +33,13 @@
   --color-bg-surface: #ffffff;
   --color-text-primary: #31444f;
   --color-text-hover: #1e2f38;
+  --color-text-muted: #56666f;
+  --color-accent: #0a6696;
 
-  --color-error: #c94444;
-  --color-success: #3e8a58;
+  /* Darker than the dark-theme hues so text stays at 4.5:1 on light backgrounds. */
+  --color-error: #b03636;
+  --color-success: #2b6e43;
+  --color-concurrent: #7b3fb3;
   --color-red: #e01b1b;
 
   --color-primary-opacity-10: rgba(49, 68, 79, 0.06);
@@ -39,8 +47,8 @@
   --color-primary-opacity-20: rgba(49, 68, 79, 0.14);
   --color-primary-opacity-30: rgba(49, 68, 79, 0.2);
   --color-primary-opacity-50: rgba(49, 68, 79, 0.3);
-  --color-error-opacity-05: rgba(201, 68, 68, 0.08);
-  --color-success-opacity-05: rgba(62, 138, 88, 0.08);
+  --color-error-opacity-05: rgba(176, 54, 54, 0.08);
+  --color-success-opacity-05: rgba(43, 110, 67, 0.08);
 }
 
 * {
@@ -222,6 +230,36 @@ textarea {
   border: 1px solid var(--color-text-primary);
   border-radius: 3px;
   font: inherit;
+}
+
+/* Terminal prompt: class="prompt" puts "> " before an element's text. The
+   empty alt text after the slash keeps screen readers from reading "greater
+   than"; browsers without that syntax fall back to the first declaration. */
+.prompt::before {
+  content: '> ';
+  content: '> ' / '';
+}
+
+/* Keyboard focus: a dashed "cursor box", matching the terminal borders. */
+:focus-visible {
+  outline: 2px dashed var(--color-text-hover);
+  outline-offset: 3px;
+}
+
+/* Visually hidden until focused (Tab from the top of any page). */
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 200;
+  padding: 0.5rem 1rem;
+  background: var(--color-bg-surface);
+  border: 2px solid var(--color-text-primary);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
 }
 
 .sr-only {

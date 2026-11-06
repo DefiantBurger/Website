@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+
   let {
     kind = 'loading',
     message = '',
@@ -9,15 +11,24 @@
     // Smaller box for sidebars and forms.
     compact?: boolean;
   } = $props();
+
+  // Screen readers announce changes to a live region, not the content it is
+  // inserted with, and callers mount this with the message already set. So
+  // mount empty and fill in once the region is in the accessibility tree.
+  let isReady = $state(false);
+  onMount(() => {
+    const timer = setTimeout(() => (isReady = true), 100);
+    return () => clearTimeout(timer);
+  });
 </script>
 
 <div
-  class="status-message status-message--{kind}"
+  class="status-message prompt status-message--{kind}"
   class:compact
   role={kind === 'error' ? 'alert' : 'status'}
   aria-live={kind === 'error' ? 'assertive' : 'polite'}
 >
-  > {message}
+  {#if isReady}{message}{/if}
 </div>
 
 <style>
@@ -28,8 +39,7 @@
   }
 
   .status-message--loading {
-    color: var(--color-text-primary);
-    opacity: 0.7;
+    color: var(--color-text-muted);
     animation: blink 1s infinite;
     font-size: 1.1rem;
   }
