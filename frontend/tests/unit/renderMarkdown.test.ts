@@ -38,8 +38,7 @@ describe('rendering', () => {
     assert.match(html, /<h2 id="user-content-getting-started">/);
   });
 
-  // Fails today: see KNOWN-ISSUES.md (heading links). Drop `todo` once fixed.
-  test('heading anchor links to the heading and keeps its class', { todo: 'KNOWN-ISSUES heading links' }, async () => {
+  test('heading anchor links to the heading and keeps its class', async () => {
     const html = await render('## Getting Started');
     const id = html.match(/<h2 id="([^"]+)"/)?.[1];
     assert.match(html, new RegExp(`<a[^>]*class="heading-anchor"[^>]*href="#${id}"`));

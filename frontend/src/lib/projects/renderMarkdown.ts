@@ -81,7 +81,9 @@ export async function renderProjectMarkdownWithDebug(
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkRehype)
-    .use(rehypeSlug)
+    .use(rehypeMermaid, counter)
+    .use(rehypeSanitize, sanitizeSchema)
+    .use(rehypeSlug, { prefix: 'user-content-' }) // after sanitize so anchor hrefs match ids
     .use(rehypeAutolinkHeadings, {
       behavior: 'append',
       properties: {
@@ -93,8 +95,6 @@ export async function renderProjectMarkdownWithDebug(
         value: ' #'
       }
     })
-    .use(rehypeMermaid, counter)
-    .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeStringify)
     .process(markdown);
 

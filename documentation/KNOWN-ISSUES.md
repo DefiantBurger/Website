@@ -4,15 +4,14 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ## Frontend
 
-1. Project heading links are broken. `rehype-sanitize` prefixes ids with `user-content-`, but the links still point to the unprefixed id. It also strips the `heading-anchor` class, so that CSS never applies. A `todo` test in `frontend/tests/unit/renderMarkdown.test.ts` covers this; drop its `todo` once fixed.
-2. **Minor:** links to a section don't scroll on page load, because the content renders after the browser tries to scroll. Fixing the heading links won't fix this.
-3. Content is clipped on phones and can't be reached, because `body` sets `overflow-x: hidden`. At 375px, `/utilities/fileshare` is 429px wide (the file input stretches a `1fr` grid column), `/utilities` reaches 382px, and code blocks in project write-ups reach 403px.
-4. **Likely:** back navigation loses the scroll position.
-5. **Minor:** `staticPaths()` in `router.svelte.ts` (used by `NotFound.svelte`) duplicates `staticRoutePaths()` in `routeDefinitions.ts`.
-6. **Minor:** `Nav.svelte`, `Home.svelte`, and `Utilities.svelte` hard-code route paths instead of reading them from `routeDefinitions`, so changing a path breaks those links silently.
-7. **Minor:** each utility's card name and description live in `Utilities.svelte` instead of the utility's page (which could export them from `<script module>`, like its `layout`). They have already drifted: the File Share card says "password label" while the page says "access key".
-8. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>`, and `index.html` repeats the site name three more times. A shared `<PageMeta>` component would keep them consistent.
-9. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
+1. **Minor:** links to a section don't scroll on page load, because the content renders after the browser tries to scroll.
+2. Content is clipped on phones and can't be reached, because `body` sets `overflow-x: hidden`. At 375px, `/utilities/fileshare` is 429px wide (the file input stretches a `1fr` grid column), `/utilities` reaches 382px, and code blocks in project write-ups reach 403px.
+3. **Likely:** back navigation loses the scroll position.
+4. **Minor:** `staticPaths()` in `router.svelte.ts` (used by `NotFound.svelte`) duplicates `staticRoutePaths()` in `routeDefinitions.ts`.
+5. **Minor:** `Nav.svelte`, `Home.svelte`, and `Utilities.svelte` hard-code route paths instead of reading them from `routeDefinitions`, so changing a path breaks those links silently.
+6. **Minor:** each utility's card name and description live in `Utilities.svelte` instead of the utility's page (which could export them from `<script module>`, like its `layout`). They have already drifted: the File Share card says "password label" while the page says "access key".
+7. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>`, and `index.html` repeats the site name three more times. A shared `<PageMeta>` component would keep them consistent.
+8. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
 
 ### SEO
 
