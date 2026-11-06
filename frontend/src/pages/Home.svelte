@@ -49,10 +49,10 @@
 
   <div class="card-grid projects-grid">
     {#each featuredProjects as project (project.title)}
-      <div class="terminal-box hover-lift">
+      <div class="terminal-box hover-lift clickable-card">
         <h3>{project.title}</h3>
         <p>{project.description}</p>
-        <a href="/projects" class="card-link">> View More</a>
+        <a href="/projects" class="card-link stretched-link">> View More</a>
       </div>
     {/each}
   </div>
@@ -63,10 +63,10 @@
 
   <div class="card-grid links-grid">
     {#each quickLinks as link (link.href)}
-      <div class="terminal-box hover-lift quick-link">
+      <div class="terminal-box hover-lift clickable-card quick-link">
         <strong>> {link.title}</strong>
         <p>{link.text}</p>
-        <a href={link.href}>{link.cta}</a>
+        <a href={link.href} class="stretched-link">{link.cta}</a>
       </div>
     {/each}
   </div>

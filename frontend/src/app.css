@@ -152,13 +152,30 @@ code {
   transition: all 0.2s ease;
 }
 
-.hover-lift:hover {
+.hover-lift:hover,
+.hover-lift:focus-within {
   box-shadow: 0 0 20px var(--color-primary-opacity-30);
   transform: translateY(-2px);
 }
 
-/* Buttons */
-button {
+/* Whole-card links: the card's main link (.stretched-link) covers the card, so
+   clicking anywhere on it follows that link. Keep transforms off the link itself,
+   or the overlay shrinks to the link. */
+.clickable-card {
+  position: relative;
+  cursor: pointer;
+}
+
+.clickable-card .stretched-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* Buttons (.button styles a link as a button) */
+button,
+.button {
   background-color: var(--color-bg-dark);
   color: var(--color-text-primary);
   border: 2px solid var(--color-text-primary);
@@ -170,7 +187,13 @@ button {
   border-radius: 3px;
 }
 
-button:hover {
+.button {
+  display: inline-block;
+  text-align: center;
+}
+
+button:hover,
+.button:hover {
   background-color: var(--color-primary-opacity-20);
   color: var(--color-text-hover);
   box-shadow: 0 0 8px var(--color-primary-opacity-30);

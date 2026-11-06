@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { navigate } from '../lib/router.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import { MESSAGE_TTL_SECONDS } from '../lib/messageboard/api';
 
@@ -33,10 +32,10 @@
   <PageHeader title="Utilities" description="A few of my small tools and experiments." />
 
   {#each utilities as utility (utility.path)}
-    <section class="terminal-box utility-card">
+    <section class="terminal-box hover-lift clickable-card utility-card">
       <h2>{utility.name}</h2>
       <p>{utility.description}</p>
-      <button type="button" onclick={() => navigate(utility.path)}>Open {utility.name}</button>
+      <a href={utility.path} class="button stretched-link">Open {utility.name}</a>
     </section>
   {/each}
 </div>
@@ -60,7 +59,7 @@
     font-size: 1.35rem;
   }
 
-  .utility-card button {
+  .utility-card .button {
     margin-top: 0.5rem;
     width: 100%;
   }

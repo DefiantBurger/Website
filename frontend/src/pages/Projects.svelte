@@ -19,11 +19,11 @@
 {:then projects}
   <div class="projects-grid">
     {#each projects as project (project.slug)}
-      <div class="project-item terminal-box hover-lift">
+      <div class="project-item terminal-box hover-lift clickable-card">
         <h2>{project.title}</h2>
         <p>{project.summary || 'Project details coming soon.'}</p>
         <TagList tags={project.tags} />
-        <a href="/projects/{project.slug}" class="project-link">> View Project →</a>
+        <a href="/projects/{project.slug}" class="project-link stretched-link">> View Project →</a>
       </div>
     {/each}
   </div>
@@ -44,7 +44,8 @@
     height: 100%;
   }
 
-  .project-item:hover {
+  .project-item:hover,
+  .project-item:focus-within {
     transform: translateY(-4px);
   }
 
