@@ -50,7 +50,7 @@ flowchart LR
 
 1. `Projects.svelte` fetches `/api/projects/` (published metadata, sorted by `priority`).
 2. `ProjectDetail.svelte` fetches `/api/projects/<slug>/` (metadata + Markdown body).
-3. The Markdown is rendered client-side (GFM, heading anchors, sanitization), then Mermaid blocks are drawn.
+3. The Markdown is rendered client-side (GFM, heading anchors, sanitization), then Mermaid blocks are drawn. Mermaid is loaded on demand, only for write-ups that contain a diagram.
 
 The backend reads the Markdown files on every request, so editing a file locally changes the site without a rebuild or restart. In production, content ships with the next deploy.
 

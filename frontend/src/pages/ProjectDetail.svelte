@@ -1,6 +1,4 @@
 <script lang="ts">
-  import mermaid from 'mermaid';
-
   import { router } from '../lib/router.svelte';
   import { theme } from '../lib/theme.svelte';
   import { loadProjectBySlug } from '../lib/projects/api';
@@ -33,15 +31,11 @@
 
   /** Attachment: render Mermaid diagrams, and re-render them when the site theme changes. */
   function renderMermaid(article: HTMLElement) {
-    mermaid.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: theme.current === 'dark' ? 'dark' : 'default'
-    });
-    void runMermaid(article);
+    // Read the theme here, not after an await, so the attachment keeps tracking it.
+    void runMermaid(article, theme.current === 'dark' ? 'dark' : 'default');
   }
 
-  async function runMermaid(article: HTMLElement) {
+  async function runMermaid(article: HTMLElement, mermaidTheme: 'dark' | 'default') {
     const nodes = Array.from(article.querySelectorAll<HTMLElement>('.mermaid'));
     const codeNodes = Array.from(article.querySelectorAll<HTMLElement>('pre > code.language-mermaid'));
 
@@ -51,6 +45,11 @@
 
     if (nodes.length > 0) {
       try {
+        // Loaded on demand: a static import would put Mermaid (most of the site's
+        // JS) in every page's preload list, since routes.ts imports all pages eagerly.
+        const { default: mermaid } = await import('mermaid');
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: mermaidTheme });
+
         // Restore each diagram's source so a theme change can re-render it.
         for (const node of nodes) {
           node.dataset.mermaidSource ??= node.textContent?.trim() ?? '';
