@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p tsconfig.node.json",
     "a11y": "node tests/a11y.ts",
     "test": "node --import ./tests/unit/resolve-ts.ts --test 'tests/unit/*.test.ts'",
     "smoke": "node tests/smoke.ts"
