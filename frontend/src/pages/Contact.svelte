@@ -60,6 +60,5 @@
 
   a {
     color: inherit;
-    text-decoration: underline;
   }
 </style>
