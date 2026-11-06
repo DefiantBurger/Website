@@ -1,6 +1,6 @@
 # Personal Website
 
-[![Better Stack Badge](https://incidents.betterstack.com/status-badges/v3/monitor/31qxn.svg)](https://incidents.betterstack.com/?utm_source=status_badge)
+[![Better Stack Badge](https://incidents.betterstack.com/status-badges/v3/monitor/31qxn.svg)](https://status.josephcicalese.com/)
 [![Test and Deploy](https://github.com/DefiantBurger/Website/actions/workflows/deploy.yaml/badge.svg?branch=main)](https://github.com/DefiantBurger/Website/actions/workflows/deploy.yaml)
 [![codecov](https://codecov.io/gh/DefiantBurger/Website/branch/main/graph/badge.svg)](https://codecov.io/gh/DefiantBurger/Website)
 

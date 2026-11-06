@@ -51,7 +51,7 @@ Data sources:
 
 ## Frontend
 
-Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme tokens, typography, buttons, form controls, `.terminal-box`, `.hover-lift`, `.sr-only`) are in `src/app.css`. Components use Svelte 5 runes throughout. `App.svelte` renders the current route's page, keyed by path so each navigation mounts a fresh page with the fade-in, and uses a wider layout for routes marked `wide`.
+Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme tokens, typography, buttons, form controls, `.terminal-box`, `.hover-lift`, `.sr-only`) are in `src/app.css`. Components use Svelte 5 runes throughout. `App.svelte` renders the current route's page, keyed by path so each navigation mounts a fresh page with the fade-in, and uses a wider layout for pages that export `layout = { wide: true }` from `<script module>`.
 
 ### Routing
 

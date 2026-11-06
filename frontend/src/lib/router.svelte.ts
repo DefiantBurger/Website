@@ -6,9 +6,16 @@ import type { Component } from 'svelte';
 import { recordRouteVisit } from './aboutYou/interactionStore';
 import type { RouteDefinition } from './routeDefinitions';
 
+/** Layout options a page declares with `export const layout` in `<script module>`. */
+export type PageLayout = {
+  // Use the wide page container.
+  wide?: boolean;
+};
+
 // `path` is also recorded as the About You page's navigation history entry.
 export type Route = RouteDefinition & {
   page: Component;
+  layout?: PageLayout;
 };
 
 let routes: Route[] = [];

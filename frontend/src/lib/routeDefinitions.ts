@@ -6,8 +6,6 @@ export type RouteDefinition = {
   path: string;
   // Extra patterns that render the same page. Left out of the sitemap.
   aliases?: string[];
-  // Use the wide page container.
-  wide?: boolean;
 };
 
 export const routeDefinitions = {
@@ -18,9 +16,9 @@ export const routeDefinitions = {
   aboutYou: { path: '/about-you' },
   contact: { path: '/contact' },
   utilities: { path: '/utilities' },
-  scheduler: { path: '/utilities/scheduler', wide: true },
-  fileShare: { path: '/utilities/fileshare', wide: true },
-  messageBoard: { path: '/utilities/message-board', aliases: ['/utilities/messageboard'], wide: true },
+  scheduler: { path: '/utilities/scheduler' },
+  fileShare: { path: '/utilities/fileshare' },
+  messageBoard: { path: '/utilities/message-board', aliases: ['/utilities/messageboard'] },
 } satisfies Record<string, RouteDefinition>;
 
 export type RouteKey = keyof typeof routeDefinitions;

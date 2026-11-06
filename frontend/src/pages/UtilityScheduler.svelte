@@ -1,3 +1,9 @@
+<script lang="ts" module>
+	import type { PageLayout } from "../lib/router.svelte";
+
+	export const layout: PageLayout = { wide: true };
+</script>
+
 <script lang="ts">
 	import { onMount } from "svelte";
 

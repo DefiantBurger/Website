@@ -19,7 +19,7 @@
 </svelte:head>
 
 <Nav />
-<main class="container" class:container-wide={router.route?.wide}>
+<main class="container" class:container-wide={router.route?.layout?.wide}>
   <!-- Keyed so every navigation (including between projects) mounts a fresh page. -->
   {#key router.path}
     <div class="page-frame">
