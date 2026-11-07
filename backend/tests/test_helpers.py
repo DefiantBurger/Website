@@ -111,7 +111,7 @@ class TestCloudflareGeolocation(unittest.TestCase):
 
 	def test_utf8_city_and_bad_coordinates(self):
 		# WSGI exposes header bytes as latin-1; Cloudflare sends UTF-8.
-		city_as_latin1 = 'São Paulo'.encode('utf-8').decode('latin-1')
+		city_as_latin1 = 'São Paulo'.encode().decode('latin-1')
 		headers = {'CF-IPCity': city_as_latin1, 'CF-IPLatitude': 'not-a-number'}
 		with self.app.test_request_context('/', headers=headers):
 			result = _cloudflare_geolocation()

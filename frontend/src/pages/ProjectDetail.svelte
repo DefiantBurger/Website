@@ -112,6 +112,7 @@
   </header>
 
   <article class="project-content terminal-box" {@attach renderMermaid}>
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -- build-time Markdown, sanitized by rehype-sanitize -->
     {@html project.html}
   </article>
 

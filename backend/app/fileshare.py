@@ -18,7 +18,7 @@ import unicodedata
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -86,7 +86,7 @@ def transfer_slot() -> Iterator[None]:
 
 
 def _now_utc() -> datetime:
-	return datetime.now(timezone.utc)
+	return datetime.now(UTC)
 
 
 def _storage_root() -> Path:
@@ -131,8 +131,8 @@ def _b64decode(value: str) -> bytes:
 def _parse_timestamp(value: str) -> datetime:
 	parsed = datetime.fromisoformat(value)
 	if parsed.tzinfo is None:
-		return parsed.replace(tzinfo=timezone.utc)
-	return parsed.astimezone(timezone.utc)
+		return parsed.replace(tzinfo=UTC)
+	return parsed.astimezone(UTC)
 
 
 def _derive_key(password: str, salt: bytes) -> bytes:

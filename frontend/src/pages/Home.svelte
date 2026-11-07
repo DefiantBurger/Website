@@ -46,6 +46,7 @@
 <PageHeader title="Welcome" description="I'm a developer. This is my website.">
   <p class="section-links">
     {#each sectionLinks as link, index (link.href)}
+      <!-- eslint-disable-next-line svelte/no-useless-mustaches -- Svelte trims literal whitespace at block edges -->
       {#if index > 0}{' • '}{/if}<a href={link.href}>{link.label}</a>
     {/each}
   </p>

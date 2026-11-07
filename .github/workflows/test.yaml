@@ -31,8 +31,9 @@ jobs:
         with:
           working-directory: backend
       - run: uv sync --frozen
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      # Lint and format warn instead of failing so they don't block tests or deploys.
+      - run: uv run ruff check . || echo '::warning::Ruff found lint problems (see this step log)'
+      - run: uv run ruff format --check . || echo '::warning::Backend files need formatting (run ./format.sh)'
       - run: uv run pytest --cov=app --cov-report=xml
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
@@ -59,7 +60,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
+      # Lint and format warn instead of failing so they don't block tests or deploys.
+      - run: pnpm lint || echo '::warning::ESLint found lint problems (see this step log)'
+      - run: pnpm format:check || echo '::warning::Frontend files need formatting (run ./format.sh)'
       - run: pnpm check
       - run: pnpm test

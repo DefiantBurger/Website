@@ -1,5 +1,5 @@
 import ipaddress
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 
@@ -249,7 +249,7 @@ def about_you_request_context():
 
 	return jsonify(
 		{
-			'timestamp': datetime.now(timezone.utc).isoformat(),
+			'timestamp': datetime.now(UTC).isoformat(),
 			'request': {
 				'method': request.method,
 				'path': request.path,
@@ -282,7 +282,7 @@ def messageboard_messages():
 	return jsonify(
 		{
 			'messages': messages,
-			'serverTime': datetime.now(timezone.utc).isoformat(),
+			'serverTime': datetime.now(UTC).isoformat(),
 			'retentionSeconds': int(board_store.ttl_seconds),
 			'totalActive': len(messages),
 		}

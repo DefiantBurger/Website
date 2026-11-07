@@ -308,6 +308,7 @@
         Your screen is <strong>{browser.screen}</strong>
         {#if browser.cpuCores}
           and your device has <strong>{browser.cpuCores} CPU cores</strong>
+          <!-- eslint-disable-next-line svelte/no-useless-mustaches -- keeps the space before "and" -->
         {/if}{#if browser.deviceMemory}{' '}and
           <strong>~{browser.deviceMemory} GB</strong> of memory{/if}.
       </li>

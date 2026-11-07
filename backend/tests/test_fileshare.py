@@ -2,16 +2,16 @@ import json
 import shutil
 import tempfile
 import unittest
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
+from cryptography.exceptions import InvalidTag
 from werkzeug.datastructures import FileStorage
 
 from app import create_app
 from app.fileshare import (
-	MAX_FILE_BYTES,
 	FileShareError,
 	FileShareRecord,
 	_b64decode,
@@ -23,7 +23,6 @@ from app.fileshare import (
 	_extract_occurrence_index,
 	_parse_timestamp,
 	_record_paths,
-	_remove_record,
 	_sanitize_original_filename,
 	build_label,
 	cleanup_expired_records,
@@ -31,7 +30,6 @@ from app.fileshare import (
 	get_all_records_for_password,
 	get_record_for_password,
 	get_storage_status,
-	iter_active_records,
 	save_upload,
 )
 
@@ -103,7 +101,7 @@ class TestFileShareCrypto(unittest.TestCase):
 			salt_b64=salt_b64,
 			nonce_b64=nonce_b64,
 		)
-		with self.assertRaises(Exception):
+		with self.assertRaises(InvalidTag):
 			_decrypt_bytes('wrong-password', dummy_record, ciphertext)
 
 	def test_decrypt_missing_salt_or_nonce_raises(self):
@@ -154,10 +152,10 @@ class TestFileShareSanitizationAndParsing(unittest.TestCase):
 	def test_parse_timestamp(self):
 		# ISO with Z
 		dt = _parse_timestamp('2026-10-01T12:00:00+00:00')
-		self.assertEqual(dt.tzinfo, timezone.utc)
+		self.assertEqual(dt.tzinfo, UTC)
 		# ISO naive assumes UTC
 		dt_naive = _parse_timestamp('2026-10-01T12:00:00')
-		self.assertEqual(dt_naive.tzinfo, timezone.utc)
+		self.assertEqual(dt_naive.tzinfo, UTC)
 
 
 class TestFileShareStorageLifecycle(unittest.TestCase):
@@ -256,7 +254,7 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 		self.assertEqual(names, ['new.txt'])
 
 	def test_cleanup_expired_records(self):
-		now = datetime.now(timezone.utc)
+		now = datetime.now(UTC)
 		file_obj = self._create_mock_file('expire_me.txt', b'Temporary')
 		_ = save_upload(file_obj, 'temp-key')
 

@@ -7,7 +7,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 MESSAGE_TTL_SECONDS = 60.0
 MAX_MESSAGES_STORED = 200
@@ -147,8 +147,8 @@ class MessageBoardStore:
 			while len(self._messages) >= self.max_messages:
 				self._messages.pop(0)
 
-			created_dt = datetime.fromtimestamp(current_time, timezone.utc)
-			expires_dt = datetime.fromtimestamp(current_time + self.ttl_seconds, timezone.utc)
+			created_dt = datetime.fromtimestamp(current_time, UTC)
+			expires_dt = datetime.fromtimestamp(current_time + self.ttl_seconds, UTC)
 
 			record = BoardMessageRecord(
 				id=str(uuid.uuid4()),
