@@ -8,9 +8,10 @@
     { label: 'Contact', href: '/contact' }
   ];
 
-  const featuredProjects = [
+  const featuredProjects: { title: string; description: string; slug?: string }[] = [
     {
       title: 'Personal Website',
+      slug: 'personal-website-platform',
       description: 'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.'
     },
     {
@@ -52,7 +53,15 @@
       <div class="terminal-box hover-lift clickable-card">
         <h3>{project.title}</h3>
         <p>{project.description}</p>
-        <a href="/projects" class="card-link stretched-link prompt" aria-label="View more projects">View More</a>
+        {#if project.slug}
+          <a
+            href="/projects/{project.slug}"
+            class="card-link stretched-link prompt"
+            aria-label="View project: {project.title}">View Project</a
+          >
+        {:else}
+          <a href="/projects" class="card-link stretched-link prompt" aria-label="View more projects">View More</a>
+        {/if}
       </div>
     {/each}
   </div>
