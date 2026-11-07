@@ -35,7 +35,8 @@ flowchart LR
 - `frontend/`: SPA, router, page components, per-utility logic in `src/lib/<utility>/`, project Markdown (`src/content/projects/`), build-time Vite plugins (`plugins/`).
 - `backend/`: Flask app (`app/`), scheduler data (`app/static/json/`), tests.
 - `deployment/`: Terraform, VM startup script, release deploy script, systemd and Nginx templates.
-- `.github/workflows/deploy.yaml`: tests PRs and pushes to `main`; deploys `main` only when run by hand. Docs-only pushes skip it.
+- `.github/workflows/test.yaml`: tests PRs and pushes to `main`. Docs-only pushes skip it.
+- `.github/workflows/deploy.yaml`: run by hand on `main`; reruns `test.yaml`, then deploys.
 - `documentation/`: these docs.
 - `start-dev.sh`: runs backend and frontend together for local development.
 - `test.sh`: runs every local check (backend tests, frontend unit tests, check, and build, browser smoke test and a11y scan).
