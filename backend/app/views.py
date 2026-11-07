@@ -181,11 +181,6 @@ def health():
 	return jsonify({'status': 'ok'})
 
 
-@views.route('/static/<path:filename>')
-def static_files(filename):
-	return send_from_directory('static', filename)
-
-
 @views.route('/api/scheduler/course-data/', methods=['GET'])
 def scheduler_course_data():
 	return send_from_directory(_JSON_DATA_DIR, 'course_data.json')

@@ -1,5 +1,12 @@
 limit_req_zone $http_cf_connecting_ip zone=limit:10m rate=10r/s;
 
+# Always revalidate HTML (the SPA shell and its per-route copies) so browsers never
+# reuse one that points at a previous release's assets.
+map $sent_http_content_type $html_expires {
+	~^text/html epoch;
+	default off;
+}
+
 server_tokens off;
 
 # Only cloudflared on this VM connects here. Cloudflare terminates TLS for
@@ -11,6 +18,9 @@ server {
 	index index.html;
 
 	client_max_body_size 1M;
+
+	# `expires` rather than add_header, so the security headers below still apply.
+	expires $html_expires;
 
 	# 429 rather than the default 503, so rate limiting doesn't look like an outage.
 	limit_req_status 429;
@@ -58,13 +68,15 @@ server {
 		expires max;
 	}
 
-	# Always revalidate the shell so browsers never reuse one that points at a
-	# previous release's assets. `/` and the SPA fallback both end up here.
-	location = /index.html {
-		expires epoch;
+	# The build writes the SPA shell to <route>/index.html for every real route
+	# (vite.config.ts), so anything else is a real 404 for crawlers. The 404 body is
+	# still the shell, so visitors see the app's own not-found page.
+	location / {
+		try_files $uri $uri/index.html =404;
 	}
 
-	location / {
-		try_files $uri $uri/ /index.html;
+	error_page 404 /404.html;
+	location = /404.html {
+		internal;
 	}
 }

@@ -71,7 +71,7 @@ If `nginx -t` fails, the previous config is restored and Nginx keeps running. Th
 
 ### Frontend reports "Expected JSON" or fails to load data
 
-1. `curl -i` the endpoint (a `308` just means the trailing slash is missing). An HTML body usually means a `502` from Nginx because Flask is down, or a path outside `/api/` that hit the SPA fallback.
+1. `curl -i` the endpoint (a `308` just means the trailing slash is missing). An HTML body usually means a `502` from Nginx because Flask is down, or a path outside `/api/` that Nginx served as a page or a `404`.
 2. Check `journalctl -u flaskapp` for exceptions.
 3. Confirm the build's `VITE_BACKEND_URL` matches the site's origin.
 

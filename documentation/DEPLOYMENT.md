@@ -90,8 +90,8 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit and Nginx templates 
 ## Runtime on the VM
 
 - **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; update with `apt-get upgrade cloudflared`) holds the tunnel open and forwards to Nginx.
-- **Nginx** listens only on `127.0.0.1:80`. Cloudflare terminates visitor TLS and the tunnel encrypts the hop to the VM, so there is no origin certificate. It serves `/opt/personalwebsite/current/frontend/dist` (SPA fallback to `index.html`) and proxies `/api/` to `127.0.0.1:5000`.
-  - Caching: `index.html` is sent with `Cache-Control: no-cache` so browsers always pick up the current release's asset names. Hashed files under `/assets/` are cached for a year and return a real `404` when missing instead of the SPA fallback (an HTML response to a CSS/JS request is rejected under `nosniff`, leaving the page unstyled or blank).
+- **Nginx** listens only on `127.0.0.1:80`. Cloudflare terminates visitor TLS and the tunnel encrypts the hop to the VM, so there is no origin certificate. It serves `/opt/personalwebsite/current/frontend/dist` and proxies `/api/` to `127.0.0.1:5000`. There is no catch-all SPA fallback: the build copies `index.html` to `<route>/index.html` for every route, so any other path returns a real `404` whose body is the SPA shell (`404.html`), and the app renders its not-found page.
+  - Caching: HTML is sent with `Cache-Control: no-cache` so browsers always pick up the current release's asset names. Hashed files under `/assets/` are cached for a year and return a plain `404` when missing (an HTML response to a CSS/JS request is rejected under `nosniff`, leaving the page unstyled or blank).
   - Redirects plain-HTTP visitors (detected from `CF-Visitor`) to HTTPS.
   - Rate limit: 10 req/s per `CF-Connecting-IP`, burst 10 (no delay on `/api/fileshare/`).
   - Body limit: 1 MB, except 100 MB on `/api/fileshare/upload/`.

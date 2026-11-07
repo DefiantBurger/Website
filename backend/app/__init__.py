@@ -7,10 +7,11 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 def create_app(test_config: dict | None = None, instance_path: str | None = None):
 	"""Build the app. `test_config` overrides config (including SECRET_KEY); `instance_path` relocates file-share storage."""
+	# static_folder=None: app/static/ holds scheduler data served only through /api/scheduler/.
 	if instance_path is not None:
-		app = Flask(__name__, instance_path=instance_path)
+		app = Flask(__name__, instance_path=instance_path, static_folder=None)
 	else:
-		app = Flask(__name__)
+		app = Flask(__name__, static_folder=None)
 
 	# Production serves the frontend from the same origin, so CORS is only needed
 	# for the Vite dev server, which runs on a different port.

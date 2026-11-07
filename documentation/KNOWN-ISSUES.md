@@ -15,11 +15,10 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### SEO
 
-1. **High:** every unknown path returns HTTP 200 with the SPA (including `/projects/nope` and `/.env`), so crawlers see soft 404s.
-2. No structured data, and Open Graph tags are static (the same for every page) because the HTML is never rendered per route. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the client-side canonical tag points crawlers at the main path.
-3. The served HTML has only a site-wide description, Open Graph tags, and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
-4. The full name appears in page titles and the `<noscript>` content, but nowhere in the rendered page text except the domain and email.
-5. `/favicon.ico` and `/apple-touch-icon.png` return the SPA's HTML (see item 1). `index.html` declares `/favicon.png` for both, so browsers that honor the tags are fine, and a 128px icon is small for Apple touch icons and link-preview images.
+1. No structured data, and Open Graph tags are static (the same for every page) because the HTML is never rendered per route. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the client-side canonical tag points crawlers at the main path.
+2. The served HTML has only a site-wide description, Open Graph tags, and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
+3. The full name appears in page titles and the `<noscript>` content, but nowhere in the rendered page text except the domain and email.
+4. `/favicon.ico` and `/apple-touch-icon.png` return 404. `index.html` declares `/favicon.png` for both, so browsers that honor the tags are fine, and a 128px icon is small for Apple touch icons and link-preview images.
 
 ### Accessibility
 
@@ -28,18 +27,12 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. **Minor:** Mermaid edge labels in project diagrams are #ccc on #585858 (4.43:1). The colors come from Mermaid's built-in theme; `themeVariables` in `ProjectDetail.svelte` could override them.
 2. **Minor:** links that open a new tab (Status, Contact, project repo/demo, OpenStreetMap) don't say so to screen readers.
 
-## Backend
-
-1. **High:** the `/static/` route is documented and tested, but production never reaches it because Nginx serves that path from the SPA.
-
 ## Infrastructure
 
 1. Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking. It contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. GCS). Low priority while there's only one developer.
-2. Deploys auto-run on every green push to `main` unless it only changes docs, including pushes that don't need one (e.g. changes limited to `deployment/`). There should be a way to review a push and choose whether it deploys to production. Required reviewers on the `production` environment are one option.
-3. **Possible:** the `status` CNAME for the Better Stack status page lives outside Terraform (see [Deployment](./DEPLOYMENT.md#resources)), so it won't show up in `plan` and could be lost if the zone is rebuilt. The MX, SPF, and site-verification records are also outside Terraform.
-4. The deploy smoke test only checks `/api/health/`, so it can't catch a broken frontend. PRs also run type checks but no frontend build, so build failures only appear on `main`.
-5. **Minor:** `pnpm audit` reports DOMPurify 3.4.16 (1 critical, 1 high, 1 low) and KaTeX 0.16.47 (1 low), both through Mermaid. Project Markdown is the only input and only the site owner writes it, so real exposure is low. Whether Mermaid uses the affected paths hasn't been confirmed.
-6. The live `robots.txt` combines Cloudflare's managed rules with `frontend/public/robots.txt`, so `User-agent: *` appears twice with different `Content-Signal` values. The managed rules also block Baiduspider, PetalBot, and GoogleOther.
+4. **Possible:** the `status` CNAME for the Better Stack status page lives outside Terraform (see [Deployment](./DEPLOYMENT.md#resources)), so it won't show up in `plan` and could be lost if the zone is rebuilt. The MX, SPF, and site-verification records are also outside Terraform.
+5. The deploy smoke test only checks `/api/health/`, so it can't catch a broken frontend. PRs also run type checks but no frontend build, so build failures only appear on `main`.
+6. **Minor:** `pnpm audit` reports DOMPurify 3.4.16 (1 critical, 1 high, 1 low) and KaTeX 0.16.47 (1 low), both through Mermaid. Project Markdown is the only input and only the site owner writes it, so real exposure is low. Whether Mermaid uses the affected paths hasn't been confirmed.
 7. **Possible:** no DMARC, CAA, or DNSSEC. HSTS has no `includeSubDomains`, and there's no `security.txt`.
 
 ## Utilities

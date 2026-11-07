@@ -166,9 +166,9 @@ class TestViewsAPI(unittest.TestCase):
 		self.assertEqual(acc_res.data, b"Hello secret fileshare!")
 		self.assertIn("attachment", acc_res.headers.get("Content-Disposition", ""))
 
-	def test_static_files_endpoint(self):
+	def test_static_folder_is_not_served(self):
 		res = self.client.get("/static/json/course_data.json")
-		self.assertEqual(res.status_code, 200)
+		self.assertEqual(res.status_code, 404)
 
 	@patch("app.views.decrypt_record_payload")
 	def test_fileshare_access_decryption_error(self, mock_decrypt):
