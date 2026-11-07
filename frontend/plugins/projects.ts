@@ -28,8 +28,11 @@ export function splitFrontmatter(text: string): { meta: Record<string, unknown>;
   }
   const meta: unknown = parseYaml(text.slice(4, end + 1));
   return {
-    meta: meta && typeof meta === 'object' && !Array.isArray(meta) ? (meta as Record<string, unknown>) : {},
-    body: text.slice(end + 5).replace(/^\n+/, '')
+    meta:
+      meta && typeof meta === 'object' && !Array.isArray(meta)
+        ? (meta as Record<string, unknown>)
+        : {},
+    body: text.slice(end + 5).replace(/^\n+/, ''),
   };
 }
 
@@ -50,7 +53,7 @@ export function parseProject(fileName: string, text: string): ProjectSource {
     demo: String(meta.demo || ''),
     priority: Number.isNaN(priority) ? 0 : priority,
     published: Boolean(meta.published ?? true),
-    markdown: body
+    markdown: body,
   };
 }
 
@@ -80,7 +83,7 @@ const toSummary = ({ slug, title, summary, tags, repo, demo }: ProjectSource): P
   summary,
   tags,
   repo,
-  demo
+  demo,
 });
 
 export function projectsPlugin(dir: string): Plugin {
@@ -95,11 +98,12 @@ export function projectsPlugin(dir: string): Plugin {
       if (id === `\0${LIST_ID}`) {
         const projects = readPublishedProjects(dir);
         const loaders = projects.map(
-          ({ slug }) => `  ${JSON.stringify(slug)}: () => import(${JSON.stringify(DETAIL_PREFIX + slug)}),`
+          ({ slug }) =>
+            `  ${JSON.stringify(slug)}: () => import(${JSON.stringify(DETAIL_PREFIX + slug)}),`,
         );
         return [
           `export const projects = ${JSON.stringify(projects.map(toSummary))};`,
-          `export const loaders = {\n${loaders.join('\n')}\n};`
+          `export const loaders = {\n${loaders.join('\n')}\n};`,
         ].join('\n');
       }
       if (id.startsWith(`\0${DETAIL_PREFIX}`)) {
@@ -129,6 +133,6 @@ export function projectsPlugin(dir: string): Plugin {
         server.ws.send({ type: 'full-reload' });
       };
       server.watcher.on('add', reload).on('change', reload).on('unlink', reload);
-    }
+    },
   };
 }

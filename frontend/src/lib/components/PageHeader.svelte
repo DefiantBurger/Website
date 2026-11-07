@@ -5,7 +5,7 @@
     title,
     description,
     children,
-    actions
+    actions,
   }: {
     title: string;
     description?: string;

@@ -5,20 +5,21 @@ Each file is a pair in `<instance>/fileshare/`: `<label>.json` (metadata) and
 `<label>__2`, `<label>__3`, ... The label is an HMAC of the access key, so the
 key itself is never stored.
 """
+
 from __future__ import annotations
 
-from collections.abc import Iterator
-from contextlib import contextmanager
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import base64
 import hashlib
 import hmac
 import json
 import os
-from pathlib import Path
 import threading
 import unicodedata
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
@@ -113,7 +114,7 @@ def _existing_indices(label: str) -> list[int]:
 			indices.add(1)
 		elif stem.startswith(f'{label}__'):
 			try:
-				indices.add(int(stem[len(label) + 2:]))
+				indices.add(int(stem[len(label) + 2 :]))
 			except ValueError:
 				continue
 	return sorted(indices)
@@ -171,7 +172,11 @@ def _load_record(meta_path: Path) -> FileShareRecord | None:
 		return None
 
 	try:
-		size_bytes = int(payload.get('size_bytes') or payload.get('stored_size_bytes') or payload_path.stat().st_size)
+		size_bytes = int(
+			payload.get('size_bytes')
+			or payload.get('stored_size_bytes')
+			or payload_path.stat().st_size
+		)
 	except (TypeError, ValueError, OSError):
 		return None
 
@@ -213,7 +218,9 @@ def cleanup_expired_records(now: datetime | None = None) -> int:
 		record = _load_record(meta_path)
 		if record is None:
 			# Remove the payload too, or it lingers on disk outside the storage quota.
-			payload_path = meta_path.with_name(meta_path.name.removesuffix(META_SUFFIX) + PAYLOAD_SUFFIX)
+			payload_path = meta_path.with_name(
+				meta_path.name.removesuffix(META_SUFFIX) + PAYLOAD_SUFFIX
+			)
 			deleted_count += 1
 			for path in (meta_path, payload_path):
 				try:
@@ -269,7 +276,9 @@ def get_storage_status() -> dict[str, int | bool]:
 	}
 
 
-def get_record_for_password(password: str, occurrence_index: int | None = None) -> FileShareRecord | None:
+def get_record_for_password(
+	password: str, occurrence_index: int | None = None
+) -> FileShareRecord | None:
 	"""Return the key's record at `occurrence_index`, or its first record when None."""
 	label = build_label(password)
 	cleanup_expired_records()
@@ -364,7 +373,9 @@ def _evict_oldest_records(required_free_bytes: int) -> int:
 	return freed_bytes
 
 
-def save_upload(uploaded_file: FileStorage, password: str, clear_existing: bool = False) -> FileShareRecord:
+def save_upload(
+	uploaded_file: FileStorage, password: str, clear_existing: bool = False
+) -> FileShareRecord:
 	"""Encrypt and store a file under the key, evicting old files if over quota.
 
 	With `clear_existing`, the key's previous files are deleted first; otherwise the
@@ -395,7 +406,9 @@ def save_upload(uploaded_file: FileStorage, password: str, clear_existing: bool 
 
 	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes(password, plaintext)
 	current_status = get_storage_status()
-	required_free_bytes = (int(current_status['usedBytes']) + len(ciphertext)) - MAX_TOTAL_STORAGE_BYTES
+	required_free_bytes = (
+		int(current_status['usedBytes']) + len(ciphertext)
+	) - MAX_TOTAL_STORAGE_BYTES
 	if required_free_bytes >= 0:
 		_evict_oldest_records(required_free_bytes + 1)
 		current_status = get_storage_status()

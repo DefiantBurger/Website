@@ -9,14 +9,14 @@ export const BACKEND_BASE_URL =
 const STATUS_MESSAGES: Record<number, string> = {
   413: 'The upload is too large.',
   429: 'Too many requests. Please wait a moment and try again.',
-  503: 'The service is temporarily unavailable. Please try again shortly.'
+  503: 'The service is temporarily unavailable. Please try again shortly.',
 };
 
 /** A non-2xx response; `message` is the backend's `{ error }` text when it sent one. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    message: string
+    message: string,
   ) {
     super(message);
   }
@@ -62,7 +62,7 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   if (!contentType.includes('application/json')) {
     const preview = (await response.text()).slice(0, 120).replace(/\s+/g, ' ');
     throw new Error(
-      `Expected JSON from ${path}, got '${contentType || 'unknown'}'. Response starts with: ${preview}`
+      `Expected JSON from ${path}, got '${contentType || 'unknown'}'. Response starts with: ${preview}`,
     );
   }
 

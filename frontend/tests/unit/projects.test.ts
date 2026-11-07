@@ -10,7 +10,7 @@ describe('parseProject', () => {
   test('reads frontmatter and strips it from the body', () => {
     const project = parseProject(
       'file.md',
-      '---\ntitle: My Awesome Project\nslug: awesome-project\ntags: [python, flask]\npriority: 10\n---\n\n# Heading\n\nBody.'
+      '---\ntitle: My Awesome Project\nslug: awesome-project\ntags: [python, flask]\npriority: 10\n---\n\n# Heading\n\nBody.',
     );
     assert.equal(project.title, 'My Awesome Project');
     assert.equal(project.slug, 'awesome-project');
@@ -34,7 +34,7 @@ describe('parseProject', () => {
   test('tolerates malformed fields', () => {
     const project = parseProject(
       'x.md',
-      '---\nslug: test-slug\ntags: not-a-list\npriority: invalid-number\npublished: false\n---\nContent'
+      '---\nslug: test-slug\ntags: not-a-list\npriority: invalid-number\npublished: false\n---\nContent',
     );
     assert.equal(project.slug, 'test-slug');
     assert.deepEqual(project.tags, []);
@@ -67,21 +67,25 @@ describe('readPublishedProjects', () => {
         'low.md': '---\npriority: 1\n---\n',
         'high.md': '---\npriority: 5\n---\n',
         'hidden.md': '---\npriority: 9\npublished: false\n---\n',
-        'notes.txt': 'ignored'
+        'notes.txt': 'ignored',
       },
-      (dir) => assert.deepEqual(readPublishedProjects(dir).map((p) => p.slug), ['high', 'low'])
+      (dir) =>
+        assert.deepEqual(
+          readPublishedProjects(dir).map((p) => p.slug),
+          ['high', 'low'],
+        ),
     );
   });
 
   test('fails on duplicate slugs', () => {
     withFiles({ 'a.md': '---\nslug: same\n---\n', 'b.md': '---\nslug: same\n---\n' }, (dir) =>
-      assert.throws(() => readPublishedProjects(dir), /more than one/)
+      assert.throws(() => readPublishedProjects(dir), /more than one/),
     );
   });
 
   test('fails on slugs that are unsafe as paths', () => {
     withFiles({ 'a.md': '---\nslug: ../escape\n---\n' }, (dir) =>
-      assert.throws(() => readPublishedProjects(dir), /must be lowercase/)
+      assert.throws(() => readPublishedProjects(dir), /must be lowercase/),
     );
   });
 });

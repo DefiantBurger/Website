@@ -47,14 +47,19 @@ function routeCheck(path: string): Check {
       withPage(browser, async (page) => {
         const errors = watchForErrors(page);
         await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
-        const heading = (await page.locator('main h1, h1').first().textContent({ timeout: 5000 }))?.trim();
+        const heading = (
+          await page.locator('main h1, h1').first().textContent({ timeout: 5000 })
+        )?.trim();
         if (path === MISSING_PATH) {
           assert.equal(heading, '404');
         } else {
-          assert.ok(heading && heading !== '404', `expected a page heading, got ${JSON.stringify(heading)}`);
+          assert.ok(
+            heading && heading !== '404',
+            `expected a page heading, got ${JSON.stringify(heading)}`,
+          );
         }
         assert.deepEqual(errors, [], 'errors while loading');
-      })
+      }),
   };
 }
 
@@ -67,7 +72,10 @@ const siteChecks: Check[] = [
         // A full page load would wipe this marker.
         await page.evaluate(() => ((globalThis as { smokeMarker?: boolean }).smokeMarker = true));
 
-        await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Projects' }).click();
+        await page
+          .getByRole('navigation', { name: 'Main' })
+          .getByRole('link', { name: 'Projects' })
+          .click();
         await page.waitForURL(`${BASE_URL}/projects`);
         assert.equal(await page.locator('h1').first().textContent(), 'Projects');
 
@@ -76,9 +84,9 @@ const siteChecks: Check[] = [
         assert.equal(
           await page.evaluate(() => (globalThis as { smokeMarker?: boolean }).smokeMarker),
           true,
-          'navigation reloaded the page'
+          'navigation reloaded the page',
         );
-      })
+      }),
   },
   {
     name: 'trailing slashes redirect to the canonical path',
@@ -86,15 +94,18 @@ const siteChecks: Check[] = [
       withPage(browser, async (page) => {
         await page.goto(`${BASE_URL}/about/`, { waitUntil: 'networkidle' });
         assert.equal(new URL(page.url()).pathname, '/about');
-      })
+      }),
   },
   {
     name: '404 page suggests the closest route',
     run: (browser) =>
       withPage(browser, async (page) => {
         await page.goto(`${BASE_URL}/projectz`, { waitUntil: 'networkidle' });
-        assert.equal(await page.getByRole('link', { name: '/projects' }).getAttribute('href'), '/projects');
-      })
+        assert.equal(
+          await page.getByRole('link', { name: '/projects' }).getAttribute('href'),
+          '/projects',
+        );
+      }),
   },
   {
     name: 'theme toggle switches and persists across reloads',
@@ -110,8 +121,8 @@ const siteChecks: Check[] = [
         await page.reload({ waitUntil: 'networkidle' });
         assert.equal(await currentTheme(), 'dark', 'theme after reload');
         await page.getByRole('button', { name: 'Light Mode' }).waitFor();
-      })
-  }
+      }),
+  },
 ];
 
 async function main(): Promise<void> {
@@ -132,14 +143,18 @@ async function main(): Promise<void> {
       } catch (error) {
         failures += 1;
         console.log(`  FAIL  ${check.name}`);
-        console.log(`        ${(error instanceof Error ? error.message : String(error)).replace(/\n/g, '\n        ')}`);
+        console.log(
+          `        ${(error instanceof Error ? error.message : String(error)).replace(/\n/g, '\n        ')}`,
+        );
       }
     }
   } finally {
     await browser.close();
   }
 
-  console.log(failures === 0 ? '\nAll smoke checks passed.' : `\n${failures} smoke check(s) failed.`);
+  console.log(
+    failures === 0 ? '\nAll smoke checks passed.' : `\n${failures} smoke check(s) failed.`,
+  );
   process.exitCode = failures === 0 ? 0 : 1;
 }
 

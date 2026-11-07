@@ -30,9 +30,7 @@ from .messageboard import (
 
 views = Blueprint('views', __name__)
 
-_JSON_DATA_DIR = (
-	Path(__file__).resolve().parent / 'static' / 'json'
-)
+_JSON_DATA_DIR = Path(__file__).resolve().parent / 'static' / 'json'
 
 # Stand-in location for the local dev server, which never sees Cloudflare headers.
 _DEV_GEOLOCATION = {
@@ -168,14 +166,16 @@ def fileshare_upload():
 	except FileShareError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
-	return jsonify({
-		'label': record.label,
-		'originalFilename': record.original_filename,
-		'sizeBytes': record.size_bytes,
-		'uploadedAt': record.uploaded_at,
-		'expiresAt': record.expires_at,
-		'downloadEndpoint': '/api/fileshare/access/',
-	})
+	return jsonify(
+		{
+			'label': record.label,
+			'originalFilename': record.original_filename,
+			'sizeBytes': record.size_bytes,
+			'uploadedAt': record.uploaded_at,
+			'expiresAt': record.expires_at,
+			'downloadEndpoint': '/api/fileshare/access/',
+		}
+	)
 
 
 @views.route('/api/fileshare/access/', methods=['POST'])
@@ -183,12 +183,12 @@ def fileshare_access():
 	# Form fields: password, occurrenceIndex (which of the key's files; default 1).
 	password = request.form.get('password', '')
 	occurrence_index_str = request.form.get('occurrenceIndex', '1')
-	
+
 	try:
 		occurrence_index = int(occurrence_index_str)
 	except ValueError:
 		return jsonify({'error': 'Invalid occurrence index.'}), 400
-	
+
 	record = get_record_for_password(password, occurrence_index)
 	if record is None:
 		return jsonify({'error': 'No active file matched that password.'}), 404
@@ -215,23 +215,25 @@ def fileshare_access():
 @views.route('/api/fileshare/list/', methods=['POST'])
 def fileshare_list():
 	password = request.form.get('password', '')
-	
+
 	records = get_all_records_for_password(password)
 	if not records:
 		return jsonify({'error': 'No active files matched that access key.'}), 404
-	
-	return jsonify({
-		'files': [
-			{
-				'occurrenceIndex': record.occurrence_index,
-				'originalFilename': record.original_filename,
-				'sizeBytes': record.size_bytes,
-				'uploadedAt': record.uploaded_at,
-				'expiresAt': record.expires_at,
-			}
-			for record in records
-		],
-	})
+
+	return jsonify(
+		{
+			'files': [
+				{
+					'occurrenceIndex': record.occurrence_index,
+					'originalFilename': record.original_filename,
+					'sizeBytes': record.size_bytes,
+					'uploadedAt': record.uploaded_at,
+					'expiresAt': record.expires_at,
+				}
+				for record in records
+			],
+		}
+	)
 
 
 @views.route('/api/about-you/request-context/', methods=['GET'])
@@ -245,26 +247,28 @@ def about_you_request_context():
 		for header_name in ['CF-Connecting-IP', 'X-Forwarded-For', 'X-Real-IP', 'Forwarded']
 	)
 
-	return jsonify({
-		'timestamp': datetime.now(timezone.utc).isoformat(),
-		'request': {
-			'method': request.method,
-			'path': request.path,
-		},
-		'network': {
-			'clientIp': raw_ip or 'Unavailable',
-			'clientIpMasked': _mask_ip(raw_ip),
-			'ipSource': ip_source,
-			'hasForwardedHeaders': has_forwarded_headers,
-		},
-		'geolocation': geolocation,
-		'headers': {
-			'userAgent': request.headers.get('User-Agent', ''),
-			'acceptLanguage': request.headers.get('Accept-Language', ''),
-			'referer': request.headers.get('Referer', ''),
-			'doNotTrack': request.headers.get('DNT', ''),
-		},
-	})
+	return jsonify(
+		{
+			'timestamp': datetime.now(timezone.utc).isoformat(),
+			'request': {
+				'method': request.method,
+				'path': request.path,
+			},
+			'network': {
+				'clientIp': raw_ip or 'Unavailable',
+				'clientIpMasked': _mask_ip(raw_ip),
+				'ipSource': ip_source,
+				'hasForwardedHeaders': has_forwarded_headers,
+			},
+			'geolocation': geolocation,
+			'headers': {
+				'userAgent': request.headers.get('User-Agent', ''),
+				'acceptLanguage': request.headers.get('Accept-Language', ''),
+				'referer': request.headers.get('Referer', ''),
+				'doNotTrack': request.headers.get('DNT', ''),
+			},
+		}
+	)
 
 
 @views.route('/api/messageboard/status/', methods=['GET'])
@@ -275,12 +279,14 @@ def messageboard_status():
 @views.route('/api/messageboard/messages/', methods=['GET'])
 def messageboard_messages():
 	messages = board_store.get_active_messages()
-	return jsonify({
-		'messages': messages,
-		'serverTime': datetime.now(timezone.utc).isoformat(),
-		'retentionSeconds': int(board_store.ttl_seconds),
-		'totalActive': len(messages),
-	})
+	return jsonify(
+		{
+			'messages': messages,
+			'serverTime': datetime.now(timezone.utc).isoformat(),
+			'retentionSeconds': int(board_store.ttl_seconds),
+			'totalActive': len(messages),
+		}
+	)
 
 
 @views.route('/api/messageboard/messages/', methods=['POST'])
@@ -305,9 +311,11 @@ def messageboard_post_message():
 	except MessageBoardError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
-	return jsonify({
-		'id': record.id,
-		'text': record.text,
-		'createdAt': record.created_at,
-		'expiresAt': record.expires_at,
-	}), 201
+	return jsonify(
+		{
+			'id': record.id,
+			'text': record.text,
+			'createdAt': record.created_at,
+			'expiresAt': record.expires_at,
+		}
+	), 201

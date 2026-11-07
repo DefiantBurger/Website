@@ -12,7 +12,7 @@ function chooseBestRequirementCourse(
   requirement: Requirement,
   courseIdsByName: Record<string, string[]>,
   coursesById: Record<string, { id: string; semester: string }>,
-  semesterToIndex: Record<string, number>
+  semesterToIndex: Record<string, number>,
 ): string | undefined {
   let bestCourseId: string | undefined;
 
@@ -28,8 +28,10 @@ function chooseBestRequirementCourse(
         continue;
       }
 
-      const bestIndex = semesterToIndex[coursesById[bestCourseId].semester] ?? Number.MAX_SAFE_INTEGER;
-      const candidateIndex = semesterToIndex[coursesById[candidateId].semester] ?? Number.MAX_SAFE_INTEGER;
+      const bestIndex =
+        semesterToIndex[coursesById[bestCourseId].semester] ?? Number.MAX_SAFE_INTEGER;
+      const candidateIndex =
+        semesterToIndex[coursesById[candidateId].semester] ?? Number.MAX_SAFE_INTEGER;
       if (candidateIndex < bestIndex) {
         bestCourseId = candidateId;
       }
@@ -41,7 +43,7 @@ function chooseBestRequirementCourse(
 
 function buildCourseIdsByName(
   coursesById: Record<string, { id: string; name: string; semester: string }>,
-  semesterToIndex: Record<string, number>
+  semesterToIndex: Record<string, number>,
 ): Record<string, string[]> {
   const grouped: Record<string, string[]> = {};
 
@@ -70,7 +72,7 @@ function buildCourseIdsByName(
 export function computeSchedulerGraph({
   coursesById,
   prereqsByCourseId,
-  semesterToIndex
+  semesterToIndex,
 }: ComputeGraphParams): SchedulerGraph {
   const courseIdsByName = buildCourseIdsByName(coursesById, semesterToIndex);
   const edges: PrereqEdge[] = [];
@@ -85,7 +87,7 @@ export function computeSchedulerGraph({
         requirement,
         courseIdsByName,
         coursesById,
-        semesterToIndex
+        semesterToIndex,
       );
 
       if (!bestRequirementCourseId) {
@@ -98,7 +100,8 @@ export function computeSchedulerGraph({
         continue;
       }
 
-      const courseSemesterIndex = semesterToIndex[coursesById[courseId].semester] ?? Number.MAX_SAFE_INTEGER;
+      const courseSemesterIndex =
+        semesterToIndex[coursesById[courseId].semester] ?? Number.MAX_SAFE_INTEGER;
       const reqSemesterIndex = semesterToIndex[requirementSemester] ?? Number.MAX_SAFE_INTEGER;
 
       let status: PrereqEdge['status'];
@@ -121,12 +124,13 @@ export function computeSchedulerGraph({
         fromCourseId: bestRequirementCourseId,
         toCourseId: courseId,
         requirement,
-        status
+        status,
       });
     }
 
     if (expectedRequirementCount > 0) {
-      requirementProgressByCourseId[courseId] = satisfiedRequirementCount / expectedRequirementCount;
+      requirementProgressByCourseId[courseId] =
+        satisfiedRequirementCount / expectedRequirementCount;
     }
   }
 
@@ -141,10 +145,10 @@ export function computeSchedulerGraph({
 export function detangleCourseOrder(
   semesterOrder: string[],
   columnCourseIds: Record<string, string[]>,
-  edges: PrereqEdge[]
+  edges: PrereqEdge[],
 ): Record<string, string[]> {
   const result: Record<string, string[]> = Object.fromEntries(
-    semesterOrder.map((semester) => [semester, [...(columnCourseIds[semester] ?? [])]])
+    semesterOrder.map((semester) => [semester, [...(columnCourseIds[semester] ?? [])]]),
   );
 
   const neighbors: Record<string, Set<string>> = {};
@@ -184,7 +188,7 @@ export function detangleCourseOrder(
         return {
           courseId,
           barycenter,
-          currentPosition
+          currentPosition,
         };
       });
 

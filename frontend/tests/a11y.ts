@@ -19,11 +19,11 @@ const AXE_PATH = createRequire(import.meta.url).resolve('axe-core/axe.min.js');
 const THEMES = ['light', 'dark'] as const;
 const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
-  { name: 'phone', width: 400, height: 850 }
+  { name: 'phone', width: 400, height: 850 },
 ];
 
 const RUN_OPTIONS: RunOptions = {
-  runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice']
+  runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'],
 };
 // Mermaid draws diagrams in its own theme colors (see KNOWN-ISSUES.md).
 const AXE_CONTEXT: ContextObject = { exclude: ['.mermaid'] };
@@ -35,7 +35,12 @@ const SETTLE_MS = 500;
 
 type Finding = { scan: string; path: string; violation: AxeResults['violations'][number] };
 
-async function scan(browser: Browser, theme: string, viewport: (typeof VIEWPORTS)[number], paths: string[]) {
+async function scan(
+  browser: Browser,
+  theme: string,
+  viewport: (typeof VIEWPORTS)[number],
+  paths: string[],
+) {
   const context = await browser.newContext({ viewport });
   await context.addInitScript((value) => localStorage.setItem('theme', value), theme);
   const page = await context.newPage();
@@ -53,7 +58,10 @@ async function scan(browser: Browser, theme: string, viewport: (typeof VIEWPORTS
         axeContext: ContextObject;
         options: RunOptions;
       };
-      return (globalThis as unknown as { axe: typeof import('axe-core') }).axe.run(axeContext, options);
+      return (globalThis as unknown as { axe: typeof import('axe-core') }).axe.run(
+        axeContext,
+        options,
+      );
     }, AXE_ARGS_JSON);
     for (const violation of results.violations) {
       findings.push({ scan: `${theme}/${viewport.name}`, path, violation });
@@ -73,10 +81,14 @@ async function main(): Promise<void> {
     const paths = await routePaths(setup);
     await setup.close();
 
-    const scans = THEMES.flatMap((theme) => VIEWPORTS.map((viewport) => scan(browser, theme, viewport, paths)));
+    const scans = THEMES.flatMap((theme) =>
+      VIEWPORTS.map((viewport) => scan(browser, theme, viewport, paths)),
+    );
     const findings = (await Promise.all(scans)).flat();
 
-    console.log(`Scanned ${paths.length} routes × ${THEMES.length} themes × ${VIEWPORTS.length} widths.`);
+    console.log(
+      `Scanned ${paths.length} routes × ${THEMES.length} themes × ${VIEWPORTS.length} widths.`,
+    );
     if (findings.length === 0) {
       console.log('No accessibility violations.');
       return;

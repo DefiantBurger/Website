@@ -1,17 +1,17 @@
 ---
-title: "J-Ball Basketball"
-slug: "j-ball-basketball"
-summary: "A client website for a Jewish high school basketball league, with schedules, standings, photos, signup flows, sponsor visibility, and an admin area for content updates."
+title: 'J-Ball Basketball'
+slug: 'j-ball-basketball'
+summary: 'A client website for a Jewish high school basketball league, with schedules, standings, photos, signup flows, sponsor visibility, and an admin area for content updates.'
 priority: 10
 tags:
-  - "Flask"
-  - "JavaScript"
-  - "Vercel"
-  - "HTML"
-  - "CSS"
-  - "Client Work"
-repo: "https://github.com/JBallBasketball/JBallBasketballWebsite"
-demo: "https://www.jballbasketball.com/"
+  - 'Flask'
+  - 'JavaScript'
+  - 'Vercel'
+  - 'HTML'
+  - 'CSS'
+  - 'Client Work'
+repo: 'https://github.com/JBallBasketball/JBallBasketballWebsite'
+demo: 'https://www.jballbasketball.com/'
 published: true
 ---
 

@@ -5,30 +5,36 @@
     { label: 'About', href: '/about' },
     { label: 'Projects', href: '/projects' },
     { label: 'Utilities', href: '/utilities' },
-    { label: 'Contact', href: '/contact' }
+    { label: 'Contact', href: '/contact' },
   ];
 
   const featuredProjects: { title: string; description: string; slug?: string }[] = [
     {
       title: 'Personal Website',
       slug: 'personal-website-platform',
-      description: 'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.'
+      description:
+        'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.',
     },
     {
       title: 'Project 2',
-      description: 'Description coming soon...'
-    }
+      description: 'Description coming soon...',
+    },
   ];
 
   const quickLinks = [
-    { title: 'About Me', text: 'Learn more about who I am and what I do.', href: '/about', cta: 'Read' },
+    {
+      title: 'About Me',
+      text: 'Learn more about who I am and what I do.',
+      href: '/about',
+      cta: 'Read',
+    },
     {
       title: 'Utilities',
       text: 'Interactive tools including the class scheduler utility.',
       href: '/utilities',
-      cta: 'Open'
+      cta: 'Open',
     },
-    { title: 'Contact', text: 'Get in touch with me.', href: '/contact', cta: 'Reach Out' }
+    { title: 'Contact', text: 'Get in touch with me.', href: '/contact', cta: 'Reach Out' },
   ];
 </script>
 
@@ -60,7 +66,11 @@
             aria-label="View project: {project.title}">View Project</a
           >
         {:else}
-          <a href="/projects" class="card-link stretched-link prompt" aria-label="View more projects">View More</a>
+          <a
+            href="/projects"
+            class="card-link stretched-link prompt"
+            aria-label="View more projects">View More</a
+          >
         {/if}
       </div>
     {/each}
@@ -76,7 +86,9 @@
         <strong class="prompt">{link.title}</strong>
         <p>{link.text}</p>
         <!-- The label names the destination, since the visible CTAs are generic. -->
-        <a href={link.href} class="stretched-link" aria-label="{link.cta}: {link.title}">{link.cta} →</a>
+        <a href={link.href} class="stretched-link" aria-label="{link.cta}: {link.title}"
+          >{link.cta} →</a
+        >
       </div>
     {/each}
   </div>

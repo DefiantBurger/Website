@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+
 from app import create_app
 from app.messageboard import board_rate_limiter, board_store
 
@@ -12,7 +13,7 @@ from app.messageboard import board_rate_limiter, board_store
 @pytest.fixture
 def temp_instance_dir():
 	"""Create a temporary instance directory for isolated file storage during tests."""
-	temp_dir = tempfile.mkdtemp(prefix="test_instance_")
+	temp_dir = tempfile.mkdtemp(prefix='test_instance_')
 	yield Path(temp_dir)
 	shutil.rmtree(temp_dir, ignore_errors=True)
 
@@ -21,8 +22,8 @@ def temp_instance_dir():
 def app(temp_instance_dir):
 	"""Flask test application fixture isolated to temporary instance directory."""
 	test_config = {
-		"TESTING": True,
-		"SECRET_KEY": "test-secret-key-for-unit-tests",
+		'TESTING': True,
+		'SECRET_KEY': 'test-secret-key-for-unit-tests',
 	}
 	app = create_app(test_config=test_config, instance_path=str(temp_instance_dir))
 	yield app

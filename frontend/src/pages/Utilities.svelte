@@ -7,25 +7,28 @@
       name: 'Class Scheduler',
       path: '/utilities/scheduler',
       description:
-        'Interactive semester planning with prerequisite validation, drag-and-drop course movement, and dependency visualization.'
+        'Interactive semester planning with prerequisite validation, drag-and-drop course movement, and dependency visualization.',
     },
     {
       name: 'File Share',
       path: '/utilities/fileshare',
       description:
-        'Upload a file with a password label, then retrieve it later by entering the same password before the 10-minute expiration window closes.'
+        'Upload a file with a password label, then retrieve it later by entering the same password before the 10-minute expiration window closes.',
     },
     {
       name: 'Message Board',
       path: '/utilities/message-board',
-      description: `Post short anonymous notes that self-destruct after around ${MESSAGE_TTL_SECONDS} seconds. Uses a strict URL-safe allowlist for sanitization.`
-    }
+      description: `Post short anonymous notes that self-destruct after around ${MESSAGE_TTL_SECONDS} seconds. Uses a strict URL-safe allowlist for sanitization.`,
+    },
   ];
 </script>
 
 <svelte:head>
   <title>Utilities · JosephCicalese.com</title>
-  <meta name="description" content="Interactive tools and experiments, including a class scheduler, file sharing utility, and message board." />
+  <meta
+    name="description"
+    content="Interactive tools and experiments, including a class scheduler, file sharing utility, and message board."
+  />
 </svelte:head>
 
 <div class="page">

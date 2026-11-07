@@ -1,15 +1,12 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount } from 'svelte';
 
-  import {
-    loadRequestContextSnapshot,
-    type RequestContextSnapshot,
-  } from "../lib/aboutYou/api";
-  import { getInteractionSnapshot } from "../lib/aboutYou/interactionStore";
-  import { errorMessage } from "../lib/api";
-  import PageHeader from "../lib/components/PageHeader.svelte";
-  import FactList, { type Fact } from "../lib/aboutYou/FactList.svelte";
-  import LocationMap from "../lib/aboutYou/LocationMap.svelte";
+  import { loadRequestContextSnapshot, type RequestContextSnapshot } from '../lib/aboutYou/api';
+  import { getInteractionSnapshot } from '../lib/aboutYou/interactionStore';
+  import { errorMessage } from '../lib/api';
+  import PageHeader from '../lib/components/PageHeader.svelte';
+  import FactList, { type Fact } from '../lib/aboutYou/FactList.svelte';
+  import LocationMap from '../lib/aboutYou/LocationMap.svelte';
 
   type NavigatorExtras = Navigator & {
     deviceMemory?: number;
@@ -22,25 +19,25 @@
 
   const NOT_COLLECTED: Fact[] = [
     {
-      label: "Persistent ID",
-      value: "No user ID or tracking cookie is created for this page.",
+      label: 'Persistent ID',
+      value: 'No user ID or tracking cookie is created for this page.',
     },
     {
-      label: "Analytics Profile",
-      value: "No external analytics tracker is loaded here.",
+      label: 'Analytics Profile',
+      value: 'No external analytics tracker is loaded here.',
     },
     {
-      label: "Fingerprint",
-      value: "No multi-signal browser fingerprint is generated.",
+      label: 'Fingerprint',
+      value: 'No multi-signal browser fingerprint is generated.',
     },
   ];
 
   // Checked in order; the first match names the browser.
   const UA_BROWSERS: [name: string, pattern: RegExp][] = [
-    ["Edge", /Edg\/(\d+)/],
-    ["Firefox", /Firefox\/(\d+)/],
-    ["Chrome", /Chrome\/(\d+)/],
-    ["Safari", /Version\/(\d+).*Safari/],
+    ['Edge', /Edg\/(\d+)/],
+    ['Firefox', /Firefox\/(\d+)/],
+    ['Chrome', /Chrome\/(\d+)/],
+    ['Safari', /Version\/(\d+).*Safari/],
   ];
 
   let browser = $state(readBrowser());
@@ -49,34 +46,31 @@
   let now = $state(new Date());
 
   let requestContext = $state<RequestContextSnapshot | null>(null);
-  let requestContextError = $state("");
+  let requestContextError = $state('');
   let requestContextLoading = $state(true);
 
-  const geo = $derived(
-    requestContext?.geolocation.available ? requestContext.geolocation : null,
-  );
+  const geo = $derived(requestContext?.geolocation.available ? requestContext.geolocation : null);
   const hasCoordinates = $derived(
-    typeof geo?.latitude === "number" && typeof geo?.longitude === "number",
+    typeof geo?.latitude === 'number' && typeof geo?.longitude === 'number',
   );
   const placeName = $derived(
-    [geo?.city, geo?.region].filter(Boolean).join(", ") ||
-      countryName(geo?.country),
+    [geo?.city, geo?.region].filter(Boolean).join(', ') || countryName(geo?.country),
   );
   const localTime = $derived(
     now.toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
+      hour: 'numeric',
+      minute: '2-digit',
+      second: '2-digit',
     }),
   );
 
   function toDisplayValue(value: unknown): string {
-    if (value === null || value === undefined || value === "") {
-      return "Unavailable";
+    if (value === null || value === undefined || value === '') {
+      return 'Unavailable';
     }
 
     if (Array.isArray(value)) {
-      return value.length > 0 ? value.join(", ") : "Unavailable";
+      return value.length > 0 ? value.join(', ') : 'Unavailable';
     }
 
     return String(value);
@@ -84,15 +78,15 @@
 
   function fact(label: string, value: unknown, note?: string): Fact {
     const display = toDisplayValue(value);
-    return { label, value: display, note, muted: display === "Unavailable" };
+    return { label, value: display, note, muted: display === 'Unavailable' };
   }
 
   function countryName(code: string | undefined): string {
     if (!code) {
-      return "";
+      return '';
     }
     try {
-      return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
+      return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
     } catch {
       return code;
     }
@@ -102,8 +96,7 @@
     const brands = (nav.userAgentData?.brands ?? []).filter(
       (brand) => !/not.?a.?brand/i.test(brand.brand),
     );
-    const brand =
-      brands.find((b) => b.brand !== "Chromium") ?? brands[0] ?? null;
+    const brand = brands.find((b) => b.brand !== 'Chromium') ?? brands[0] ?? null;
     if (brand) {
       return `${brand.brand} ${brand.version}`;
     }
@@ -114,7 +107,7 @@
         return `${name} ${match[1]}`;
       }
     }
-    return "an unrecognized browser";
+    return 'an unrecognized browser';
   }
 
   function readBrowser() {
@@ -125,10 +118,7 @@
       name: describeBrowser(nav),
       os: nav.userAgentData?.platform || nav.platform,
       userAgent: nav.userAgent,
-      brands:
-        nav.userAgentData?.brands?.map(
-          (brand) => `${brand.brand} ${brand.version}`,
-        ) ?? [],
+      brands: nav.userAgentData?.brands?.map((brand) => `${brand.brand} ${brand.version}`) ?? [],
       platform: nav.platform || nav.userAgentData?.platform,
       languages: nav.languages,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -140,12 +130,10 @@
       deviceMemory: nav.deviceMemory,
       connectionType: nav.connection?.effectiveType,
       online: navigator.onLine,
-      doNotTrack: nav.doNotTrack || win.doNotTrack || "Not set",
+      doNotTrack: nav.doNotTrack || win.doNotTrack || 'Not set',
       cookiesEnabled: nav.cookieEnabled,
-      prefersDark: window.matchMedia("(prefers-color-scheme: dark)").matches,
-      prefersReducedMotion: window.matchMedia(
-        "(prefers-reduced-motion: reduce)",
-      ).matches,
+      prefersDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+      prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
       referrer: document.referrer,
     };
   }
@@ -153,58 +141,52 @@
   function formatCounts(counts: Record<string, number>): string {
     const entries = Object.entries(counts);
     if (entries.length === 0) {
-      return "None yet";
+      return 'None yet';
     }
-    return entries.map(([key, count]) => `${key} ×${count}`).join(", ");
+    return entries.map(([key, count]) => `${key} ×${count}`).join(', ');
   }
 
   const deviceFacts = $derived<Fact[]>([
-    fact("Platform", browser.platform),
-    fact("Screen", browser.screen),
-    fact("Window", browser.viewport),
-    fact("Pixel Ratio", browser.pixelRatio),
-    fact("Touch Points", browser.touchPoints),
-    fact("CPU Cores", browser.cpuCores, "Reported by the browser as a hint."),
+    fact('Platform', browser.platform),
+    fact('Screen', browser.screen),
+    fact('Window', browser.viewport),
+    fact('Pixel Ratio', browser.pixelRatio),
+    fact('Touch Points', browser.touchPoints),
+    fact('CPU Cores', browser.cpuCores, 'Reported by the browser as a hint.'),
     fact(
-      "Memory",
+      'Memory',
       browser.deviceMemory && `~${browser.deviceMemory} GB`,
-      "Rounded hint; only some browsers expose it.",
+      'Rounded hint; only some browsers expose it.',
     ),
   ]);
 
   const browserFacts = $derived<Fact[]>([
-    fact("Browser", browser.name),
-    fact("User Agent", browser.userAgent, "Raw browser user-agent string."),
+    fact('Browser', browser.name),
+    fact('User Agent', browser.userAgent, 'Raw browser user-agent string.'),
     fact(
-      "Client Hint Brands",
+      'Client Hint Brands',
       browser.brands,
-      "Only available in some browsers; often privacy-limited.",
+      'Only available in some browsers; often privacy-limited.',
     ),
-    fact("Cookies", browser.cookiesEnabled ? "Enabled" : "Disabled"),
-    fact("Do Not Track", browser.doNotTrack),
-    fact("Connection", browser.connectionType, "Estimated, not measured."),
-    fact("Online", browser.online ? "Yes" : "No"),
+    fact('Cookies', browser.cookiesEnabled ? 'Enabled' : 'Disabled'),
+    fact('Do Not Track', browser.doNotTrack),
+    fact('Connection', browser.connectionType, 'Estimated, not measured.'),
+    fact('Online', browser.online ? 'Yes' : 'No'),
   ]);
 
   const preferenceFacts = $derived<Fact[]>([
-    fact("Languages", browser.languages),
-    fact("Timezone", browser.timezone),
-    fact("Color Scheme", browser.prefersDark ? "Dark" : "Light"),
-    fact(
-      "Reduced Motion",
-      browser.prefersReducedMotion ? "Reduce" : "No preference",
-    ),
+    fact('Languages', browser.languages),
+    fact('Timezone', browser.timezone),
+    fact('Color Scheme', browser.prefersDark ? 'Dark' : 'Light'),
+    fact('Reduced Motion', browser.prefersReducedMotion ? 'Reduce' : 'No preference'),
   ]);
 
   const visitFacts = $derived<Fact[]>([
-    fact(
-      "Tab Opened",
-      new Date(interactionSnapshot.sessionStartedAt).toLocaleString(),
-    ),
-    fact("Arrived From", browser.referrer || "Direct visit or no referrer"),
-    fact("Previous Page", interactionSnapshot.previousRoute ?? "None"),
-    fact("Pages Viewed", formatCounts(interactionSnapshot.routeVisitCounts)),
-    fact("Projects Viewed", formatCounts(interactionSnapshot.projectViews)),
+    fact('Tab Opened', new Date(interactionSnapshot.sessionStartedAt).toLocaleString()),
+    fact('Arrived From', browser.referrer || 'Direct visit or no referrer'),
+    fact('Previous Page', interactionSnapshot.previousRoute ?? 'None'),
+    fact('Pages Viewed', formatCounts(interactionSnapshot.routeVisitCounts)),
+    fact('Projects Viewed', formatCounts(interactionSnapshot.projectViews)),
   ]);
 
   const serverFacts = $derived.by<Fact[]>(() => {
@@ -212,59 +194,41 @@
       return [];
     }
     const { request, network, headers, geolocation } = requestContext;
-    const coordinates = hasCoordinates
-      ? `${geolocation.latitude}, ${geolocation.longitude}`
-      : null;
+    const coordinates = hasCoordinates ? `${geolocation.latitude}, ${geolocation.longitude}` : null;
 
     return [
-      fact("IP Address", network.clientIp, `Source: ${network.ipSource}`),
-      fact(
-        "Via Proxy",
-        network.hasForwardedHeaders ? "Yes (forwarded headers)" : "No",
-      ),
+      fact('IP Address', network.clientIp, `Source: ${network.ipSource}`),
+      fact('Via Proxy', network.hasForwardedHeaders ? 'Yes (forwarded headers)' : 'No'),
       ...(geolocation.available
         ? [
-            fact("Country", countryName(geolocation.country)),
-            fact("Region", geolocation.region),
-            fact("City", geolocation.city),
-            fact("Postal Code", geolocation.postal),
-            fact("Timezone", geolocation.timezone),
+            fact('Country', countryName(geolocation.country)),
+            fact('Region', geolocation.region),
+            fact('City', geolocation.city),
+            fact('Postal Code', geolocation.postal),
+            fact('Timezone', geolocation.timezone),
             fact(
-              "Coordinates",
+              'Coordinates',
               coordinates,
-              `Approximate, looked up by ${geolocation.provider ?? "the edge network"}.`,
+              `Approximate, looked up by ${geolocation.provider ?? 'the edge network'}.`,
             ),
           ]
-        : [
-            fact(
-              "Geolocation",
-              null,
-              geolocation.reason || "Lookup not available.",
-            ),
-          ]),
-      fact(
-        "Request",
-        `${request.method} ${request.path}`,
-        requestContext.timestamp,
-      ),
-      fact("User-Agent Header", headers.userAgent),
-      fact("Accept-Language", headers.acceptLanguage),
-      fact("Referer Header", headers.referer),
-      fact("DNT Header", headers.doNotTrack),
+        : [fact('Geolocation', null, geolocation.reason || 'Lookup not available.')]),
+      fact('Request', `${request.method} ${request.path}`, requestContext.timestamp),
+      fact('User-Agent Header', headers.userAgent),
+      fact('Accept-Language', headers.acceptLanguage),
+      fact('Referer Header', headers.referer),
+      fact('DNT Header', headers.doNotTrack),
     ];
   });
 
   async function refreshServerSnapshot(): Promise<void> {
     requestContextLoading = true;
-    requestContextError = "";
+    requestContextError = '';
 
     try {
       requestContext = await loadRequestContextSnapshot();
     } catch (error) {
-      requestContextError = errorMessage(
-        error,
-        "Failed to fetch request context.",
-      );
+      requestContextError = errorMessage(error, 'Failed to fetch request context.');
       requestContext = null;
     } finally {
       requestContextLoading = false;
@@ -289,10 +253,7 @@
   });
 </script>
 
-<svelte:window
-  ononline={refreshLocalSnapshot}
-  onoffline={refreshLocalSnapshot}
-/>
+<svelte:window ononline={refreshLocalSnapshot} onoffline={refreshLocalSnapshot} />
 
 <svelte:head>
   <title>About You · JosephCicalese.com</title>
@@ -324,7 +285,7 @@
     {:else if geo && placeName}
       <p class="place">{placeName}</p>
       <p class="place-sub">
-        {[countryName(geo.country), geo.postal].filter(Boolean).join(" · ")}
+        {[countryName(geo.country), geo.postal].filter(Boolean).join(' · ')}
       </p>
     {:else}
       <p class="place">Somewhere unknown</p>
@@ -347,13 +308,14 @@
         Your screen is <strong>{browser.screen}</strong>
         {#if browser.cpuCores}
           and your device has <strong>{browser.cpuCores} CPU cores</strong>
-        {/if}{#if browser.deviceMemory}{" "}and
+        {/if}{#if browser.deviceMemory}{' '}and
           <strong>~{browser.deviceMemory} GB</strong> of memory{/if}.
       </li>
       <li>
         It's <strong>{localTime}</strong> where you are ({browser.timezone}){#if geo?.timezone && geo.timezone === browser.timezone},
-          which matches your IP's location.{:else if geo?.timezone}, but your IP
-          suggests <strong>{geo.timezone}</strong>. A VPN, maybe?{:else}.{/if}
+          which matches your IP's location.{:else if geo?.timezone}, but your IP suggests <strong
+            >{geo.timezone}</strong
+          >. A VPN, maybe?{:else}.{/if}
       </li>
     </ul>
   </div>
@@ -367,7 +329,7 @@
       />
     {:else}
       <div class="map-placeholder">
-        {requestContextLoading ? "Loading map..." : "No coordinates to map."}
+        {requestContextLoading ? 'Loading map...' : 'No coordinates to map.'}
       </div>
     {/if}
   </div>
@@ -487,7 +449,7 @@
   }
 
   .dossier-lines li::before {
-    content: "$ ";
+    content: '$ ';
     opacity: 0.6;
     display: inline-block;
     width: 1.5rem;

@@ -4,7 +4,7 @@
   let {
     kind = 'loading',
     message = '',
-    compact = false
+    compact = false,
   }: {
     kind?: 'loading' | 'error' | 'success';
     message?: string;
@@ -69,11 +69,13 @@
   }
 
   @keyframes blink {
-    0%, 49% {
+    0%,
+    49% {
       opacity: 1;
     }
 
-    50%, 100% {
+    50%,
+    100% {
       opacity: 0.3;
     }
   }

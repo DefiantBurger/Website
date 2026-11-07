@@ -1,13 +1,13 @@
 <script lang="ts" module>
-  import type { PageLayout } from "../lib/router.svelte";
+  import type { PageLayout } from '../lib/router.svelte';
 
   export const layout: PageLayout = { wide: true };
 </script>
 
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount } from 'svelte';
 
-  import { loadSchedulerData } from "../lib/scheduler/data";
+  import { loadSchedulerData } from '../lib/scheduler/data';
   import {
     PRECOLLEGE_SEMESTER,
     buildRequirements,
@@ -17,28 +17,22 @@
     getValidCredits,
     resolveCourseQuery,
     searchCatalog,
-  } from "../lib/scheduler/catalog";
-  import {
-    computeSchedulerGraph,
-    detangleCourseOrder,
-  } from "../lib/scheduler/logic";
+  } from '../lib/scheduler/catalog';
+  import { computeSchedulerGraph, detangleCourseOrder } from '../lib/scheduler/logic';
   import type {
     CourseCatalog,
     CourseInstance,
     PrereqEdge,
     ScheduleFile,
     ScheduleState,
-  } from "../lib/scheduler/types";
-  import { errorMessage } from "../lib/api";
-  import { saveBlob } from "../lib/download";
-  import PageHeader from "../lib/components/PageHeader.svelte";
-  import StatusMessage from "../lib/components/StatusMessage.svelte";
+  } from '../lib/scheduler/types';
+  import { errorMessage } from '../lib/api';
+  import { saveBlob } from '../lib/download';
+  import PageHeader from '../lib/components/PageHeader.svelte';
+  import StatusMessage from '../lib/components/StatusMessage.svelte';
 
   /** A prerequisite edge positioned in board coordinates. */
-  type EdgeLine = Pick<
-    PrereqEdge,
-    "id" | "fromCourseId" | "toCourseId" | "status"
-  > & {
+  type EdgeLine = Pick<PrereqEdge, 'id' | 'fromCourseId' | 'toCourseId' | 'status'> & {
     x1: number;
     y1: number;
     x2: number;
@@ -58,9 +52,9 @@
   let draggedCourseId: string | null = null;
   let dragOverSemester = $state<string | null>(null);
 
-  let addCourseQuery = $state("");
-  let addSemester = $state("");
-  let notice = $state<{ kind: "error" | "success"; text: string } | null>(null);
+  let addCourseQuery = $state('');
+  let addSemester = $state('');
+  let notice = $state<{ kind: 'error' | 'success'; text: string } | null>(null);
   let importInputElement = $state<HTMLInputElement>();
 
   let boardElement = $state<HTMLDivElement>();
@@ -70,9 +64,7 @@
 
   const semesterToIndex = $derived<Record<string, number>>({
     [PRECOLLEGE_SEMESTER]: -1,
-    ...Object.fromEntries(
-      semesterOrder.map((semester, index) => [semester, index]),
-    ),
+    ...Object.fromEntries(semesterOrder.map((semester, index) => [semester, index])),
   });
 
   const prereqsByCourseId = $derived(
@@ -107,13 +99,11 @@
     selectedCourse ? getValidCredits(courseCatalog, selectedCourse.name) : [],
   );
 
-  const catalogSuggestions = $derived(
-    searchCatalog(courseCatalog, addCourseQuery),
-  );
+  const catalogSuggestions = $derived(searchCatalog(courseCatalog, addCourseQuery));
 
   function progressPercent(courseId: string): number | null {
     const progress = graph.requirementProgressByCourseId[courseId];
-    return typeof progress === "number" ? Math.round(progress * 100) : null;
+    return typeof progress === 'number' ? Math.round(progress * 100) : null;
   }
 
   function applySchedule(schedule: ScheduleState, detangle: boolean): void {
@@ -121,7 +111,7 @@
     coursesById = schedule.coursesById;
     columnCourseIds = schedule.columnCourseIds;
     selectedCourseId = null;
-    addSemester = schedule.semesterOrder[0] ?? "";
+    addSemester = schedule.semesterOrder[0] ?? '';
     if (detangle) {
       autoDetangle();
     }
@@ -129,11 +119,7 @@
 
   /** Reorder courses within each semester to reduce crossing edges. */
   function autoDetangle(): void {
-    columnCourseIds = detangleCourseOrder(
-      semesterOrder,
-      columnCourseIds,
-      graph.edges,
-    );
+    columnCourseIds = detangleCourseOrder(semesterOrder, columnCourseIds, graph.edges);
   }
 
   /** Attachment: keep `courseElements[courseId]` pointing at the card. */
@@ -158,8 +144,7 @@
     const lines: EdgeLine[] = [];
 
     for (const edge of graph.edges) {
-      const fromRect =
-        courseElements[edge.fromCourseId]?.getBoundingClientRect();
+      const fromRect = courseElements[edge.fromCourseId]?.getBoundingClientRect();
       const toRect = courseElements[edge.toCourseId]?.getBoundingClientRect();
       if (!fromRect || !toRect) {
         continue;
@@ -172,22 +157,16 @@
         fromCourseId: edge.fromCourseId,
         toCourseId: edge.toCourseId,
         status: edge.status,
-        x1:
-          fromRect.left -
-          boardRect.left +
-          fromRect.width * (isConcurrent ? 0.5 : 0.75),
+        x1: fromRect.left - boardRect.left + fromRect.width * (isConcurrent ? 0.5 : 0.75),
         y1: fromRect.top - boardRect.top + fromRect.height / 2,
-        x2:
-          toRect.left -
-          boardRect.left +
-          toRect.width * (isConcurrent ? 0.5 : 0.25),
+        x2: toRect.left - boardRect.left + toRect.width * (isConcurrent ? 0.5 : 0.25),
         y2: toRect.top - boardRect.top + toRect.height / 2,
       });
     }
 
     // Draw invalid edges last so they sit on top.
     edgeLines = lines.sort(
-      (a, b) => Number(a.status === "invalid") - Number(b.status === "invalid"),
+      (a, b) => Number(a.status === 'invalid') - Number(b.status === 'invalid'),
     );
   }
 
@@ -224,21 +203,17 @@
   function addCourseToSemester(): void {
     notice = null;
 
-    const courseName = resolveCourseQuery(
-      courseCatalog,
-      addCourseQuery,
-      catalogSuggestions,
-    );
+    const courseName = resolveCourseQuery(courseCatalog, addCourseQuery, catalogSuggestions);
     if (!courseName) {
       notice = {
-        kind: "error",
-        text: "Pick a course from the search results before adding.",
+        kind: 'error',
+        text: 'Pick a course from the search results before adding.',
       };
       return;
     }
 
     if (!semesterOrder.includes(addSemester)) {
-      notice = { kind: "error", text: "Select a valid target semester." };
+      notice = { kind: 'error', text: 'Select a valid target semester.' };
       return;
     }
 
@@ -249,12 +224,7 @@
           .filter((course) => course.name === courseName)
           .map((course) => course.occurrenceIndex),
       ) + 1;
-    const course = createCourse(
-      courseCatalog,
-      courseName,
-      occurrenceIndex,
-      addSemester,
-    );
+    const course = createCourse(courseCatalog, courseName, occurrenceIndex, addSemester);
 
     coursesById = { ...coursesById, [course.id]: course };
     columnCourseIds = {
@@ -265,7 +235,7 @@
     selectedCourseId = course.id;
     addCourseQuery = courseName;
     notice = {
-      kind: "success",
+      kind: 'success',
       text: `Added ${courseName} to ${addSemester}.`,
     };
   }
@@ -278,13 +248,13 @@
     });
     saveBlob(
       new Blob([JSON.stringify(exportData, null, 2)], {
-        type: "application/json",
+        type: 'application/json',
       }),
-      "schedule-export.json",
+      'schedule-export.json',
     );
     notice = {
-      kind: "success",
-      text: "Exported current schedule to schedule-export.json",
+      kind: 'success',
+      text: 'Exported current schedule to schedule-export.json',
     };
   }
 
@@ -301,36 +271,26 @@
 
     try {
       const parsed = JSON.parse(await file.text()) as ScheduleFile;
-      if (!parsed || typeof parsed !== "object" || !parsed.semesters) {
-        throw new Error(
-          "Invalid schedule JSON format. Expected an object with a semesters field.",
-        );
+      if (!parsed || typeof parsed !== 'object' || !parsed.semesters) {
+        throw new Error('Invalid schedule JSON format. Expected an object with a semesters field.');
       }
 
       applySchedule(buildSchedule(courseCatalog, parsed), true);
-      notice = { kind: "success", text: `Imported schedule from ${file.name}` };
+      notice = { kind: 'success', text: `Imported schedule from ${file.name}` };
     } catch (importError) {
       notice = {
-        kind: "error",
-        text: errorMessage(importError, "Failed to import schedule JSON."),
+        kind: 'error',
+        text: errorMessage(importError, 'Failed to import schedule JSON.'),
       };
     } finally {
-      input.value = "";
+      input.value = '';
     }
   }
 
-  function moveCourse(
-    courseId: string,
-    targetSemester: string,
-    targetIndex?: number,
-  ): void {
+  function moveCourse(courseId: string, targetSemester: string, targetIndex?: number): void {
     const course = coursesById[courseId];
     const sourceSemester = course?.semester;
-    if (
-      !course ||
-      !columnCourseIds[sourceSemester] ||
-      !columnCourseIds[targetSemester]
-    ) {
+    if (!course || !columnCourseIds[sourceSemester] || !columnCourseIds[targetSemester]) {
       return;
     }
 
@@ -342,9 +302,7 @@
     sourceIds.splice(sourceIndex, 1);
 
     const destinationIds =
-      sourceSemester === targetSemester
-        ? sourceIds
-        : [...columnCourseIds[targetSemester]];
+      sourceSemester === targetSemester ? sourceIds : [...columnCourseIds[targetSemester]];
 
     let destinationIndex =
       targetIndex === undefined
@@ -381,14 +339,8 @@
       return;
     }
 
-    const index = targetCourseId
-      ? columnCourseIds[semester]?.indexOf(targetCourseId)
-      : undefined;
-    moveCourse(
-      draggedCourseId,
-      semester,
-      index !== undefined && index >= 0 ? index : undefined,
-    );
+    const index = targetCourseId ? columnCourseIds[semester]?.indexOf(targetCourseId) : undefined;
+    moveCourse(draggedCourseId, semester, index !== undefined && index >= 0 ? index : undefined);
     handleDragEnd();
   }
 
@@ -406,13 +358,13 @@
 
   function handleClearAllCourses(): void {
     if (Object.keys(coursesById).length === 0) {
-      notice = { kind: "success", text: "Schedule is already empty." };
+      notice = { kind: 'success', text: 'Schedule is already empty.' };
       return;
     }
 
     if (
       !window.confirm(
-        "Clear all scheduled courses? This will remove every class from every semester.",
+        'Clear all scheduled courses? This will remove every class from every semester.',
       )
     ) {
       return;
@@ -424,8 +376,8 @@
     );
     selectedCourseId = null;
     notice = {
-      kind: "success",
-      text: "Cleared all courses from the schedule.",
+      kind: 'success',
+      text: 'Cleared all courses from the schedule.',
     };
   }
 
@@ -440,15 +392,13 @@
     if (columnCourseIds[course.semester]) {
       columnCourseIds = {
         ...columnCourseIds,
-        [course.semester]: columnCourseIds[course.semester].filter(
-          (id) => id !== course.id,
-        ),
+        [course.semester]: columnCourseIds[course.semester].filter((id) => id !== course.id),
       };
     }
 
     selectedCourseId = null;
     notice = {
-      kind: "success",
+      kind: 'success',
       text: `Removed ${course.name} from ${course.semester}.`,
     };
   }
@@ -466,7 +416,7 @@
       courseCatalog = data.catalog;
       applySchedule(data.schedule, true);
     } catch (error) {
-      loadError = errorMessage(error, "Failed to load scheduler data.");
+      loadError = errorMessage(error, 'Failed to load scheduler data.');
     } finally {
       loading = false;
     }
@@ -483,9 +433,10 @@
 
 <PageHeader title="Utilities / Class Scheduler">
   <p>
-    Drag courses between semesters and inspect prerequisite health in real time.
-    The default schedule is my own. Course data may not be fully accurate;
-    please report any issues <a href="/contact">here</a>.
+    Drag courses between semesters and inspect prerequisite health in real time. The default
+    schedule is my own. Course data may not be fully accurate; please report any issues <a
+      href="/contact">here</a
+    >.
   </p>
 </PageHeader>
 
@@ -570,14 +521,9 @@
                     </span>
 
                     {#if progress !== null}
-                      <span class="sr-only"
-                        >, prerequisites {progress}% met</span
-                      >
+                      <span class="sr-only">, prerequisites {progress}% met</span>
                       <div class="progress-wrap" aria-hidden="true">
-                        <div
-                          class="progress-fill"
-                          style:width="{progress}%"
-                        ></div>
+                        <div class="progress-fill" style:width="{progress}%"></div>
                       </div>
                     {/if}
                   </button>
@@ -594,8 +540,7 @@
         <h3>Selected Course</h3>
         {#if selectedCourse}
           {@const progress = progressPercent(selectedCourse.id)}
-          {@const requirementGroups =
-            prereqsByCourseId[selectedCourse.id] ?? []}
+          {@const requirementGroups = prereqsByCourseId[selectedCourse.id] ?? []}
           <p><strong>{selectedCourse.name}</strong></p>
           <p>{selectedCourse.title}</p>
           <div class="credits-row">
@@ -603,10 +548,7 @@
             {#if selectedCourseCredits.length > 1}
               <select
                 value={selectedCourse.credits}
-                onchange={(event) =>
-                  updateSelectedCourseCredits(
-                    Number(event.currentTarget.value),
-                  )}
+                onchange={(event) => updateSelectedCourseCredits(Number(event.currentTarget.value))}
                 title="Change course credits"
                 aria-label="Credits for {selectedCourse.name}"
               >
@@ -622,12 +564,8 @@
           {/if}
 
           <div class="touch-controls">
-            <button type="button" onclick={() => moveSelectedCourse(-1)}
-              >Move Earlier</button
-            >
-            <button type="button" onclick={() => moveSelectedCourse(1)}
-              >Move Later</button
-            >
+            <button type="button" onclick={() => moveSelectedCourse(-1)}>Move Earlier</button>
+            <button type="button" onclick={() => moveSelectedCourse(1)}>Move Later</button>
           </div>
 
           <button type="button" class="danger" onclick={removeSelectedCourse}>
@@ -639,9 +577,9 @@
             <p>No catalog prerequisites.</p>
           {:else}
             <ul>
-              {#each requirementGroups as requirement (requirement.courseChoices.join("|"))}
+              {#each requirementGroups as requirement (requirement.courseChoices.join('|'))}
                 <li>
-                  {requirement.courseChoices.join(" OR ")}
+                  {requirement.courseChoices.join(' OR ')}
                   {#if requirement.canBeConcurrent}
                     <span class="req-tag">concurrent allowed</span>
                   {/if}
@@ -669,10 +607,7 @@
           {/each}
         </datalist>
 
-        <select
-          bind:value={addSemester}
-          aria-label="Semester to add the course to"
-        >
+        <select bind:value={addSemester} aria-label="Semester to add the course to">
           {#each semesterOrder as semester (semester)}
             <option value={semester}>{semester}</option>
           {/each}
@@ -682,8 +617,7 @@
       </div>
 
       <div class="scheduler-controls">
-        <button type="button" onclick={autoDetangle}>Auto-detangle lines</button
-        >
+        <button type="button" onclick={autoDetangle}>Auto-detangle lines</button>
         <button type="button" class="danger" onclick={handleClearAllCourses}>
           Clear All Courses
         </button>
@@ -693,9 +627,7 @@
         <h3>Import / Export</h3>
         <div class="io-actions">
           <button type="button" onclick={handleExportJson}>Export JSON</button>
-          <button type="button" onclick={() => importInputElement?.click()}>
-            Import JSON
-          </button>
+          <button type="button" onclick={() => importInputElement?.click()}> Import JSON </button>
           <input
             bind:this={importInputElement}
             type="file"

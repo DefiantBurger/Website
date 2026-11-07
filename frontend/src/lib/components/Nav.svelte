@@ -7,7 +7,7 @@
     { label: 'Projects', path: '/projects' },
     { label: 'Utilities', path: '/utilities' },
     { label: 'About', path: '/about' },
-    { label: 'Contact', path: '/contact' }
+    { label: 'Contact', path: '/contact' },
   ];
 
   // A section link stays active on its subpages (e.g. Projects on /projects/foo).
@@ -50,11 +50,7 @@
       >
         Status
       </a>
-      <button
-        type="button"
-        class="theme-toggle"
-        onclick={() => theme.toggle()}
-      >
+      <button type="button" class="theme-toggle" onclick={() => theme.toggle()}>
         {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>
     </div>

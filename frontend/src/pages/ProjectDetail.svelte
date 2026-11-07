@@ -17,7 +17,13 @@
     firstMermaidSource: string;
     status: 'not-run' | 'success' | 'error';
     error: string;
-  }>({ domMermaidNodes: 0, domMermaidCodeNodes: 0, firstMermaidSource: '', status: 'not-run', error: '' });
+  }>({
+    domMermaidNodes: 0,
+    domMermaidCodeNodes: 0,
+    firstMermaidSource: '',
+    status: 'not-run',
+    error: '',
+  });
 
   async function loadPage() {
     const project = await loadProject(slug);
@@ -35,11 +41,14 @@
 
   async function runMermaid(article: HTMLElement, mermaidTheme: 'dark' | 'default') {
     const nodes = Array.from(article.querySelectorAll<HTMLElement>('.mermaid'));
-    const codeNodes = Array.from(article.querySelectorAll<HTMLElement>('pre > code.language-mermaid'));
+    const codeNodes = Array.from(
+      article.querySelectorAll<HTMLElement>('pre > code.language-mermaid'),
+    );
 
     mermaidRun.domMermaidNodes = nodes.length;
     mermaidRun.domMermaidCodeNodes = codeNodes.length;
-    mermaidRun.firstMermaidSource = (nodes[0] ?? codeNodes[0])?.textContent?.trim().slice(0, 220) ?? '';
+    mermaidRun.firstMermaidSource =
+      (nodes[0] ?? codeNodes[0])?.textContent?.trim().slice(0, 220) ?? '';
 
     if (nodes.length > 0) {
       try {
@@ -117,7 +126,7 @@
       ['Rendered HTML length', renderDebug.htmlLength],
       ['DOM .mermaid nodes', mermaidRun.domMermaidNodes],
       ['DOM mermaid code nodes', mermaidRun.domMermaidCodeNodes],
-      ['Mermaid run status', mermaidRun.status]
+      ['Mermaid run status', mermaidRun.status],
     ]}
     <section class="debug-panel terminal-box">
       <h2 class="prompt">Mermaid Debug Panel</h2>
@@ -134,7 +143,9 @@
         <pre>{mermaidRun.firstMermaidSource}</pre>
       {/if}
 
-      <p class="debug-hint">Append <code>?debugMermaid=1</code> to this page URL to show this panel.</p>
+      <p class="debug-hint">
+        Append <code>?debugMermaid=1</code> to this page URL to show this panel.
+      </p>
     </section>
   {/if}
 {:catch error}
@@ -208,7 +219,7 @@
   }
 
   .project-content :global(.heading-anchor) {
-    margin-left: 1.0rem;
+    margin-left: 1rem;
     opacity: 0.5;
   }
 

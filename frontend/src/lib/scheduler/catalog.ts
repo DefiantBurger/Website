@@ -1,5 +1,11 @@
 // Course catalog helpers and conversion between schedule files and course instances.
-import type { CourseCatalog, CourseInstance, Requirement, ScheduleFile, ScheduleState } from './types';
+import type {
+  CourseCatalog,
+  CourseInstance,
+  Requirement,
+  ScheduleFile,
+  ScheduleState,
+} from './types';
 
 /** Courses taken before college: they satisfy prerequisites but get no column. */
 export const PRECOLLEGE_SEMESTER = 'precollege';
@@ -33,7 +39,9 @@ export function parseCourseEntry(entry: string): { courseName: string; requested
   const requestedCredits = Number.parseInt(creditText, 10);
 
   if (Number.isNaN(requestedCredits) || requestedCredits < 0) {
-    throw new Error(`Malformed course entry '${entry}': '${creditText}' is not a valid credit count.`);
+    throw new Error(
+      `Malformed course entry '${entry}': '${creditText}' is not a valid credit count.`,
+    );
   }
 
   return { courseName, requestedCredits };
@@ -52,11 +60,18 @@ export function getValidCredits(catalog: CourseCatalog, courseName: string): num
 
   const minCredits = item.min_credits ?? 0;
   const maxCredits = item.max_credits ?? minCredits;
-  return Array.from({ length: Math.max(1, maxCredits - minCredits + 1) }, (_, index) => minCredits + index);
+  return Array.from(
+    { length: Math.max(1, maxCredits - minCredits + 1) },
+    (_, index) => minCredits + index,
+  );
 }
 
 /** Validate requested credits against the catalog; defaults to the lowest valid value. */
-function resolveCredits(catalog: CourseCatalog, courseName: string, requestedCredits?: number): number {
+function resolveCredits(
+  catalog: CourseCatalog,
+  courseName: string,
+  requestedCredits?: number,
+): number {
   catalogEntry(catalog, courseName);
   const validCredits = getValidCredits(catalog, courseName);
 
@@ -66,7 +81,7 @@ function resolveCredits(catalog: CourseCatalog, courseName: string, requestedCre
 
   if (!validCredits.includes(requestedCredits)) {
     throw new Error(
-      `Course '${courseName}' requested with ${requestedCredits} credits, valid options: ${validCredits.join(', ')}`
+      `Course '${courseName}' requested with ${requestedCredits} credits, valid options: ${validCredits.join(', ')}`,
     );
   }
 
@@ -81,7 +96,10 @@ export function buildRequirements(catalog: CourseCatalog, courseName: string): R
 
   return [
     ...(item.prereqs ?? []).map((group) => ({ courseChoices: group, canBeConcurrent: false })),
-    ...(item.concurrent_prereqs ?? []).map((group) => ({ courseChoices: group, canBeConcurrent: true }))
+    ...(item.concurrent_prereqs ?? []).map((group) => ({
+      courseChoices: group,
+      canBeConcurrent: true,
+    })),
   ];
 }
 
@@ -90,7 +108,7 @@ export function createCourse(
   courseName: string,
   occurrenceIndex: number,
   semester: string,
-  requestedCredits?: number
+  requestedCredits?: number,
 ): CourseInstance {
   return {
     id: `${courseName}__${occurrenceIndex}`,
@@ -98,21 +116,23 @@ export function createCourse(
     occurrenceIndex,
     semester,
     credits: resolveCredits(catalog, courseName, requestedCredits),
-    title: catalogEntry(catalog, courseName).title
+    title: catalogEntry(catalog, courseName).title,
   };
 }
 
 /** Expand a schedule file into course instances, one column per non-precollege semester. */
 export function buildSchedule(catalog: CourseCatalog, scheduleFile: ScheduleFile): ScheduleState {
   const semesters = scheduleFile.semesters ?? {};
-  const semesterOrder = Object.keys(semesters).filter((semester) => semester !== PRECOLLEGE_SEMESTER);
+  const semesterOrder = Object.keys(semesters).filter(
+    (semester) => semester !== PRECOLLEGE_SEMESTER,
+  );
   if (semesterOrder.length === 0) {
     throw new Error('A schedule must include at least one non-precollege semester.');
   }
 
   const coursesById: Record<string, CourseInstance> = {};
   const columnCourseIds: Record<string, string[]> = Object.fromEntries(
-    semesterOrder.map((semester) => [semester, [] as string[]])
+    semesterOrder.map((semester) => [semester, [] as string[]]),
   );
   const occurrenceCounts: Record<string, number> = {};
 
@@ -134,7 +154,9 @@ export function buildSchedule(catalog: CourseCatalog, scheduleFile: ScheduleFile
 /** Inverse of `buildSchedule`; credits are written only when they differ from the default. */
 export function exportSchedule(catalog: CourseCatalog, schedule: ScheduleState): ScheduleFile {
   const formatEntry = (course: CourseInstance) =>
-    course.credits === getValidCredits(catalog, course.name)[0] ? course.name : `${course.name}[${course.credits}]`;
+    course.credits === getValidCredits(catalog, course.name)[0]
+      ? course.name
+      : `${course.name}[${course.credits}]`;
 
   const semesters: Record<string, string[]> = {};
 
@@ -175,7 +197,11 @@ function compactDisplayCode(courseName: string): string {
 export type CatalogSuggestion = { name: string; display: string; labels: string[] };
 
 /** Up to `limit` catalog courses whose code or title matches `query`, sorted by code. */
-export function searchCatalog(catalog: CourseCatalog, query: string, limit = 20): CatalogSuggestion[] {
+export function searchCatalog(
+  catalog: CourseCatalog,
+  query: string,
+  limit = 20,
+): CatalogSuggestion[] {
   const lowerQuery = query.trim().toLowerCase();
   const compactQuery = compactKey(query);
 
@@ -185,7 +211,7 @@ export function searchCatalog(catalog: CourseCatalog, query: string, limit = 20)
         !lowerQuery ||
         name.toLowerCase().includes(lowerQuery) ||
         item.title.toLowerCase().includes(lowerQuery) ||
-        compactKey(name).includes(compactQuery)
+        compactKey(name).includes(compactQuery),
     )
     .sort(([aName], [bName]) => aName.localeCompare(bName))
     .slice(0, limit)
@@ -195,7 +221,7 @@ export function searchCatalog(catalog: CourseCatalog, query: string, limit = 20)
       return {
         name,
         display,
-        labels: compactCode === name ? [display] : [display, `${compactCode}: ${item.title}`]
+        labels: compactCode === name ? [display] : [display, `${compactCode}: ${item.title}`],
       };
     });
 }
@@ -204,14 +230,16 @@ export function searchCatalog(catalog: CourseCatalog, query: string, limit = 20)
 export function resolveCourseQuery(
   catalog: CourseCatalog,
   query: string,
-  suggestions: CatalogSuggestion[]
+  suggestions: CatalogSuggestion[],
 ): string | null {
   const candidate = query.trim();
   if (!candidate) {
     return null;
   }
 
-  const code = candidate.includes(':') ? candidate.slice(0, candidate.indexOf(':')).trim() : candidate;
+  const code = candidate.includes(':')
+    ? candidate.slice(0, candidate.indexOf(':')).trim()
+    : candidate;
   const names = Object.keys(catalog);
 
   return (

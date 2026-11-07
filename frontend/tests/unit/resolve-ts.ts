@@ -11,10 +11,14 @@ registerHooks({
     } catch (error) {
       const isRelative = specifier.startsWith('./') || specifier.startsWith('../');
       const hasExtension = /\.[a-z]+$/i.test(specifier);
-      if (isRelative && !hasExtension && (error as { code?: string }).code === 'ERR_MODULE_NOT_FOUND') {
+      if (
+        isRelative &&
+        !hasExtension &&
+        (error as { code?: string }).code === 'ERR_MODULE_NOT_FOUND'
+      ) {
         return nextResolve(`${specifier}.ts`, context);
       }
       throw error;
     }
-  }
+  },
 });

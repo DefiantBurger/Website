@@ -44,7 +44,7 @@ function rehypeMermaid(counter: { transformed: number }) {
         type: 'element',
         tagName: 'div',
         properties: { className: ['mermaid'] },
-        children: [{ type: 'text', value: codeText }]
+        children: [{ type: 'text', value: codeText }],
       };
 
       counter.transformed += 1;
@@ -60,12 +60,12 @@ const sanitizeSchema: any = {
     ...defaultSchema.attributes,
     div: [...(defaultSchema.attributes?.div ?? []), ['className', 'mermaid']],
     code: [...(defaultSchema.attributes?.code ?? []), ['className']],
-    pre: [...(defaultSchema.attributes?.pre ?? []), ['className']]
-  }
+    pre: [...(defaultSchema.attributes?.pre ?? []), ['className']],
+  },
 };
 
 export async function renderProjectMarkdownWithDebug(
-  markdown: string
+  markdown: string,
 ): Promise<{ html: string; debug: MarkdownRenderDebug }> {
   const counter = { transformed: 0 };
 
@@ -80,12 +80,12 @@ export async function renderProjectMarkdownWithDebug(
       behavior: 'append',
       properties: {
         className: ['heading-anchor'],
-        ariaLabel: 'Link to section'
+        ariaLabel: 'Link to section',
       },
       content: {
         type: 'text',
-        value: '#'
-      }
+        value: '#',
+      },
     })
     .use(rehypeStringify)
     .process(markdown);
@@ -99,7 +99,7 @@ export async function renderProjectMarkdownWithDebug(
       transformedMermaidBlocks: counter.transformed,
       outputHasMermaidDiv: /class="mermaid"/.test(html),
       outputHasMermaidCodeFence: /language-mermaid/.test(html),
-      htmlLength: html.length
-    }
+      htmlLength: html.length,
+    },
   };
 }

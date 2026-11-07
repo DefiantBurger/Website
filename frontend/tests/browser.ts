@@ -19,7 +19,9 @@ export async function launchBrowser(): Promise<Browser> {
   try {
     return await chromium.launch();
   } catch {
-    console.error('No browser found. Install Google Chrome, or run: pnpm exec playwright-core install chromium');
+    console.error(
+      'No browser found. Install Google Chrome, or run: pnpm exec playwright-core install chromium',
+    );
     process.exit(2);
   }
 }
@@ -28,7 +30,9 @@ export async function assertServerUp(): Promise<void> {
   try {
     await fetch(BASE_URL);
   } catch {
-    console.error(`Can't reach ${BASE_URL}. Start the site first (./start-dev.sh from the repo root).`);
+    console.error(
+      `Can't reach ${BASE_URL}. Start the site first (./start-dev.sh from the repo root).`,
+    );
     process.exit(2);
   }
 }

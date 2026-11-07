@@ -7,9 +7,9 @@
     {
       label: 'linkedin',
       text: 'linkedin.com/in/joseph-cicalese',
-      href: 'https://www.linkedin.com/in/joseph-cicalese/'
+      href: 'https://www.linkedin.com/in/joseph-cicalese/',
     },
-    { label: 'location', text: 'Madison, WI & Philadelphia, PA' }
+    { label: 'location', text: 'Madison, WI & Philadelphia, PA' },
   ];
 </script>
 

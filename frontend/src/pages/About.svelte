@@ -10,7 +10,12 @@
 <PageHeader title="About Me" />
 
 <div class="content terminal-box">
-  <p>Computer Engineering and Physics student at UW–Madison with experience spanning robotics hardware design, quantum simulation research, and full-stack web development. Electrical Team Lead for Wisconsin Robotics and Undergraduate Researcher in UW–Madison's Quantum Transport Theory and Simulation lab.</p>
+  <p>
+    Computer Engineering and Physics student at UW–Madison with experience spanning robotics
+    hardware design, quantum simulation research, and full-stack web development. Electrical Team
+    Lead for Wisconsin Robotics and Undergraduate Researcher in UW–Madison's Quantum Transport
+    Theory and Simulation lab.
+  </p>
 </div>
 
 <div class="about-you-cta">

@@ -122,7 +122,10 @@ export function navigate(path: string) {
   const canonicalPath = normalizePath(path);
   const suffix = path.slice(path.split(/[?#]/)[0].length);
 
-  if (window.location.pathname !== canonicalPath || window.location.search + window.location.hash !== suffix) {
+  if (
+    window.location.pathname !== canonicalPath ||
+    window.location.search + window.location.hash !== suffix
+  ) {
     window.history.pushState({}, '', `${canonicalPath}${suffix}`);
     window.scrollTo(0, 0);
   }

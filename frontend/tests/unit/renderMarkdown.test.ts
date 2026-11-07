@@ -50,7 +50,9 @@ describe('rendering', () => {
   });
 
   test('turns mermaid fences into mermaid divs', async () => {
-    const { html, debug } = await renderProjectMarkdownWithDebug('```mermaid\ngraph TD; A-->B\n```');
+    const { html, debug } = await renderProjectMarkdownWithDebug(
+      '```mermaid\ngraph TD; A-->B\n```',
+    );
     assert.match(html, /<div class="mermaid">graph TD; A-->B<\/div>/);
     assert.equal(debug.transformedMermaidBlocks, 1);
     assert.equal(debug.outputHasMermaidCodeFence, false);

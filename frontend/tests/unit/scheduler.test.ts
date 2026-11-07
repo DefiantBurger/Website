@@ -9,7 +9,7 @@ import {
   getValidCredits,
   parseCourseEntry,
   resolveCourseQuery,
-  searchCatalog
+  searchCatalog,
 } from '../../src/lib/scheduler/catalog.ts';
 import { computeSchedulerGraph, detangleCourseOrder } from '../../src/lib/scheduler/logic.ts';
 import type { CourseCatalog, PrereqEdge, ScheduleState } from '../../src/lib/scheduler/types.ts';
@@ -20,15 +20,26 @@ import type { CourseCatalog, PrereqEdge, ScheduleState } from '../../src/lib/sch
 const catalog: CourseCatalog = {
   'MATH 221': { title: 'Calculus I', credits: 5, prereqs: [], concurrent_prereqs: [] },
   'MATH 222': { title: 'Calculus II', credits: 4, prereqs: [['MATH 221']], concurrent_prereqs: [] },
-  'PHYSICS 201': { title: 'Physics I', credits: 5, prereqs: [], concurrent_prereqs: [['MATH 222']] },
+  'PHYSICS 201': {
+    title: 'Physics I',
+    credits: 5,
+    prereqs: [],
+    concurrent_prereqs: [['MATH 222']],
+  },
   'E C E 252': { title: 'Digital Systems', credits: 3, prereqs: [], concurrent_prereqs: [] },
   'E C E 352': {
     title: 'Digital System Fundamentals',
     credits: 3,
     prereqs: [['E C E 252'], ['MATH 222', 'PHYSICS 201']],
-    concurrent_prereqs: []
+    concurrent_prereqs: [],
   },
-  'E C E 399': { title: 'Independent Study', min_credits: 1, max_credits: 3, prereqs: [], concurrent_prereqs: [] }
+  'E C E 399': {
+    title: 'Independent Study',
+    min_credits: 1,
+    max_credits: 3,
+    prereqs: [],
+    concurrent_prereqs: [],
+  },
 };
 
 /** Run the graph the way the scheduler page does, from a built schedule. */
@@ -38,9 +49,16 @@ function graphFor(schedule: ScheduleState) {
     semesterToIndex[semester] = index;
   });
   const prereqsByCourseId = Object.fromEntries(
-    Object.values(schedule.coursesById).map((course) => [course.id, buildRequirements(catalog, course.name)])
+    Object.values(schedule.coursesById).map((course) => [
+      course.id,
+      buildRequirements(catalog, course.name),
+    ]),
   );
-  return computeSchedulerGraph({ coursesById: schedule.coursesById, prereqsByCourseId, semesterToIndex });
+  return computeSchedulerGraph({
+    coursesById: schedule.coursesById,
+    prereqsByCourseId,
+    semesterToIndex,
+  });
 }
 
 describe('parseCourseEntry', () => {
@@ -49,7 +67,10 @@ describe('parseCourseEntry', () => {
   });
 
   test('bracketed credit count', () => {
-    assert.deepEqual(parseCourseEntry('E C E 399[2]'), { courseName: 'E C E 399', requestedCredits: 2 });
+    assert.deepEqual(parseCourseEntry('E C E 399[2]'), {
+      courseName: 'E C E 399',
+      requestedCredits: 2,
+    });
   });
 
   test('rejects malformed brackets and credits', () => {
@@ -76,14 +97,18 @@ describe('buildSchedule / exportSchedule', () => {
     semesters: {
       [PRECOLLEGE_SEMESTER]: ['MATH 221'],
       'Fall 1': ['MATH 222', 'E C E 252', 'E C E 399[2]'],
-      'Spring 1': ['E C E 352', 'E C E 399']
-    }
+      'Spring 1': ['E C E 352', 'E C E 399'],
+    },
   };
 
   test('builds one column per non-precollege semester', () => {
     const schedule = buildSchedule(catalog, file);
     assert.deepEqual(schedule.semesterOrder, ['Fall 1', 'Spring 1']);
-    assert.deepEqual(schedule.columnCourseIds['Fall 1'], ['MATH 222__1', 'E C E 252__1', 'E C E 399__1']);
+    assert.deepEqual(schedule.columnCourseIds['Fall 1'], [
+      'MATH 222__1',
+      'E C E 252__1',
+      'E C E 399__1',
+    ]);
     assert.equal(schedule.coursesById['MATH 221__1'].semester, PRECOLLEGE_SEMESTER);
   });
 
@@ -98,11 +123,17 @@ describe('buildSchedule / exportSchedule', () => {
   });
 
   test('rejects unknown courses, invalid credits, and empty schedules', () => {
-    assert.throws(() => buildSchedule(catalog, { semesters: { F: ['NOPE 100'] } }), /not in the loaded course catalog/);
-    assert.throws(() => buildSchedule(catalog, { semesters: { F: ['MATH 221[3]'] } }), /valid options: 5/);
+    assert.throws(
+      () => buildSchedule(catalog, { semesters: { F: ['NOPE 100'] } }),
+      /not in the loaded course catalog/,
+    );
+    assert.throws(
+      () => buildSchedule(catalog, { semesters: { F: ['MATH 221[3]'] } }),
+      /valid options: 5/,
+    );
     assert.throws(
       () => buildSchedule(catalog, { semesters: { [PRECOLLEGE_SEMESTER]: ['MATH 221'] } }),
-      /at least one non-precollege semester/
+      /at least one non-precollege semester/,
     );
   });
 });
@@ -111,11 +142,11 @@ describe('searchCatalog / resolveCourseQuery', () => {
   test('matches code, title, and compacted code', () => {
     assert.deepEqual(
       searchCatalog(catalog, 'calculus').map((item) => item.name),
-      ['MATH 221', 'MATH 222']
+      ['MATH 221', 'MATH 222'],
     );
     assert.deepEqual(
       searchCatalog(catalog, 'ece352').map((item) => item.name),
-      ['E C E 352']
+      ['E C E 352'],
     );
   });
 
@@ -129,7 +160,8 @@ describe('searchCatalog / resolveCourseQuery', () => {
   });
 
   test('resolves codes typed loosely', () => {
-    const resolve = (query: string) => resolveCourseQuery(catalog, query, searchCatalog(catalog, query));
+    const resolve = (query: string) =>
+      resolveCourseQuery(catalog, query, searchCatalog(catalog, query));
     assert.equal(resolve('math 222'), 'MATH 222');
     assert.equal(resolve('ECE 252'), 'E C E 252');
     assert.equal(resolve('E C E 352: anything'), 'E C E 352');
@@ -144,8 +176,8 @@ describe('computeSchedulerGraph', () => {
     const schedule = buildSchedule(catalog, {
       semesters: {
         'Fall 1': ['MATH 221', 'PHYSICS 201', 'MATH 222', 'E C E 352'],
-        'Spring 1': ['E C E 252']
-      }
+        'Spring 1': ['E C E 252'],
+      },
     });
     const { edges } = graphFor(schedule);
     const status = (to: string, from: string) =>
@@ -164,8 +196,8 @@ describe('computeSchedulerGraph', () => {
       semesters: {
         [PRECOLLEGE_SEMESTER]: ['MATH 221'],
         'Fall 1': ['MATH 222'],
-        'Spring 1': ['E C E 352']
-      }
+        'Spring 1': ['E C E 352'],
+      },
     });
     const { edges, requirementProgressByCourseId } = graphFor(schedule);
 
@@ -181,11 +213,11 @@ describe('computeSchedulerGraph', () => {
       semesters: {
         'Fall 1': ['PHYSICS 201'],
         'Spring 1': ['MATH 222'],
-        'Fall 2': ['E C E 352']
-      }
+        'Fall 2': ['E C E 352'],
+      },
     });
     const edge = graphFor(schedule).edges.find(
-      (item) => item.toCourseId === 'E C E 352__1' && item.requirement.courseChoices.length === 2
+      (item) => item.toCourseId === 'E C E 352__1' && item.requirement.courseChoices.length === 2,
     );
     assert.equal(edge?.fromCourseId, 'PHYSICS 201__1');
   });
@@ -197,15 +229,14 @@ describe('detangleCourseOrder', () => {
     fromCourseId,
     toCourseId,
     requirement: { courseChoices: [], canBeConcurrent: false },
-    status: 'valid'
+    status: 'valid',
   });
 
   test('uncrosses two crossed edges', () => {
-    const order = detangleCourseOrder(
-      ['S1', 'S2'],
-      { S1: ['a', 'b'], S2: ['y', 'x'] },
-      [edge('a', 'x'), edge('b', 'y')]
-    );
+    const order = detangleCourseOrder(['S1', 'S2'], { S1: ['a', 'b'], S2: ['y', 'x'] }, [
+      edge('a', 'x'),
+      edge('b', 'y'),
+    ]);
     // Either column may be the one that moves; what matters is that each
     // course lines up with its neighbor.
     assert.equal(order.S1.indexOf('a'), order.S2.indexOf('x'));

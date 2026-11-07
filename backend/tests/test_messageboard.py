@@ -13,7 +13,7 @@ from app.messageboard import (
 
 class TestMessageBoardAllowlistSanitization(unittest.TestCase):
 	def test_valid_message_preserved(self):
-		msg = "Hello, world! (Test: 123) /path?param=value~^_{}[]|*;"
+		msg = 'Hello, world! (Test: 123) /path?param=value~^_{}[]|*;'
 		cleaned = sanitize_message_text(msg)
 		self.assertEqual(cleaned, msg)
 
@@ -26,31 +26,31 @@ class TestMessageBoardAllowlistSanitization(unittest.TestCase):
 		self.assertNotIn('&', cleaned)
 		self.assertNotIn('"', cleaned)
 		self.assertNotIn("'", cleaned)
-		self.assertEqual(cleaned, "scriptalert(hacked)/script  test")
+		self.assertEqual(cleaned, 'scriptalert(hacked)/script  test')
 
 	def test_control_characters_and_null_bytes_stripped(self):
-		raw = "Hello\x00\x1b[31mWorld\x08!"
+		raw = 'Hello\x00\x1b[31mWorld\x08!'
 		cleaned = sanitize_message_text(raw)
 		self.assertNotIn('\x00', cleaned)
 		self.assertNotIn('\x1b', cleaned)
 		self.assertNotIn('\x08', cleaned)
-		self.assertEqual(cleaned, "Hello[31mWorld!")
+		self.assertEqual(cleaned, 'Hello[31mWorld!')
 
 	def test_whitespace_and_excessive_newlines(self):
-		raw = "Line 1\r\n\n\n\n\nLine 2"
+		raw = 'Line 1\r\n\n\n\n\nLine 2'
 		cleaned = sanitize_message_text(raw)
-		self.assertEqual(cleaned, "Line 1\n\nLine 2")
+		self.assertEqual(cleaned, 'Line 1\n\nLine 2')
 
 	def test_empty_or_whitespace_only_rejected(self):
 		with self.assertRaises(MessageBoardError):
-			sanitize_message_text("")
+			sanitize_message_text('')
 		with self.assertRaises(MessageBoardError):
-			sanitize_message_text("   ")
+			sanitize_message_text('   ')
 		with self.assertRaises(MessageBoardError):
-			sanitize_message_text("<<<>>>&&&\"\"\"'''")
+			sanitize_message_text('<<<>>>&&&"""\'\'\'')
 
 	def test_length_limit(self):
-		oversized = "a" * (MAX_MESSAGE_LENGTH + 1)
+		oversized = 'a' * (MAX_MESSAGE_LENGTH + 1)
 		with self.assertRaises(MessageBoardError) as ctx:
 			sanitize_message_text(oversized)
 		self.assertEqual(ctx.exception.status_code, 400)
@@ -135,6 +135,7 @@ class TestMessageBoardStore(unittest.TestCase):
 class TestMessageBoardAPI(unittest.TestCase):
 	def setUp(self):
 		import os
+
 		from app import create_app
 		from app.messageboard import board_rate_limiter, board_store
 

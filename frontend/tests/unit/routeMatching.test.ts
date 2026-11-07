@@ -37,7 +37,7 @@ describe('routeDefinitions', () => {
   test('no two routes share a path or alias', () => {
     const patterns = Object.values(routeDefinitions).flatMap((definition) => [
       definition.path,
-      ...(('aliases' in definition ? definition.aliases : undefined) ?? [])
+      ...(('aliases' in definition ? definition.aliases : undefined) ?? []),
     ]);
     assert.deepEqual(patterns.length, new Set(patterns).size);
   });

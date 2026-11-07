@@ -1,17 +1,17 @@
 ---
-title: "Personal Website Platform"
-slug: "personal-website-platform"
-summary: "A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform-provisioned GCP hosting behind a Cloudflare Tunnel, and GitHub Actions deploys. Serves Markdown write-ups rendered at build time and several interactive utilities, and demonstrates end-to-end ownership from infrastructure to UX."
+title: 'Personal Website Platform'
+slug: 'personal-website-platform'
+summary: 'A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform-provisioned GCP hosting behind a Cloudflare Tunnel, and GitHub Actions deploys. Serves Markdown write-ups rendered at build time and several interactive utilities, and demonstrates end-to-end ownership from infrastructure to UX.'
 priority: 20
 tags:
-  - "Svelte"
-  - "Flask"
-  - "Terraform"
-  - "GitHub Actions"
-  - "Cloudflare"
-  - "GCP"
-repo: "https://github.com/DefiantBurger/Website"
-demo: ""
+  - 'Svelte'
+  - 'Flask'
+  - 'Terraform'
+  - 'GitHub Actions'
+  - 'Cloudflare'
+  - 'GCP'
+repo: 'https://github.com/DefiantBurger/Website'
+demo: ''
 published: true
 ---
 

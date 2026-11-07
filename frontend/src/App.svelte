@@ -10,7 +10,7 @@
   const Page = $derived(router.route?.page);
   // Aliases (e.g. /utilities/messageboard) point at their route's main path.
   const canonicalPath = $derived(
-    router.route && !router.route.path.includes(':') ? router.route.path : router.path
+    router.route && !router.route.path.includes(':') ? router.route.path : router.path,
   );
 
   let mainElement: HTMLElement;

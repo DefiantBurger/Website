@@ -23,7 +23,7 @@
         aria-label="View project: {project.title}">View Project →</a
       >
     </div>
-    {/each}
+  {/each}
 </div>
 
 <style>

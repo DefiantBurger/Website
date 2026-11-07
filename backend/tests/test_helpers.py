@@ -10,7 +10,7 @@ from app.views import (
 
 class TestIPHelpers(unittest.TestCase):
 	def setUp(self):
-		self.app = create_app(test_config={"SECRET_KEY": "test-key", "TESTING": True})
+		self.app = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True})
 
 	def test_resolve_client_ip_cf_connecting_ip(self):
 		with self.app.test_request_context(
@@ -71,9 +71,10 @@ class TestIPHelpers(unittest.TestCase):
 		self.assertEqual(_mask_ip('not-an-ip'), 'Unavailable')
 		self.assertEqual(_mask_ip('999.999.999.999'), 'Unavailable')
 
+
 class TestCloudflareGeolocation(unittest.TestCase):
 	def setUp(self):
-		self.app = create_app(test_config={"SECRET_KEY": "test-key", "TESTING": True})
+		self.app = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True})
 
 	def test_missing_headers_unavailable(self):
 		with self.app.test_request_context('/'):

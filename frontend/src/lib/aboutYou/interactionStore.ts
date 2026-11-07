@@ -13,7 +13,7 @@ const state: InteractionState = {
   previousRoute: null,
   currentRoute: null,
   routeVisitCounts: {},
-  projectViews: {}
+  projectViews: {},
 };
 
 export function recordRouteVisit(route: string): void {
@@ -37,6 +37,6 @@ export function getInteractionSnapshot() {
     previousRoute: state.previousRoute,
     currentRoute: state.currentRoute,
     routeVisitCounts: { ...state.routeVisitCounts },
-    projectViews: { ...state.projectViews }
+    projectViews: { ...state.projectViews },
   };
 }
