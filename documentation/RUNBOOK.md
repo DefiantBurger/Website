@@ -107,4 +107,4 @@ When changing behavior, check that:
 - [ ] Route and API tables in [Implementation](./IMPLEMENTATION.md) match `routes.ts` and `views.py`.
 - [ ] Utility contracts and limits in [Utilities](./UTILITIES.md) match the code constants.
 - [ ] [Deployment](./DEPLOYMENT.md) matches the Terraform files, `startup.sh.tftpl`, `deploy.sh.tftpl`, and `.github/workflows/deploy.yaml`.
-- [ ] [Known Issues](./KNOWN-ISSUES.md) are still open.
+- [ ] [Issues](./ISSUES.md) are still open.

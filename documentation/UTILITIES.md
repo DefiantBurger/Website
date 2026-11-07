@@ -129,4 +129,4 @@ The page loads messages on mount, after posting, and on "Reload Board" (no polli
 2. Add the page in `frontend/src/pages/` and its logic/API client in `frontend/src/lib/<name>/`, using the helpers in `lib/api.ts`.
 3. Add a card to the `utilities` list in `Utilities.svelte`.
 4. Add backend routes under `/api/<name>/` in `backend/app/views.py` (logic in its own module) with tests in `backend/tests/`.
-5. Document it here, and list any gaps in [Known Issues](./KNOWN-ISSUES.md#utilities).
+5. Document it here, and list any gaps in [Issues](./ISSUES.md#utilities).

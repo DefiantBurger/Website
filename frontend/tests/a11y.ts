@@ -25,7 +25,7 @@ const VIEWPORTS = [
 const RUN_OPTIONS: RunOptions = {
   runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'],
 };
-// Mermaid draws diagrams in its own theme colors (see KNOWN-ISSUES.md).
+// Mermaid draws diagrams in its own theme colors (see ISSUES.md).
 const AXE_CONTEXT: ContextObject = { exclude: ['.mermaid'] };
 const AXE_ARGS_JSON = JSON.stringify({ axeContext: AXE_CONTEXT, options: RUN_OPTIONS });
 

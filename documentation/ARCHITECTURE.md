@@ -71,4 +71,4 @@ No API call is involved. The dev server reloads the page when a write-up changes
 3. In-browser utility logic keeps interactions fast at the cost of a heavier client.
 4. File-share and message-board state is local to one process/disk, which rules out horizontal scaling.
 
-Open issues are tracked in [Known Issues](./KNOWN-ISSUES.md).
+Open issues are tracked in [Issues](./ISSUES.md).

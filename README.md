@@ -36,7 +36,8 @@ Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, and pnpm.
 | [Utilities](./documentation/UTILITIES.md) | Scheduler, File Share, and Message Board behavior and APIs |
 | [Deployment](./documentation/DEPLOYMENT.md) | Terraform resources, secrets, VM bootstrap, deploy procedures |
 | [Runbook](./documentation/RUNBOOK.md) | Health checks, routine procedures, incidents |
-| [Known Issues](./documentation/KNOWN-ISSUES.md) | Open bugs, gaps, and tech debt across the stack |
+| [Issues](./documentation/ISSUES.md) | Open bugs, gaps, and tech debt across the stack |
+| [Ideas](./documentation/IDEAS.md) | Planned features and improvements, not yet started |
 
 ## Repo Activity
 

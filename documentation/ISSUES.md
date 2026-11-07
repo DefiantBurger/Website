@@ -1,4 +1,4 @@
-# Known Issues
+# Issues
 
 Items are confirmed issues unless labelled **High** (priority), **Likely**, **Possible** (needs review), or **Minor**. Deliberate behavior that can look like a bug is listed in the [appendix](#appendix-non-issues).
 
