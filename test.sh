@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Runs every local check: backend tests, frontend unit tests, type check and
-# build, and the browser checks (smoke test and a11y scan). Keeps going after a
-# failure so one run shows everything, then exits 1 if anything failed.
+# Runs every local check: backend tests, lint and format checks, frontend unit
+# tests, type check and build, and the browser checks (smoke test and a11y
+# scan). Keeps going after a failure, then exits 1 if anything failed.
 #
 #   ./test.sh                # all checks
 #   ./test.sh --no-browser   # skip the browser checks (faster, no Chrome needed)
@@ -37,8 +37,12 @@ run_check() {
 }
 
 run_check "backend tests" backend uv run pytest
+run_check "backend lint" backend uv run ruff check .
+run_check "backend format" backend uv run ruff format --check .
 run_check "frontend unit tests" frontend pnpm test
 run_check "frontend check" frontend pnpm check
+run_check "frontend lint" frontend pnpm lint
+run_check "frontend format" frontend pnpm format:check
 run_check "frontend build" frontend pnpm build
 
 DEV_PID=""

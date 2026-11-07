@@ -33,7 +33,19 @@ cd frontend && pnpm a11y                 # axe-core scan; needs ./start-dev.sh r
 curl http://localhost:5000/api/health/
 ```
 
-`test.sh` runs backend tests, `pnpm test`, `pnpm check`, `pnpm build`, `pnpm smoke`, and `pnpm a11y`, continuing past failures and printing a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000 and :5173, or starts `start-dev.sh` itself (output in `$TMPDIR/test-sh-dev.log`) and stops it afterward.
+### Linting and formatting
+
+```bash
+./format.sh                              # format everything (Ruff import sort + format, Prettier)
+cd backend && uv run ruff check --fix .  # lint (pyflakes, import order, pyupgrade, bugbear)
+cd backend && uv run ruff format .       # format; --check to verify only
+cd frontend && pnpm lint                 # ESLint (JS, TypeScript, Svelte rules)
+cd frontend && pnpm format               # Prettier; pnpm format:check to verify only
+```
+
+Ruff is a backend dev dependency, configured in `backend/pyproject.toml` (tabs, single quotes, 100 columns). Prettier (with `prettier-plugin-svelte`) and ESLint are frontend dev dependencies, configured in `frontend/.prettierrc.json` and `frontend/eslint.config.js` (single quotes, 100 columns; `eslint-config-prettier` turns off ESLint's style rules so the two don't conflict). Prettier covers every file under `frontend/` except `dist/` and the lockfile, including the project Markdown. All the checks (`ruff check`, `ruff format --check`, `pnpm lint`, `pnpm format:check`) run in `test.sh` and CI. For format-on-save in VS Code, install the `charliermarsh.ruff`, `esbenp.prettier-vscode`, and `dbaeumer.vscode-eslint` extensions.
+
+`test.sh` runs backend tests, the lint and format checks, `pnpm test`, `pnpm check`, `pnpm build`, `pnpm smoke`, and `pnpm a11y`, continuing past failures and printing a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000 and :5173, or starts `start-dev.sh` itself (output in `$TMPDIR/test-sh-dev.log`) and stops it afterward.
 
 Backend tests live in `backend/tests/` and use a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage. Frontend test scripts live in `frontend/tests/`.
 
@@ -41,7 +53,7 @@ Backend tests live in `backend/tests/` and use a temporary instance directory pe
 
 `pnpm smoke` (`frontend/tests/smoke.ts`) loads the same routes as the a11y scan and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, and theme persistence. It shares browser setup with the a11y scan (`tests/browser.ts`).
 
-`pnpm a11y` (`frontend/tests/a11y.ts`) runs [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.2 A/AA plus best practices) on every route in `routeDefinitions.ts`, one project page, and the 404 page, in both themes at desktop and phone width, and exits 1 on any violation. It drives the installed Google Chrome through `playwright-core`, so nothing extra is downloaded; without Chrome, run `pnpm exec playwright-core install chromium`. Set `TEST_BASE_URL` to point either browser script at another host. Mermaid diagrams are excluded (see Known Issues). axe can't judge screen-reader flow, focus handling, or drag-and-drop, so check those by hand. CI doesn't run the browser checks yet, because they need the backend running. CI runs `pnpm check` and `pnpm test` on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
+`pnpm a11y` (`frontend/tests/a11y.ts`) runs [axe-core](https://github.com/dequelabs/axe-core) (WCAG 2.2 A/AA plus best practices) on every route in `routeDefinitions.ts`, one project page, and the 404 page, in both themes at desktop and phone width, and exits 1 on any violation. It drives the installed Google Chrome through `playwright-core`, so nothing extra is downloaded; without Chrome, run `pnpm exec playwright-core install chromium`. Set `TEST_BASE_URL` to point either browser script at another host. Mermaid diagrams are excluded (see Known Issues). axe can't judge screen-reader flow, focus handling, or drag-and-drop, so check those by hand. CI doesn't run the browser checks yet, because they need the backend running. CI runs the backend tests, the lint and format checks, `pnpm check`, and `pnpm test` on every pull request and every push to `main` that isn't docs-only, and a failure blocks deploys ([Deployment](./DEPLOYMENT.md#deploying-changes)).
 
 ## Backend
 

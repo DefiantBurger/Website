@@ -24,6 +24,7 @@ Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, and pnpm.
 (cd frontend && pnpm install)
 ./start-dev.sh   # backend on :5000, Vite dev server on :5173
 ./test.sh        # all tests and checks (--no-browser to skip the browser checks)
+./format.sh      # format every file
 ```
 
 ## Documentation

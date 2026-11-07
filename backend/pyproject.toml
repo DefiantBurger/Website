@@ -24,6 +24,7 @@ exclude = ["instance*"]
 dev = [
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
+    "ruff>=0.17.4",
 ]
 
 [tool.pytest.ini_options]
@@ -38,3 +39,17 @@ branch = true
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
+[tool.ruff]
+line-length = 100
+indent-width = 4
+target-version = "py311"
+extend-exclude = ["instance"]
+
+[tool.ruff.format]
+indent-style = "tab"
+quote-style = "single"
+
+[tool.ruff.lint]
+# Defaults (E4/E7/E9, F) plus import sorting, pyupgrade and bugbear. Not W: W191 flags tab indentation.
+extend-select = ["I", "UP", "B"]
