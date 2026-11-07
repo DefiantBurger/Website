@@ -84,7 +84,7 @@ export async function renderProjectMarkdownWithDebug(
       },
       content: {
         type: 'text',
-        value: '#' // spacing comes from margin-left, so the underline covers only the #
+        value: '#'
       }
     })
     .use(rehypeStringify)
