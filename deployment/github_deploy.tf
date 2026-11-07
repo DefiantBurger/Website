@@ -75,6 +75,11 @@ resource "google_compute_instance_iam_member" "github_deployer_os_login" {
   instance_name = google_compute_instance.default.name
   role          = "roles/compute.osLogin"
   member        = "serviceAccount:${google_service_account.github_deployer.email}"
+
+  # Bound by name, so without this a replaced VM silently comes up without the grant.
+  lifecycle {
+    replace_triggered_by = [google_compute_instance.default.id]
+  }
 }
 
 resource "google_iap_tunnel_instance_iam_member" "github_deployer_iap" {
@@ -85,6 +90,11 @@ resource "google_iap_tunnel_instance_iam_member" "github_deployer_iap" {
   member   = "serviceAccount:${google_service_account.github_deployer.email}"
 
   depends_on = [google_project_service.deploy]
+
+  # Same as above: the VM's IAM policy is lost when it's replaced.
+  lifecycle {
+    replace_triggered_by = [google_compute_instance.default.id]
+  }
 }
 
 output "github_wif_provider" {
