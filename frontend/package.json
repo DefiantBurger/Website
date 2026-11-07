@@ -36,14 +36,14 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
-    "svelte": "^5.57.1",
-    "svelte-check": "^4.7.6",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.8",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.1",
     "unified": "^11.0.5",
-    "unist-util-visit": "^5.1.0",
-    "vite": "^8.3.2",
-    "yaml": "2.9.0"
+    "unist-util-visit": "^5.2.0",
+    "vite": "^8.3.5",
+    "yaml": "2.9.1"
   },
   "dependencies": {
     "fastest-levenshtein": "^1.0.16",
