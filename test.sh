@@ -58,7 +58,7 @@ up() { curl -s -o /dev/null --max-time 2 "$1"; }
 if [ "$RUN_BROWSER" -eq 1 ]; then
   # The browser checks need both servers. Reuse ones that are already running so this
   # works alongside an open ./start-dev.sh instead of fighting it for ports.
-  if up http://localhost:5173 && up http://localhost:5000/api/projects/; then
+  if up http://localhost:5173 && up http://localhost:5000/api/health/; then
     echo
     echo "==> Using dev servers already running"
   else
@@ -69,7 +69,7 @@ if [ "$RUN_BROWSER" -eq 1 ]; then
     "$ROOT_DIR/start-dev.sh" >"$DEV_LOG" 2>&1 &
     DEV_PID=$!
     for _ in $(seq 1 60); do
-      up http://localhost:5173 && up http://localhost:5000/api/projects/ && break
+      up http://localhost:5173 && up http://localhost:5000/api/health/ && break
       kill -0 "$DEV_PID" 2>/dev/null || break
       sleep 1
     done

@@ -1,8 +1,7 @@
 <script lang="ts">
   import { router } from '../lib/router.svelte';
   import { theme } from '../lib/theme.svelte';
-  import { loadProjectBySlug } from '../lib/projects/api';
-  import { renderProjectMarkdownWithDebug } from '../lib/projects/renderMarkdown';
+  import { loadProject } from '../lib/projects/content';
   import { recordProjectView } from '../lib/aboutYou/interactionStore';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
   import TagList from '../lib/components/TagList.svelte';
@@ -21,10 +20,9 @@
   }>({ domMermaidNodes: 0, domMermaidCodeNodes: 0, firstMermaidSource: '', status: 'not-run', error: '' });
 
   async function loadPage() {
-    const project = await loadProjectBySlug(slug);
+    const project = await loadProject(slug);
     recordProjectView(slug);
-    const rendered = await renderProjectMarkdownWithDebug(project.markdown);
-    return { project, html: rendered.html, renderDebug: rendered.debug };
+    return project;
   }
 
   const pagePromise = loadPage();
@@ -78,7 +76,7 @@
   {#await pagePromise}
     <title>Project Details · JosephCicalese.com</title>
     <meta name="description" content="Explore this project in detail." />
-  {:then { project }}
+  {:then project}
     <title>{project.title} · JosephCicalese.com</title>
     <meta name="description" content={project.summary || 'Explore this project in detail.'} />
   {/await}
@@ -88,7 +86,8 @@
 
 {#await pagePromise}
   <StatusMessage kind="loading" message="Loading project..." />
-{:then { project, html, renderDebug }}
+{:then project}
+  {@const renderDebug = project.debug}
   <header class="terminal-box">
     <h1 class="prompt">{project.title}</h1>
     <TagList tags={project.tags} />
@@ -104,13 +103,13 @@
   </header>
 
   <article class="project-content terminal-box" {@attach renderMermaid}>
-    {@html html}
+    {@html project.html}
   </article>
 
   {#if debugEnabled}
     {@const debugRows = [
       ['Slug', slug],
-      ['Markdown length', project.markdown.length],
+      ['Markdown length', renderDebug.markdownLength],
       ['Input has mermaid fence', yesNo(renderDebug.inputHasMermaidFence)],
       ['Transformed mermaid blocks', renderDebug.transformedMermaidBlocks],
       ['Output has .mermaid div', yesNo(renderDebug.outputHasMermaidDiv)],
@@ -209,9 +208,8 @@
   }
 
   .project-content :global(.heading-anchor) {
-    margin-left: 0.4rem;
+    margin-left: 1.0rem;
     opacity: 0.5;
-    border: none;
   }
 
   .project-content :global(.heading-anchor:hover) {

@@ -1,10 +1,7 @@
 <script lang="ts">
-  import { loadProjects } from '../lib/projects/api';
+  import { projects } from '../lib/projects/content';
   import PageHeader from '../lib/components/PageHeader.svelte';
-  import StatusMessage from '../lib/components/StatusMessage.svelte';
   import TagList from '../lib/components/TagList.svelte';
-
-  const projectsPromise = loadProjects();
 </script>
 
 <svelte:head>
@@ -14,26 +11,20 @@
 
 <PageHeader title="Projects" description="A collection of work I'm proud of" />
 
-{#await projectsPromise}
-  <StatusMessage kind="loading" message="Loading projects..." />
-{:then projects}
-  <div class="projects-grid">
-    {#each projects as project (project.slug)}
-      <div class="project-item terminal-box hover-lift clickable-card">
-        <h2>{project.title}</h2>
-        <p>{project.summary || 'Project details coming soon.'}</p>
-        <TagList tags={project.tags} />
-        <a
-          href="/projects/{project.slug}"
-          class="project-link stretched-link prompt"
-          aria-label="View project: {project.title}">View Project →</a
-        >
-      </div>
+<div class="projects-grid">
+  {#each projects as project (project.slug)}
+    <div class="project-item terminal-box hover-lift clickable-card">
+      <h2>{project.title}</h2>
+      <p>{project.summary || 'Project details coming soon.'}</p>
+      <TagList tags={project.tags} />
+      <a
+        href="/projects/{project.slug}"
+        class="project-link stretched-link prompt"
+        aria-label="View project: {project.title}">View Project →</a
+      >
+    </div>
     {/each}
-  </div>
-{:catch}
-  <StatusMessage kind="error" message="Failed to load projects" />
-{/await}
+</div>
 
 <style>
   .projects-grid {

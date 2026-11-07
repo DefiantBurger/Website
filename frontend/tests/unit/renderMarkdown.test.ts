@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { renderProjectMarkdownWithDebug } from '../../src/lib/projects/renderMarkdown.ts';
+import { renderProjectMarkdownWithDebug } from '../../plugins/renderMarkdown.ts';
 
 async function render(markdown: string): Promise<string> {
   return (await renderProjectMarkdownWithDebug(markdown)).html;

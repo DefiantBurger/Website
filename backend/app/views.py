@@ -3,10 +3,8 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
-import yaml
 from flask import (
 	Blueprint,
-	abort,
 	current_app,
 	jsonify,
 	request,
@@ -35,7 +33,6 @@ views = Blueprint('views', __name__)
 _JSON_DATA_DIR = (
 	Path(__file__).resolve().parent / 'static' / 'json'
 )
-_PROJECTS_CONTENT_DIR = Path(__file__).resolve().parent / 'content' / 'projects'
 
 # Stand-in location for the local dev server, which never sees Cloudflare headers.
 _DEV_GEOLOCATION = {
@@ -132,49 +129,6 @@ def _cloudflare_geolocation() -> dict:
 	}
 
 
-def _parse_project_markdown(file_path: Path) -> tuple[dict, str]:
-	"""Split a file into (YAML frontmatter, Markdown body); files without frontmatter return ({}, text)."""
-	text = file_path.read_text(encoding='utf-8')
-
-	if not text.startswith('---\n'):
-		return {}, text
-
-	parts = text.split('---\n', 2)
-	if len(parts) < 3:
-		return {}, text
-
-	meta = yaml.safe_load(parts[1]) or {}
-	body = parts[2].lstrip('\n')
-	return meta, body
-
-
-def _project_payload_from_file(file_path: Path) -> dict:
-	"""Build the API payload, filling defaults. Includes `markdown` and the internal `_priority`, which callers strip."""
-	meta, markdown = _parse_project_markdown(file_path)
-	slug = str(meta.get('slug') or file_path.stem)
-
-	tags = meta.get('tags') or []
-	if not isinstance(tags, list):
-		tags = []
-
-	# read priority as integer for internal sort ordering (higher = earlier)
-	try:
-		priority_val = int(meta.get('priority', 0) or 0)
-	except (TypeError, ValueError):
-		priority_val = 0
-
-	return {
-		'slug': slug,
-		'title': str(meta.get('title') or slug.replace('-', ' ').title()),
-		'summary': str(meta.get('summary') or ''),
-		'tags': [str(tag) for tag in tags],
-		'repo': str(meta.get('repo') or ''),
-		'demo': str(meta.get('demo') or ''),
-		'published': bool(meta.get('published', True)),
-		'markdown': markdown,
-		'_priority': priority_val,
-	}
-
 @views.route('/api/health/', methods=['GET'])
 def health():
 	"""Liveness check used by the deploy script and the CI smoke test."""
@@ -189,47 +143,6 @@ def scheduler_course_data():
 @views.route('/api/scheduler/default-schedule/', methods=['GET'])
 def scheduler_default_schedule():
 	return send_from_directory(_JSON_DATA_DIR, 'my_courses.json')
-
-
-@views.route('/api/projects/', methods=['GET'])
-def projects_list():
-	projects: list[dict] = []
-
-	# Collect projects and keep internal priority for sorting.
-	for file_path in _PROJECTS_CONTENT_DIR.glob('*.md'):
-		project = _project_payload_from_file(file_path)
-		if not project['published']:
-			continue
-
-		# Extract the internal priority and remove markdown before adding to list
-		priority = project.pop('_priority', 0)
-		project.pop('markdown', None)
-		# store priority on the dict temporarily for sorting
-		project['_sort_priority'] = priority
-		projects.append(project)
-
-	# Sort by priority (desc). Higher priority shows earlier.
-	projects.sort(key=lambda item: item.get('_sort_priority', 0), reverse=True)
-
-	# Remove internal sort key before returning API response
-	for proj in projects:
-		proj.pop('_sort_priority', None)
-
-	return jsonify(projects)
-
-
-@views.route('/api/projects/<slug>/', methods=['GET'])
-def project_detail(slug: str):
-	for file_path in _PROJECTS_CONTENT_DIR.glob('*.md'):
-		project = _project_payload_from_file(file_path)
-		if not project['published']:
-			continue
-		if project['slug'] == slug:
-			# ensure internal priority is not exposed
-			project.pop('_priority', None)
-			return jsonify(project)
-
-	abort(404)
 
 
 @views.route('/api/fileshare/status/', methods=['GET'])

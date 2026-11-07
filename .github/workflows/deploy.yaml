@@ -7,8 +7,8 @@ name: Test and Deploy
 on:
   push:
     branches: [ main ]
-    # Neither affects the tests. Project write-ups live in backend/app/content,
-    # so they're still tested.
+    # Neither affects the tests. Project write-ups live in frontend/src/content,
+    # so they're still built and tested.
     paths-ignore:
       - 'documentation/**'
       - '**/README.md'

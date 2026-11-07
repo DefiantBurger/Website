@@ -1,7 +1,7 @@
 ---
 title: "Personal Website Platform"
 slug: "personal-website-platform"
-summary: "A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform-provisioned GCP hosting behind a Cloudflare Tunnel, and GitHub Actions deploys. Serves runtime Markdown write-ups and several interactive utilities, and demonstrates end-to-end ownership from infrastructure to UX."
+summary: "A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform-provisioned GCP hosting behind a Cloudflare Tunnel, and GitHub Actions deploys. Serves Markdown write-ups rendered at build time and several interactive utilities, and demonstrates end-to-end ownership from infrastructure to UX."
 priority: 20
 tags:
   - "Svelte"
@@ -22,15 +22,15 @@ This project is a full-stack personal website platform built as an engineering s
 It goes beyond static pages by combining:
 
 - a typed Svelte 5 frontend with a small custom router and client-side rendering,
-- a Flask backend with API endpoints for project content and utilities,
+- a Flask backend with API endpoints for the interactive utilities,
 - infrastructure-as-code on Google Cloud with Terraform, reachable only through a Cloudflare Tunnel,
 - a GitHub Actions pipeline that tests every push and deploys `main` with automatic rollback,
-- runtime-rendered Markdown project content decoupled from frontend builds,
+- Markdown project write-ups rendered to HTML at build time,
 - and multiple interactive utilities that exercise different problem domains.
 
 The repository serves as one cohesive system where I can design features, iterate on architecture, ship infrastructure changes, and maintain documentation, all in one place.
 
-A key architectural decision was replacing hardcoded project content with API-backed Markdown. Write-ups are edited as files, not as frontend code, so the site behaves like a lightweight content platform rather than a static build artifact.
+A key architectural decision was replacing hardcoded project content with Markdown files. Write-ups are edited as content, not as frontend code, and a Vite plugin turns them into pre-rendered HTML during the build.
 
 ## Why I Built It
 
@@ -66,7 +66,7 @@ flowchart LR
     CFD --> NX[Nginx on loopback]
     NX -->|/| FE[Svelte static build]
     NX -->|/api/*| BE[Flask / Waitress]
-    BE --> PC[Project Markdown + scheduler JSON]
+    BE --> PC[Scheduler JSON]
     BE --> FS[File share: encrypted files on disk]
     BE --> MB[Message board: in-memory store]
 ```
@@ -78,7 +78,7 @@ All traffic enters through Cloudflare, which forwards it over an outbound-only t
 1. Page/navigation requests are served by Nginx from the Svelte build, with SPA fallback to `index.html`.
 2. Data requests under `/api/*` are proxied by Nginx to Flask on `127.0.0.1:5000`.
 
-For project detail pages, the browser loads the SPA route, then fetches project content from the API. Markdown is transformed and rendered client-side.
+Project pages need no API call: their HTML is rendered at build time and ships as one small JavaScript chunk per write-up.
 
 For utilities, the scheduler's logic runs entirely in the browser, while File Share and Message Board keep their state on the backend.
 
@@ -89,9 +89,8 @@ This split keeps backend logic simple while still enabling complex interaction i
 - Svelte 5 (runes) + TypeScript + Vite
 - A small History API router written in-house, replacing page.js
 - Shared fetch helpers and UI components used by every page
-- Runtime project rendering pipeline:
-  - fetch Markdown from the backend API
-  - parse, transform, and sanitize with unified/remark/rehype
+- Build-time project rendering pipeline:
+  - parse, transform, and sanitize Markdown with unified/remark/rehype inside a Vite plugin
   - render Mermaid diagrams client-side, matching the site theme
 
 #### Frontend Responsibilities
@@ -123,7 +122,7 @@ Project detail pages use a pipeline that supports:
 - GFM features such as lists, tables, and task syntax,
 - heading slug generation and anchor links,
 - sanitization before injecting HTML,
-- Mermaid code-fence transformation and runtime rendering.
+- Mermaid code-fence transformation at build time and diagram rendering in the browser.
 
 This enables rich technical write-ups without trusting raw HTML from content files.
 
@@ -142,8 +141,6 @@ I intentionally moved logic toward the client for responsiveness and lower backe
 #### Backend Responsibilities
 
 - Serve scheduler data files as JSON
-- Parse project Markdown frontmatter and return API payloads
-- Filter unpublished projects and sort by priority
 - Store, encrypt, and expire shared files
 - Sanitize, rate-limit, and expire message-board posts
 - Return consistent JSON errors (`{"error": "..."}`) for the frontend to display
@@ -158,12 +155,9 @@ Each project file includes frontmatter metadata:
 - repo and optional demo URL
 - published flag
 
-The backend exposes:
+The build fails on a duplicate slug or one that isn't plain lowercase letters, digits, and hyphens, so content mistakes surface before a deploy rather than as a broken page.
 
-1. `/api/projects/` for listing published metadata
-2. `/api/projects/<slug>/` for detail payloads including the Markdown body
-
-This keeps content's source of truth in versioned Markdown while preserving API-level structure for the frontend.
+This keeps content's source of truth in versioned Markdown while the frontend works with typed, pre-rendered data.
 
 #### Backend Tradeoffs
 
@@ -245,30 +239,27 @@ There's also an **About You** page that shows what the site can observe about a 
 
 Each utility is self-contained under its own route, with frontend logic in `frontend/src/lib/<utility>/` and backend endpoints under `/api/<utility>/`. Adding one means adding a route-table entry, a page, an API client built on the shared helpers, and backend routes with tests. Utility data models, API contracts, and limits are documented in `documentation/UTILITIES.md`.
 
-## Dynamic Project Content System
+## Project Content System
 
-A core architectural decision was replacing hardcoded project cards and details with API-backed Markdown content.
+A core architectural decision was replacing hardcoded project cards and details with Markdown content files.
 
-### Why This Matters
+### How It Evolved
 
-Before this change, editing a project write-up meant changing frontend source code and rebuilding the SPA.
+Originally, editing a project write-up meant changing frontend source code and rebuilding the SPA. At the time a deploy was slow and took the site down, so I moved write-ups into the backend: Flask served the Markdown from an API and the browser rendered it at runtime, which let content change without a frontend rebuild.
 
-Now content is decoupled from frontend code:
+Once deploys became fast and zero-downtime, that tradeoff stopped paying for itself. Runtime rendering meant an extra API round trip, a loading state on every project page, and the whole Markdown pipeline shipped to every visitor. So rendering moved to build time:
 
-1. Edit a Markdown file in the backend content directory.
-2. Check the API response (`/api/projects/<slug>/`). Flask rereads files on every request, so local edits show up immediately.
-3. Push to `main`; the pipeline tests and deploys it.
-
-This workflow dramatically reduces editorial friction.
+1. Edit a Markdown file in `frontend/src/content/projects/`. The dev server reloads the page on save.
+2. Push to `main` and run the deploy.
 
 ### Technical Implementation
 
 Content flow:
 
-1. Project files live in `backend/app/content/projects/` as Markdown with YAML frontmatter.
-2. `/api/projects/` returns published metadata, sorted by priority, for card/index views.
-3. `/api/projects/<slug>/` returns full metadata plus the Markdown body.
-4. The frontend fetches, parses, and renders at runtime.
+1. Project files live in `frontend/src/content/projects/` as Markdown with YAML frontmatter.
+2. A Vite plugin parses the frontmatter, drops unpublished projects, sorts by priority, and exposes the result as a virtual module of card metadata.
+3. Each project's rendered HTML becomes its own lazily loaded chunk, so the main bundle doesn't grow with each write-up.
+4. The same project list drives `sitemap.xml` and the per-route HTML files Nginx serves.
 
 The rendering pipeline:
 
@@ -276,7 +267,7 @@ The rendering pipeline:
 2. Generate anchor IDs for headings and inject links.
 3. Convert Mermaid code fences into placeholder targets.
 4. Sanitize HTML to prevent injection attacks.
-5. Mount DOM content.
+5. In the browser: mount the pre-rendered HTML.
 6. Run Mermaid rendering for diagrams, using the current theme.
 
 ### Reliability Lessons
@@ -301,7 +292,7 @@ The scheduler computes everything in-browser for responsiveness, which increases
 
 ### 3) Fast content publishing vs rendering surface area
 
-Runtime Markdown rendering speeds publishing, but requires careful sanitization and renderer maintenance.
+Markdown files make publishing easy, but rendering them still requires careful sanitization and renderer maintenance, even at build time.
 
 ### 4) Security vs convenience
 
@@ -319,7 +310,7 @@ Moving deploys to GitHub Actions surfaced a non-obvious stall: from the runner, 
 
 This project demonstrates full-stack architecture in a cohesive, deployable system:
 
-**Frontend Architecture**: Route-driven SPA design with a custom router, shared API and UI primitives, state management across multiple utilities, safe HTML rendering, and runtime Markdown parsing with diagram support.
+**Frontend Architecture**: Route-driven SPA design with a custom router, shared API and UI primitives, state management across multiple utilities, safe HTML rendering, and build-time Markdown rendering with diagram support.
 
 **Backend Design**: API-first thinking, frontmatter-based content modeling, encryption and expiry for user uploads, input sanitization and rate limiting, and a tested API surface.
 
@@ -381,9 +372,8 @@ Areas to strengthen:
 
 ## What I Would Improve Next
 
-1. Add frontend tests, starting with the scheduler's parser and graph logic.
-2. Wire the home page's featured projects to `/api/projects/` instead of placeholder content.
-3. Add saved schedule persistence (local first, then optional backend storage).
-4. Stream file-share encryption in fixed-size chunks to keep memory flat and allow more concurrent transfers.
-5. Move Terraform state to a remote encrypted backend and bring the status-page DNS record under Terraform.
-6. Expand write-ups with screenshots and deeper implementation notes per project.
+1. Run the browser smoke test and accessibility scan in CI, not just locally.
+2. Add saved schedule persistence (local first, then optional backend storage).
+3. Stream file-share encryption in fixed-size chunks to keep memory flat and allow more concurrent transfers.
+4. Move Terraform state to a remote encrypted backend and bring the status-page DNS record under Terraform.
+5. Expand write-ups with screenshots and deeper implementation notes per project.

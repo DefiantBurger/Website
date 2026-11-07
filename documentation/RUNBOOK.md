@@ -9,7 +9,6 @@ Uptime is monitored externally by Better Stack (free plan), with a public status
 ```bash
 curl -I https://josephcicalese.com
 curl https://josephcicalese.com/api/health/
-curl https://josephcicalese.com/api/projects/
 curl https://josephcicalese.com/api/fileshare/status/
 ```
 
@@ -27,11 +26,11 @@ Then load `/`, `/projects`, and each `/utilities/*` page in a browser.
 
 ## Update Project Content
 
-Project pages fetch Markdown at runtime, and Flask rereads the files on every request.
+Write-ups are rendered at build time, so content changes go live with a deploy.
 
-1. Edit or add `backend/app/content/projects/<slug>.md` ([frontmatter](./IMPLEMENTATION.md#project-frontmatter)).
-2. Check locally: `curl http://localhost:5000/api/projects/<slug>/`.
-3. Push to `main`; GitHub Actions deploys it ([Deploying Changes](./DEPLOYMENT.md#deploying-changes)).
+1. Edit or add `frontend/src/content/projects/<slug>.md` ([frontmatter](./IMPLEMENTATION.md#project-frontmatter)).
+2. Check locally at `http://localhost:5173/projects/<slug>` (the dev server reloads on save), and run `pnpm build` to catch slug errors.
+3. Push to `main`, then deploy ([Deploying Changes](./DEPLOYMENT.md#deploying-changes)).
 
 ## Roll Back a Release
 
@@ -77,9 +76,10 @@ If `nginx -t` fails, the previous config is restored and Nginx keeps running. Th
 
 ### Project page shows "not found"
 
-1. The file exists in `backend/app/content/projects/`.
+1. The file exists in `frontend/src/content/projects/`.
 2. Its `slug` (or file name, if no slug) matches the URL.
 3. It isn't `published: false`.
+4. The deployed build includes it (it was deployed after the file was added).
 
 ### File-share upload returns 503
 

@@ -45,7 +45,7 @@ export async function routePaths(context: BrowserContext): Promise<string[]> {
   await page.close();
 
   if (!projectPath) {
-    console.warn('No project found on /projects (is the backend running?); skipping project detail.');
+    console.warn('No project found on /projects; skipping project detail.');
   }
   return [...staticRoutePaths(), ...(projectPath ? [projectPath] : []), MISSING_PATH];
 }

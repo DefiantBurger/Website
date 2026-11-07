@@ -30,14 +30,14 @@ cd frontend && pnpm test                 # unit tests (node:test)
 cd frontend && pnpm run check            # svelte-check + tsc
 cd frontend && pnpm smoke                # browser smoke test; needs ./start-dev.sh running
 cd frontend && pnpm a11y                 # axe-core scan; needs ./start-dev.sh running
-curl http://localhost:5000/api/projects/
+curl http://localhost:5000/api/health/
 ```
 
 `test.sh` runs backend tests, `pnpm test`, `pnpm check`, `pnpm build`, `pnpm smoke`, and `pnpm a11y`, continuing past failures and printing a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000 and :5173, or starts `start-dev.sh` itself (output in `$TMPDIR/test-sh-dev.log`) and stops it afterward.
 
 Backend tests live in `backend/tests/` and use a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage. Frontend test scripts live in `frontend/tests/`.
 
-`pnpm test` runs the unit tests in `frontend/tests/unit/*.test.ts` with Node's built-in runner (`node:test`), so there's no test framework dependency. They cover pure logic only (scheduler, Markdown sanitizing, route matching); code that uses runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep logic worth testing in plain `.ts` modules. Node won't resolve the source's extensionless imports, so `tests/unit/resolve-ts.ts` is loaded first to retry them with `.ts`. A test marked `{ todo }` documents a known bug: it runs and reports but doesn't fail the suite.
+`pnpm test` runs the unit tests in `frontend/tests/unit/*.test.ts` with Node's built-in runner (`node:test`), so there's no test framework dependency. They cover pure logic only (scheduler, project frontmatter and Markdown sanitizing, route matching); code that uses runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep logic worth testing in plain `.ts` modules. Node won't resolve the source's extensionless imports, so `tests/unit/resolve-ts.ts` is loaded first to retry them with `.ts`. A test marked `{ todo }` documents a known bug: it runs and reports but doesn't fail the suite.
 
 `pnpm smoke` (`frontend/tests/smoke.ts`) loads the same routes as the a11y scan and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, and theme persistence. It shares browser setup with the a11y scan (`tests/browser.ts`).
 
@@ -45,19 +45,18 @@ Backend tests live in `backend/tests/` and use a temporary instance directory pe
 
 ## Backend
 
-Dependencies (`backend/pyproject.toml`): Flask, Flask-CORS, Waitress, python-dotenv, PyYAML, cryptography.
+Dependencies (`backend/pyproject.toml`): Flask, Flask-CORS, Waitress, python-dotenv, cryptography.
 
 | File | Role |
 | --- | --- |
 | `main.py` | Loads `.env`, builds the app, logs each request, starts the dev server or Waitress based on `FLASK_ENV`. |
 | `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at 101 MiB, enables CORS in development, registers the `views` blueprint, returns JSON 404s. |
-| `app/views.py` | All routes, project Markdown parsing, client-IP and Cloudflare-header helpers. |
+| `app/views.py` | All routes, client-IP and Cloudflare-header helpers. |
 | `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
 | `app/messageboard.py` | Message sanitization, in-memory store, rate limiter. |
 
 Data sources:
 
-- `app/content/projects/*.md`: project write-ups (frontmatter + Markdown).
 - `app/static/json/course_data.json`, `my_courses.json`: scheduler catalog and default plan.
 - `instance/fileshare/`: file-share uploads in local development (created at runtime, gitignored). Production sets `PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite`.
 
@@ -67,7 +66,7 @@ Entry is `src/main.ts`, which mounts `src/App.svelte`; global styles (theme toke
 
 ### Routing
 
-`src/lib/router.svelte.ts` is a small History API router (no library). It strips trailing slashes, matches the route table, and exposes reactive state `router.path`, `router.route`, and `router.params`. It also intercepts left-clicks on same-origin `<a href>` links, so pages use plain links; `navigate(path)` is only needed for programmatic navigation (e.g. buttons). Paths and route options live in `src/lib/routeDefinitions.ts`, which has no Svelte imports so `vite.config.ts` can read it too. `src/lib/routes.ts` pairs each key with its page component (separate so pages can import the router without an import cycle), and TypeScript fails the check if a key has no page. To add a page, add its path to `routeDefinitions.ts` and its component to `routes.ts`; the 404 page's suggestions, the nav's active state, `sitemap.xml`, and the per-route copies of `index.html` that let Nginx return real 404s for unknown paths (all generated at build time in `vite.config.ts`, with project pages read from `backend/app/content/projects/`) derive from them. A new route with a param other than `/projects/:slug` fails the build until `servedPaths()` knows its values.
+`src/lib/router.svelte.ts` is a small History API router (no library). It strips trailing slashes, matches the route table, and exposes reactive state `router.path`, `router.route`, and `router.params`. It also intercepts left-clicks on same-origin `<a href>` links, so pages use plain links; `navigate(path)` is only needed for programmatic navigation (e.g. buttons). Paths and route options live in `src/lib/routeDefinitions.ts`, which has no Svelte imports so `vite.config.ts` can read it too. `src/lib/routes.ts` pairs each key with its page component (separate so pages can import the router without an import cycle), and TypeScript fails the check if a key has no page. To add a page, add its path to `routeDefinitions.ts` and its component to `routes.ts`; the 404 page's suggestions, the nav's active state, `sitemap.xml`, and the per-route copies of `index.html` that let Nginx return real 404s for unknown paths (all generated at build time in `vite.config.ts`, with project pages read from `src/content/projects/`) derive from them. A new route with a param other than `/projects/:slug` fails the build until `servedPaths()` knows its values.
 
 On each client-side navigation (not the first load), `App.svelte` moves focus to `<main id="main">` and announces the new `document.title` through a polite live region, so screen readers notice the page change. A skip link (`Skip to content`) also targets `#main`.
 
@@ -111,7 +110,9 @@ On each client-side navigation (not the first load), `App.svelte` moves focus to
 
 ### Project Rendering
 
-`lib/projects/renderMarkdown.ts` runs remark-parse → GFM → rehype → heading slugs and `#` anchors → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → HTML. `ProjectDetail.svelte` injects the HTML, then renders Mermaid diagrams with a theme matching the site theme.
+Write-ups are `frontend/src/content/projects/*.md` ([frontmatter](#project-frontmatter)), rendered at build time by the Vite plugin in `plugins/projects.ts`. It exposes two virtual modules: `virtual:projects` (published summaries, highest `priority` first, plus a loader per slug) and `virtual:project/<slug>` (one project's summary, HTML, and render diagnostics, emitted as its own chunk). `src/lib/projects/content.ts` wraps them for pages, and `virtual.d.ts` types them. The build fails on a duplicate slug or a slug that isn't lowercase letters, digits, and hyphens. In dev, editing, adding, or removing a write-up invalidates the modules and reloads the page.
+
+`plugins/renderMarkdown.ts` runs remark-parse → GFM → rehype → heading slugs and `#` anchors → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → HTML. `ProjectDetail.svelte` injects the HTML, then renders Mermaid diagrams with a theme matching the site theme. `?debugMermaid=1` shows a diagnostics panel.
 
 ### About You
 
@@ -124,8 +125,6 @@ All routes are defined with a trailing slash; requests without one get a `308` r
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/health/` | `{"status": "ok"}`; used by the deploy script and CI smoke test |
-| GET | `/api/projects/` | Published project metadata, highest `priority` first |
-| GET | `/api/projects/<slug>/` | One published project, including `markdown`; 404 if missing or unpublished |
 | GET | `/api/about-you/request-context/` | Request metadata for the About You page |
 | GET | `/api/scheduler/course-data/`, `/api/scheduler/default-schedule/` | Scheduler data ([Utilities](./UTILITIES.md#class-scheduler)) |
 | GET, POST | `/api/fileshare/...` | File share ([Utilities](./UTILITIES.md#file-share)) |
@@ -138,12 +137,10 @@ All routes are defined with a trailing slash; requests without one get a `308` r
 title: "Readable title"        # default: slug in Title Case
 slug: "url-slug"               # default: file name without .md
 summary: "Short card summary"
-priority: 20                   # integer; higher sorts first; not returned by the API
+priority: 20                   # integer; higher sorts first
 tags: ["Tag1", "Tag2"]
 repo: "https://..."
 demo: "https://..."            # empty string to omit
 published: true                # default: true; set false to hide
 ---
 ```
-
-API responses contain `slug`, `title`, `summary`, `tags`, `repo`, `demo`, `published`, plus `markdown` on the detail route.

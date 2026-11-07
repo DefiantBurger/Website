@@ -1,13 +1,9 @@
-import tempfile
 import unittest
-from pathlib import Path
 
 from app import create_app
 from app.views import (
 	_cloudflare_geolocation,
 	_mask_ip,
-	_parse_project_markdown,
-	_project_payload_from_file,
 	_resolve_client_ip,
 )
 
@@ -120,83 +116,6 @@ class TestCloudflareGeolocation(unittest.TestCase):
 			result = _cloudflare_geolocation()
 		self.assertEqual(result['city'], 'São Paulo')
 		self.assertIsNone(result['latitude'])
-
-
-class TestMarkdownParsing(unittest.TestCase):
-	def test_parse_project_markdown_with_frontmatter(self):
-		content = (
-			"---\n"
-			"title: My Awesome Project\n"
-			"slug: awesome-project\n"
-			"tags: [python, flask]\n"
-			"priority: 10\n"
-			"---\n"
-			"# Heading\n\n"
-			"Body paragraph here."
-		)
-		with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False) as f:
-			f.write(content)
-			f_path = Path(f.name)
-
-		try:
-			meta, body = _parse_project_markdown(f_path)
-			self.assertEqual(meta['title'], 'My Awesome Project')
-			self.assertEqual(meta['slug'], 'awesome-project')
-			self.assertEqual(meta['priority'], 10)
-			self.assertEqual(meta['tags'], ['python', 'flask'])
-			self.assertIn('# Heading', body)
-			self.assertIn('Body paragraph here.', body)
-
-			payload = _project_payload_from_file(f_path)
-			self.assertEqual(payload['title'], 'My Awesome Project')
-			self.assertEqual(payload['slug'], 'awesome-project')
-			self.assertEqual(payload['_priority'], 10)
-			self.assertEqual(payload['tags'], ['python', 'flask'])
-			self.assertTrue(payload['published'])
-		finally:
-			f_path.unlink()
-
-	def test_parse_project_markdown_without_frontmatter(self):
-		content = "# Plain Markdown\n\nNo frontmatter here."
-		with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False) as f:
-			f.write(content)
-			f_path = Path(f.name)
-
-		try:
-			meta, body = _parse_project_markdown(f_path)
-			self.assertEqual(meta, {})
-			self.assertEqual(body, content)
-
-			payload = _project_payload_from_file(f_path)
-			self.assertEqual(payload['slug'], f_path.stem)
-			self.assertEqual(payload['_priority'], 0)
-			self.assertEqual(payload['tags'], [])
-			self.assertTrue(payload['published'])
-		finally:
-			f_path.unlink()
-
-	def test_parse_project_markdown_edge_cases(self):
-		content = (
-			"---\n"
-			"slug: test-slug\n"
-			"tags: not-a-list\n"
-			"priority: invalid-number\n"
-			"published: false\n"
-			"---\n"
-			"Content"
-		)
-		with tempfile.NamedTemporaryFile('w', suffix='.md', delete=False) as f:
-			f.write(content)
-			f_path = Path(f.name)
-
-		try:
-			payload = _project_payload_from_file(f_path)
-			self.assertEqual(payload['slug'], 'test-slug')
-			self.assertEqual(payload['tags'], [])
-			self.assertEqual(payload['_priority'], 0)
-			self.assertFalse(payload['published'])
-		finally:
-			f_path.unlink()
 
 
 if __name__ == '__main__':

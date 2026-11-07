@@ -64,7 +64,7 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 
 ### Frontend
 
-- `Home.svelte` hard-codes "Featured Projects" instead of using `/api/projects/`, so the owner chooses which projects to display.
+- `Home.svelte` hard-codes "Featured Projects" instead of using the project content (`lib/projects/content.ts`), so the owner chooses which projects to display.
 - A dark system preference is ignored, and first-time visitors always get the light theme, because the site looks better in light mode.
 - The About You map requests tiles from `tile.openstreetmap.org`, which shows a third party the visitor's approximate location, while the page says "Nothing here is stored". The page exists to show that this is possible, so the lack of a disclosure or privacy policy isn't treated as an issue.
 

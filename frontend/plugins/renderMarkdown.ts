@@ -7,15 +7,7 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
-
-// Diagnostics for checking that Mermaid fences survived the pipeline.
-export interface MarkdownRenderDebug {
-  inputHasMermaidFence: boolean;
-  transformedMermaidBlocks: number;
-  outputHasMermaidDiv: boolean;
-  outputHasMermaidCodeFence: boolean;
-  htmlLength: number;
-}
+import type { MarkdownRenderDebug } from '../src/lib/projects/types.ts';
 
 /** Replace ```mermaid code blocks with <div class="mermaid"> so Mermaid can render them after mount. */
 function rehypeMermaid(counter: { transformed: number }) {
@@ -92,7 +84,7 @@ export async function renderProjectMarkdownWithDebug(
       },
       content: {
         type: 'text',
-        value: ' #'
+        value: '#' // spacing comes from margin-left, so the underline covers only the #
       }
     })
     .use(rehypeStringify)
@@ -102,6 +94,7 @@ export async function renderProjectMarkdownWithDebug(
   return {
     html,
     debug: {
+      markdownLength: markdown.length,
       inputHasMermaidFence: /```\s*mermaid\b/.test(markdown),
       transformedMermaidBlocks: counter.transformed,
       outputHasMermaidDiv: /class="mermaid"/.test(html),

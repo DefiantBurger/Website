@@ -40,39 +40,6 @@ class TestViewsAPI(unittest.TestCase):
 		data = res.get_json()
 		self.assertIsInstance(data, (dict, list))
 
-	def test_projects_list(self):
-		res = self.client.get("/api/projects/")
-		self.assertEqual(res.status_code, 200)
-		self.assertTrue(res.is_json)
-		projects = res.get_json()
-		self.assertIsInstance(projects, list)
-		self.assertGreater(len(projects), 0)
-
-		# Ensure priority and markdown are excluded from list view
-		for proj in projects:
-			self.assertIn("slug", proj)
-			self.assertIn("title", proj)
-			self.assertNotIn("markdown", proj)
-			self.assertNotIn("_priority", proj)
-			self.assertNotIn("_sort_priority", proj)
-
-	def test_project_detail_existing(self):
-		# Fetch list to pick first available slug
-		list_res = self.client.get("/api/projects/")
-		projects = list_res.get_json()
-		slug = projects[0]["slug"]
-
-		res = self.client.get(f"/api/projects/{slug}/")
-		self.assertEqual(res.status_code, 200)
-		data = res.get_json()
-		self.assertEqual(data["slug"], slug)
-		self.assertIn("markdown", data)
-		self.assertNotIn("_priority", data)
-
-	def test_project_detail_not_found(self):
-		res = self.client.get("/api/projects/completely-nonexistent-project-slug-12345/")
-		self.assertEqual(res.status_code, 404)
-
 	def test_about_you_request_context(self):
 		headers = {
 			"CF-IPCountry": "US",
