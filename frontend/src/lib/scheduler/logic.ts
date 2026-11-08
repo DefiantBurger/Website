@@ -1,10 +1,32 @@
-import { PRECOLLEGE_SEMESTER } from './catalog';
-import type { PrereqEdge, Requirement, SchedulerGraph } from './types';
+import { buildRequirements } from './catalog';
+import { PRECOLLEGE_SEMESTER } from './semesters';
+import type {
+  CourseCatalog,
+  PrereqEdge,
+  RequirementCheck,
+  Requirement,
+  ScheduleProblem,
+  ScheduleState,
+  SchedulerGraph,
+} from './types';
 
 interface ComputeGraphParams {
   coursesById: Record<string, { id: string; name: string; semester: string }>;
   prereqsByCourseId: Record<string, Requirement[]>;
   semesterToIndex: Record<string, number>;
+}
+
+/** Column index of a semester; unknown semesters sort last. */
+function indexOf(semesterToIndex: Record<string, number>, semester: string): number {
+  return semesterToIndex[semester] ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** Precollege is -1, then each term in date order. */
+export function semesterIndexMap(schedule: ScheduleState): Record<string, number> {
+  return {
+    [PRECOLLEGE_SEMESTER]: -1,
+    ...Object.fromEntries(schedule.semesterOrder.map((semester, index) => [semester, index])),
+  };
 }
 
 /** Pick the earliest-scheduled course instance that can satisfy the requirement. */
@@ -17,22 +39,12 @@ function chooseBestRequirementCourse(
   let bestCourseId: string | undefined;
 
   for (const option of requirement.courseChoices) {
-    const candidateIds = courseIdsByName[option];
-    if (!candidateIds || candidateIds.length === 0) {
-      continue;
-    }
-
-    for (const candidateId of candidateIds) {
-      if (!bestCourseId) {
-        bestCourseId = candidateId;
-        continue;
-      }
-
-      const bestIndex =
-        semesterToIndex[coursesById[bestCourseId].semester] ?? Number.MAX_SAFE_INTEGER;
-      const candidateIndex =
-        semesterToIndex[coursesById[candidateId].semester] ?? Number.MAX_SAFE_INTEGER;
-      if (candidateIndex < bestIndex) {
+    for (const candidateId of courseIdsByName[option] ?? []) {
+      if (
+        !bestCourseId ||
+        indexOf(semesterToIndex, coursesById[candidateId].semester) <
+          indexOf(semesterToIndex, coursesById[bestCourseId].semester)
+      ) {
         bestCourseId = candidateId;
       }
     }
@@ -48,26 +60,24 @@ function buildCourseIdsByName(
   const grouped: Record<string, string[]> = {};
 
   for (const course of Object.values(coursesById)) {
-    if (!grouped[course.name]) {
-      grouped[course.name] = [];
-    }
-    grouped[course.name].push(course.id);
+    (grouped[course.name] ??= []).push(course.id);
   }
 
-  for (const courseName of Object.keys(grouped)) {
-    grouped[courseName].sort((a, b) => {
-      const aIndex = semesterToIndex[coursesById[a].semester] ?? Number.MAX_SAFE_INTEGER;
-      const bIndex = semesterToIndex[coursesById[b].semester] ?? Number.MAX_SAFE_INTEGER;
-      return aIndex - bIndex;
-    });
+  for (const ids of Object.values(grouped)) {
+    ids.sort(
+      (a, b) =>
+        indexOf(semesterToIndex, coursesById[a].semester) -
+        indexOf(semesterToIndex, coursesById[b].semester),
+    );
   }
 
   return grouped;
 }
 
 /**
- * Build prerequisite edges and each course's progress (satisfied groups / groups
- * not already met by precollege). Unscheduled requirements count as unmet.
+ * Build prerequisite edges, a check per requirement group, and each course's
+ * progress (satisfied groups / all groups). Precollege courses are taken as
+ * already earned, so their own requirements aren't checked.
  */
 export function computeSchedulerGraph({
   coursesById,
@@ -77,64 +87,91 @@ export function computeSchedulerGraph({
   const courseIdsByName = buildCourseIdsByName(coursesById, semesterToIndex);
   const edges: PrereqEdge[] = [];
   const requirementProgressByCourseId: Record<string, number> = {};
+  const requirementChecksByCourseId: Record<string, RequirementCheck[]> = {};
 
   for (const [courseId, requirements] of Object.entries(prereqsByCourseId)) {
-    let expectedRequirementCount = requirements.length;
-    let satisfiedRequirementCount = 0;
+    const courseSemester = coursesById[courseId].semester;
+    if (courseSemester === PRECOLLEGE_SEMESTER || requirements.length === 0) {
+      continue;
+    }
 
+    const checks: RequirementCheck[] = [];
     for (const requirement of requirements) {
-      const bestRequirementCourseId = chooseBestRequirementCourse(
+      const satisfiedByCourseId = chooseBestRequirementCourse(
         requirement,
         courseIdsByName,
         coursesById,
         semesterToIndex,
       );
-
-      if (!bestRequirementCourseId) {
+      if (!satisfiedByCourseId) {
+        checks.push({ requirement, status: 'missing' });
         continue;
       }
 
-      const requirementSemester = coursesById[bestRequirementCourseId].semester;
-      if (requirementSemester === PRECOLLEGE_SEMESTER) {
-        expectedRequirementCount -= 1;
-        continue;
-      }
-
-      const courseSemesterIndex =
-        semesterToIndex[coursesById[courseId].semester] ?? Number.MAX_SAFE_INTEGER;
-      const reqSemesterIndex = semesterToIndex[requirementSemester] ?? Number.MAX_SAFE_INTEGER;
+      const courseIndex = indexOf(semesterToIndex, courseSemester);
+      const reqIndex = indexOf(semesterToIndex, coursesById[satisfiedByCourseId].semester);
 
       let status: PrereqEdge['status'];
-      if (courseSemesterIndex > reqSemesterIndex) {
+      if (courseIndex > reqIndex) {
         status = 'valid';
-      } else if (courseSemesterIndex < reqSemesterIndex) {
-        status = 'invalid';
-      } else if (requirement.canBeConcurrent) {
+      } else if (courseIndex === reqIndex && requirement.canBeConcurrent) {
         status = 'concurrent';
       } else {
         status = 'invalid';
       }
 
-      if (status === 'valid' || status === 'concurrent') {
-        satisfiedRequirementCount += 1;
-      }
-
+      checks.push({
+        requirement,
+        satisfiedByCourseId,
+        status:
+          status === 'valid' ? 'met' : status === 'concurrent' ? 'concurrent' : 'out-of-order',
+      });
       edges.push({
-        id: `${courseId}__${bestRequirementCourseId}__${requirement.courseChoices.join('|')}`,
-        fromCourseId: bestRequirementCourseId,
+        id: `${courseId}__${satisfiedByCourseId}__${requirement.courseChoices.join('|')}`,
+        fromCourseId: satisfiedByCourseId,
         toCourseId: courseId,
         requirement,
         status,
       });
     }
 
-    if (expectedRequirementCount > 0) {
-      requirementProgressByCourseId[courseId] =
-        satisfiedRequirementCount / expectedRequirementCount;
-    }
+    requirementChecksByCourseId[courseId] = checks;
+    requirementProgressByCourseId[courseId] =
+      checks.filter((check) => check.status === 'met' || check.status === 'concurrent').length /
+      checks.length;
   }
 
-  return { edges, requirementProgressByCourseId };
+  return { edges, requirementProgressByCourseId, requirementChecksByCourseId };
+}
+
+/** The graph for a whole schedule, as the scheduler page draws it. */
+export function scheduleGraph(catalog: CourseCatalog, schedule: ScheduleState): SchedulerGraph {
+  return computeSchedulerGraph({
+    coursesById: schedule.coursesById,
+    prereqsByCourseId: Object.fromEntries(
+      Object.values(schedule.coursesById).map((course) => [
+        course.id,
+        buildRequirements(catalog, course.name),
+      ]),
+    ),
+    semesterToIndex: semesterIndexMap(schedule),
+  });
+}
+
+/** Courses with unmet requirement groups, in board order (column, then card). */
+export function listProblems(schedule: ScheduleState, graph: SchedulerGraph): ScheduleProblem[] {
+  const problems: ScheduleProblem[] = [];
+  for (const semester of schedule.semesterOrder) {
+    for (const courseId of schedule.columnCourseIds[semester] ?? []) {
+      const checks = (graph.requirementChecksByCourseId[courseId] ?? []).filter(
+        (check) => check.status === 'out-of-order' || check.status === 'missing',
+      );
+      if (checks.length > 0) {
+        problems.push({ courseId, checks });
+      }
+    }
+  }
+  return problems;
 }
 
 /**

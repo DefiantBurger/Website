@@ -6,9 +6,7 @@ import type {
   ScheduleFile,
   ScheduleState,
 } from './types';
-
-/** Courses taken before college: they satisfy prerequisites but get no column. */
-export const PRECOLLEGE_SEMESTER = 'precollege';
+import { PRECOLLEGE_SEMESTER, formatSemester, isSemesterKey, sortSemesters } from './semesters';
 
 /** Own-property lookup, so names like `constructor` don't match `Object.prototype`. */
 function lookupCourse(catalog: CourseCatalog, courseName: string) {
@@ -120,23 +118,32 @@ export function createCourse(
   };
 }
 
-/** Expand a schedule file into course instances, one column per non-precollege semester. */
+/** Expand a schedule file into course instances: one column per semester, sorted by date. */
 export function buildSchedule(catalog: CourseCatalog, scheduleFile: ScheduleFile): ScheduleState {
   const semesters = scheduleFile.semesters ?? {};
-  const semesterOrder = Object.keys(semesters).filter(
-    (semester) => semester !== PRECOLLEGE_SEMESTER,
-  );
-  if (semesterOrder.length === 0) {
-    throw new Error('A schedule must include at least one non-precollege semester.');
+  for (const key of Object.keys(semesters)) {
+    if (!isSemesterKey(key)) {
+      throw new Error(
+        `Unknown semester '${key}'. Use precollege or a term and two-digit year, e.g. fall24, winter25.`,
+      );
+    }
   }
 
+  const semesterOrder = sortSemesters(
+    Object.keys(semesters).filter((semester) => semester !== PRECOLLEGE_SEMESTER),
+  );
   const coursesById: Record<string, CourseInstance> = {};
   const columnCourseIds: Record<string, string[]> = Object.fromEntries(
-    semesterOrder.map((semester) => [semester, [] as string[]]),
+    [PRECOLLEGE_SEMESTER, ...semesterOrder].map((semester) => [semester, [] as string[]]),
   );
   const occurrenceCounts: Record<string, number> = {};
 
-  for (const [semester, entries] of Object.entries(semesters)) {
+  // Number occurrences in date order, so `__1` is always the earliest.
+  for (const semester of [PRECOLLEGE_SEMESTER, ...semesterOrder]) {
+    const entries = semesters[semester] ?? [];
+    if (!Array.isArray(entries)) {
+      throw new Error(`Semester '${formatSemester(semester)}' must be a list of courses.`);
+    }
     for (const entry of entries) {
       const { courseName, requestedCredits } = parseCourseEntry(entry);
       const occurrenceIndex = (occurrenceCounts[courseName] ?? 0) + 1;
@@ -144,7 +151,7 @@ export function buildSchedule(catalog: CourseCatalog, scheduleFile: ScheduleFile
 
       const course = createCourse(catalog, courseName, occurrenceIndex, semester, requestedCredits);
       coursesById[course.id] = course;
-      columnCourseIds[semester]?.push(course.id);
+      columnCourseIds[semester].push(course.id);
     }
   }
 
@@ -157,22 +164,19 @@ export function exportSchedule(catalog: CourseCatalog, schedule: ScheduleState):
     course.credits === getValidCredits(catalog, course.name)[0]
       ? course.name
       : `${course.name}[${course.credits}]`;
-
-  const semesters: Record<string, string[]> = {};
-
-  const precollegeEntries = Object.values(schedule.coursesById)
-    .filter((course) => course.semester === PRECOLLEGE_SEMESTER)
-    .sort((a, b) => a.occurrenceIndex - b.occurrenceIndex)
-    .map(formatEntry);
-  if (precollegeEntries.length > 0) {
-    semesters[PRECOLLEGE_SEMESTER] = precollegeEntries;
-  }
-
-  for (const semester of schedule.semesterOrder) {
-    semesters[semester] = (schedule.columnCourseIds[semester] ?? [])
+  const entriesFor = (semester: string) =>
+    (schedule.columnCourseIds[semester] ?? [])
       .map((courseId) => schedule.coursesById[courseId])
       .filter((course) => !!course)
       .map(formatEntry);
+
+  const semesters: Record<string, string[]> = {};
+  const precollegeEntries = entriesFor(PRECOLLEGE_SEMESTER);
+  if (precollegeEntries.length > 0) {
+    semesters[PRECOLLEGE_SEMESTER] = precollegeEntries;
+  }
+  for (const semester of schedule.semesterOrder) {
+    semesters[semester] = entriesFor(semester);
   }
 
   return { semesters };

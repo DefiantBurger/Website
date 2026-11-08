@@ -34,9 +34,10 @@ export type CourseCatalog = Record<string, CourseCatalogRecord>;
 
 /** The editable schedule: which course instances exist and how each column is ordered. */
 export interface ScheduleState {
-  // Columns left to right; excludes the precollege pseudo-semester.
+  // Term keys in date order; excludes precollege, which is always the first column.
   semesterOrder: string[];
   coursesById: Record<string, CourseInstance>;
+  // Card order per column, precollege included.
   columnCourseIds: Record<string, string[]>;
 }
 
@@ -50,7 +51,23 @@ export interface PrereqEdge {
   status: RequirementStatus;
 }
 
+/** How one requirement group of a course is (or isn't) satisfied. */
+export interface RequirementCheck {
+  requirement: Requirement;
+  // `out-of-order`: the best option is scheduled, but not early enough.
+  status: 'met' | 'concurrent' | 'out-of-order' | 'missing';
+  // The course instance chosen to satisfy the group; absent when missing.
+  satisfiedByCourseId?: string;
+}
+
 export interface SchedulerGraph {
   edges: PrereqEdge[];
   requirementProgressByCourseId: Record<string, number>;
+  requirementChecksByCourseId: Record<string, RequirementCheck[]>;
+}
+
+/** A course with at least one out-of-order or missing requirement group. */
+export interface ScheduleProblem {
+  courseId: string;
+  checks: RequirementCheck[];
 }

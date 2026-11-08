@@ -2,7 +2,7 @@
 
 | Utility | Route | Frontend | Backend |
 | --- | --- | --- | --- |
-| [Class Scheduler](#class-scheduler) | `/utilities/scheduler` | `lib/scheduler/`, `UtilityScheduler.svelte` | static JSON via `views.py` |
+| [Class Scheduler](#class-scheduler) | `/utilities/scheduler` | `lib/scheduler/` (components in `lib/scheduler/components/`), `UtilityScheduler.svelte` | static JSON via `views.py` |
 | [File Share](#file-share) | `/utilities/fileshare` | `lib/fileshare/`, `UtilityFileShare.svelte` | `app/fileshare.py` |
 | [Message Board](#message-board) | `/utilities/message-board` | `lib/messageboard/`, `UtilityMessageBoard.svelte` | `app/messageboard.py` |
 
@@ -17,7 +17,7 @@ Semester planner that validates prerequisites and draws them as a dependency gra
 
 ### Data Model
 
-Schedule (semester key order is display order; `precollege` holds credit already earned and is not shown as a column):
+Schedule. Keys are `precollege` (credit already earned) or a term plus a two-digit year: `winter`, `spring`, `summer`, `fall` (`fall24`, `winter25`). Columns are always sorted by date (winter → spring → summer → fall within a year), whatever the key order in the file, and import rejects any other key. An empty `semesters` object is a valid (empty) plan.
 
 ```json
 {
@@ -47,10 +47,11 @@ Each inner list is a group of alternatives (any one satisfies it); every group m
 
 ### Behavior
 
-- `lib/scheduler/data.ts` loads both files, parses credit suffixes, and gives each course occurrence a unique ID (`<course>__<n>`) so repeated courses are distinct.
-- `lib/scheduler/logic.ts` matches each requirement group to the earliest-scheduled option and marks the edge `valid` (earlier semester), `concurrent` (same semester, allowed), or `invalid`. A course's progress is satisfied groups ÷ groups not already met by `precollege`. Auto-detangle reorders cards within semesters using barycenter sweeps to reduce edge crossings.
-- UI: add courses by code, drag and drop between or within semesters, move the selected course earlier/later, edit its credits, remove it, clear all, and import/export the plan as JSON. Import rejects unknown courses and invalid credit values.
-- Edges are SVG, redrawn in a `requestAnimationFrame` batch; selecting a course highlights its edges.
+- `lib/scheduler/data.ts` loads both files; `catalog.ts` parses credit suffixes and gives each course occurrence a unique ID (`<course>__<n>`, numbered in date order) so repeated courses are distinct.
+- `semesters.ts` parses, formats ("Fall 2024"), and sorts term keys. `schedule.ts` holds every edit as a pure function (add/remove/move course, credits, add/remove/rename semester); `history.ts` is the undo/redo stack (100 steps) over those snapshots; `store.svelte.ts` (`SchedulerStore`) is the page state the components share, and every edit goes through `store.apply()` so it can be undone.
+- `logic.ts` matches each requirement group to the earliest-scheduled option and checks it: `met` (earlier semester, precollege included), `concurrent` (same semester, allowed), `out-of-order` (scheduled too late), or `missing`. Edges are drawn for every group that has a match, including from precollege. Precollege courses count as earned, so their own requirements aren't checked. Progress is met groups ÷ all groups. `listProblems()` collects the out-of-order and missing groups for the Problems panel; clicking a problem selects the course and scrolls its card into view. Auto-detangle reorders cards within columns using barycenter sweeps to reduce edge crossings.
+- UI: precollege is always the first column. Semesters are added from the column after the last one (defaults to the next fall/spring; the first semester of an empty plan defaults to the upcoming one), relabeled with ✎ (columns re-sort), and removed with × (confirms first when the semester has courses, which are deleted). Courses are added by code, dragged between or within columns, moved earlier/later, re-credited, and removed. Repeated courses show `↻`. Clear All empties the whole plan, semesters included. Undo/Redo buttons, plus Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y outside text fields. Import/export the plan as JSON; import rejects unknown courses, invalid credit values, and bad semester keys.
+- Edges are SVG, redrawn in a `requestAnimationFrame` batch when the schedule changes or a column resizes; selecting a course highlights its edges.
 
 ## File Share
 
