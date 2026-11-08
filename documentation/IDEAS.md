@@ -84,7 +84,6 @@ Encode the schedule into the URL fragment (`/utilities/scheduler#plan=...`) so a
 - Version the format (e.g. a leading `v1.`), so links stay readable after the schema changes.
 - Validate on load the same way import does (unknown courses, bad credit values).
 - Decide whether to keep JSON export as a fallback, and whether editing should update the URL live or only when "Share" is clicked.
-- **Prerequisite:** polish the catalog data first (Issues, Class Scheduler #1). A shared link that shows wrong prerequisites is worse than no link.
 
 ### File Share: encryption in the browser and QR codes
 
