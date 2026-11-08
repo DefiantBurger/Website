@@ -109,7 +109,7 @@ export function moveCourse(
   };
 }
 
-/** Move a card one column left (-1) or right (1); no-op at either end. */
+/** Move a card one column left (-1) or right (1) at the same row; no-op at either end. */
 export function shiftCourse(
   schedule: ScheduleState,
   courseId: string,
@@ -118,7 +118,33 @@ export function shiftCourse(
   const course = schedule.coursesById[courseId];
   const columns = boardColumns(schedule);
   const nextSemester = course && columns[columns.indexOf(course.semester) + direction];
-  return nextSemester ? moveCourse(schedule, courseId, nextSemester) : schedule;
+  if (!nextSemester) {
+    return schedule;
+  }
+  // Keeping the row lets repeated arrow presses slide a card straight across the board.
+  const row = (schedule.columnCourseIds[course.semester] ?? []).indexOf(courseId);
+  return moveCourse(schedule, courseId, nextSemester, row);
+}
+
+/** Move a card one slot up (-1) or down (1) in its column; no-op at either end. */
+export function nudgeCourse(
+  schedule: ScheduleState,
+  courseId: string,
+  direction: -1 | 1,
+): ScheduleState {
+  const course = schedule.coursesById[courseId];
+  const ids = (course && schedule.columnCourseIds[course.semester]) ?? [];
+  const index = ids.indexOf(courseId);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= ids.length) {
+    return schedule;
+  }
+  const reordered = [...ids];
+  [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+  return {
+    ...schedule,
+    columnCourseIds: { ...schedule.columnCourseIds, [course.semester]: reordered },
+  };
 }
 
 export function setCourseCredits(

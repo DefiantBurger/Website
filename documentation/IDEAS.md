@@ -75,17 +75,6 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 ## Utilities
 
-### Scheduler: shareable plans in the URL
-
-Encode the schedule into the URL fragment (`/utilities/scheduler#plan=...`) so a plan can be shared or bookmarked as a link, replacing JSON export/import as the main way to save a plan.
-
-- Compress before encoding: the browser's built-in `CompressionStream('deflate-raw')` plus base64url, so no dependency is needed. Course codes repeat a lot, so this should shrink well.
-- A fragment never reaches the server, so this needs no backend changes and keeps plans out of logs.
-- Version the format (e.g. a leading `v1.`), so links stay readable after the schema changes.
-- Validate on load the same way import does (unknown courses, bad credit values).
-- Update the URL on every edit (`history.replaceState`, or `pushState` per undo step), so it doubles as autosave: browser history and reopening a closed tab bring the plan back. That's the planned replacement for browser storage.
-- Decide whether to keep JSON export as a fallback.
-
 ### Scheduler: term-offered checks
 
 Warn when a course is placed in a term it isn't offered in (e.g. fall-only courses in a spring column). Semester keys already carry the term, so only the data is missing: the catalog scraper would need to record which terms each course is offered in (e.g. an `offered: ["fall", "spring"]` field), and `logic.ts` would add a problem for a mismatch. Show it in the Problems panel and on the card, separate from prerequisite problems.

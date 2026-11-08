@@ -3,8 +3,9 @@
 import { errorMessage } from '../api';
 import { getValidCredits } from './catalog';
 import { createHistory, commit, redo, undo } from './history';
+import { formatSemester } from './semesters';
 import { detangleCourseOrder, listProblems, scheduleGraph } from './logic';
-import { boardColumns, emptySchedule, repeatPositions } from './schedule';
+import { boardColumns, emptySchedule, removeCourse, repeatPositions } from './schedule';
 import type { CourseCatalog, ScheduleState } from './types';
 
 export type Notice = { kind: 'error' | 'success'; text: string };
@@ -15,7 +16,7 @@ export class SchedulerStore {
   selectedCourseId = $state<string | null>(null);
   notice = $state<Notice | null>(null);
   // Set to ask a card to scroll into view; the card clears it. An object so repeat clicks re-fire.
-  revealRequest = $state<{ courseId: string } | null>(null);
+  revealRequest = $state<{ courseId: string; fromKeyboard: boolean } | null>(null);
 
   // Drag and drop between columns.
   draggedCourseId: string | null = null;
@@ -36,10 +37,10 @@ export class SchedulerStore {
     this.selectedCourse ? getValidCredits(this.catalog, this.selectedCourse.name) : [],
   );
 
-  /** Replace everything without an undo step (initial load). */
-  load(catalog: CourseCatalog, schedule: ScheduleState): void {
+  /** Replace everything without an undo step (initial load). Shared plans keep their card order. */
+  load(catalog: CourseCatalog, schedule: ScheduleState, detangle = true): void {
     this.catalog = catalog;
-    this.history = createHistory(this.detangled(schedule));
+    this.history = createHistory(detangle ? this.detangled(schedule) : schedule);
     this.selectedCourseId = null;
   }
 
@@ -65,6 +66,18 @@ export class SchedulerStore {
     this.notice = null;
   }
 
+  removeSelectedCourse(): void {
+    const course = this.selectedCourse;
+    if (!course) {
+      return;
+    }
+    this.apply(
+      (schedule) => removeCourse(schedule, course.id),
+      `Removed ${course.name} from ${formatSemester(course.semester)}.`,
+    );
+    this.selectedCourseId = null;
+  }
+
   /** Reorder cards within each column to reduce crossing edges. */
   detangled(schedule: ScheduleState): ScheduleState {
     return {
@@ -77,10 +90,10 @@ export class SchedulerStore {
     };
   }
 
-  /** Select a course and scroll its card into view. */
-  reveal(courseId: string): void {
+  /** Select a course and scroll its card into view; after a keyboard move, focus follows the card. */
+  reveal(courseId: string, fromKeyboard = false): void {
     this.selectedCourseId = courseId;
-    this.revealRequest = { courseId };
+    this.revealRequest = { courseId, fromKeyboard };
   }
 
   progressPercent(courseId: string): number | null {

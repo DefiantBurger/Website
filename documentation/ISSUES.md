@@ -14,7 +14,7 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. No structured data, and Open Graph tags are static (the same for every page) because the HTML is never rendered per route. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the client-side canonical tag points crawlers at the main path.
 2. The served HTML has only a site-wide description, Open Graph tags, and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
 3. The full name appears in page titles and the `<noscript>` content, but nowhere in the rendered page text except the domain and email.
-4. `/favicon.ico` and `/apple-touch-icon.png` return 404. `index.html` declares `/favicon.png` for both, so browsers that honor the tags are fine, and a 128px icon is small for Apple touch icons and link-preview images.
+4. `/apple-touch-icon.png` returns 404. `index.html` declares `/favicon.png` for it, so browsers that honor the tag are fine, and a 128px icon is small for Apple touch icons and link-preview images.
 
 ### Accessibility
 
@@ -127,7 +127,7 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 
 ### Class Scheduler
 
-- Edits live in memory only, and reloading loses them unless exported. This avoids managing users; the planned shareable URL (see Ideas) will double as autosave instead of browser storage.
+- Plans are saved only in the URL fragment, not browser storage or the server, so there are no users to manage. Reaching the scheduler through a site link (no fragment) shows the default plan; Back or the bookmarked URL restores yours.
 
 ### File Share
 

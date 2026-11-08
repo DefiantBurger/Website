@@ -11,16 +11,19 @@
   import { saveBlob } from '../lib/download';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
-  import { buildSchedule, exportSchedule } from '../lib/scheduler/catalog';
+  import { buildSchedule, exportSchedule, parseScheduleFile } from '../lib/scheduler/catalog';
   import AddCourseForm from '../lib/scheduler/components/AddCourseForm.svelte';
   import CourseDetails from '../lib/scheduler/components/CourseDetails.svelte';
   import Panel from '../lib/scheduler/components/Panel.svelte';
   import ProblemSummary from '../lib/scheduler/components/ProblemSummary.svelte';
   import SchedulerBoard from '../lib/scheduler/components/SchedulerBoard.svelte';
   import { loadSchedulerData } from '../lib/scheduler/data';
-  import { emptySchedule } from '../lib/scheduler/schedule';
+  import { emptySchedule, nudgeCourse, shiftCourse } from '../lib/scheduler/schedule';
+  import { decodePlan, encodePlan, planFromHash, planHash } from '../lib/scheduler/shareLink';
   import { SchedulerStore } from '../lib/scheduler/store.svelte';
-  import type { ScheduleFile } from '../lib/scheduler/types';
+  import type { ScheduleState } from '../lib/scheduler/types';
+
+  const URL_WRITE_DELAY_MS = 300;
 
   const store = new SchedulerStore();
 
@@ -28,23 +31,168 @@
   let loadError = $state<string | null>(null);
   let importInputElement = $state<HTMLInputElement>();
 
+  // Plain (non-reactive) bookkeeping for keeping the URL in sync with the plan.
+  let defaultSchedule: ScheduleState | null = null;
+  // The URL stays bare until the plan first differs from what was loaded.
+  let loadedSchedule: ScheduleState | null = null;
+  let urlSyncStarted = false;
+  // Encoding is async; only the newest write may land.
+  let urlWriteId = 0;
+
+  // The fragment holds the plan, so it doubles as autosave (reload, Back, reopened tabs).
+  $effect(() => {
+    const schedule = store.schedule;
+    if (loading || (!urlSyncStarted && schedule === loadedSchedule)) {
+      return;
+    }
+    urlSyncStarted = true;
+    const writeId = ++urlWriteId;
+    const timer = setTimeout(async () => {
+      try {
+        const encoded = await encodePlan(exportSchedule(store.catalog, schedule));
+        if (writeId === urlWriteId) {
+          writePlanToUrl(encoded);
+        }
+      } catch {
+        // No CompressionStream (very old browser): the plan just isn't saved in the URL.
+      }
+    }, URL_WRITE_DELAY_MS);
+    return () => {
+      clearTimeout(timer);
+      urlWriteId++;
+    };
+  });
+
+  function writePlanToUrl(encoded: string): void {
+    const { pathname, search } = window.location;
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${pathname}${search}${planHash(encoded)}`,
+    );
+  }
+
+  async function scheduleFromLink(
+    encoded: string,
+  ): Promise<{ schedule: ScheduleState; skipped: string[] }> {
+    const skipped: string[] = [];
+    const schedule = buildSchedule(store.catalog, await decodePlan(encoded), skipped);
+    return { schedule, skipped };
+  }
+
+  function skippedNote(skipped: string[]): string {
+    const noun = skipped.length === 1 ? 'course' : 'courses';
+    return ` Skipped ${skipped.length} unknown or invalid ${noun}: ${skipped.join(', ')}.`;
+  }
+
+  /** Replace the plan as one undoable step, warning about any entries that were left out. */
+  function applyPlan(schedule: ScheduleState, skipped: string[], success: string): void {
+    if (!store.apply(() => schedule, success)) {
+      return;
+    }
+    store.selectedCourseId = null;
+    if (skipped.length > 0) {
+      store.notice = { kind: 'error', text: success + skippedNote(skipped) };
+    }
+  }
+
+  // Pasting another plan link into the same tab changes only the fragment, so nothing reloads.
+  async function handleHashChange(): Promise<void> {
+    const encoded = planFromHash(window.location.hash);
+    if (loading || loadError || !encoded) {
+      return;
+    }
+    try {
+      const { schedule, skipped } = await scheduleFromLink(encoded);
+      applyPlan(schedule, skipped, 'Loaded the plan from the link.');
+    } catch (error) {
+      store.notice = { kind: 'error', text: errorMessage(error, 'Could not load that plan link.') };
+    }
+  }
+
+  async function handleCopyLink(): Promise<void> {
+    try {
+      writePlanToUrl(await encodePlan(exportSchedule(store.catalog, store.schedule)));
+    } catch {
+      store.notice = { kind: 'error', text: 'This browser cannot create plan links.' };
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      store.notice = { kind: 'success', text: 'Copied a link to this plan.' };
+    } catch {
+      store.notice = {
+        kind: 'error',
+        text: 'Could not copy the link. The address bar has it; copy it from there.',
+      };
+    }
+  }
+
+  function handleReset(): void {
+    const schedule = defaultSchedule;
+    if (!schedule) {
+      return;
+    }
+    store.selectedCourseId = null;
+    store.apply(
+      () => store.detangled(schedule),
+      'Reset to the default plan. Undo brings yours back.',
+    );
+  }
+
+  // Arrows move the selected course, not the selection; they scroll the page only when nothing is selected.
+  const COURSE_KEYS: Record<string, (schedule: ScheduleState, courseId: string) => ScheduleState> =
+    {
+      ArrowUp: (schedule, courseId) => nudgeCourse(schedule, courseId, -1),
+      ArrowDown: (schedule, courseId) => nudgeCourse(schedule, courseId, 1),
+      ArrowLeft: (schedule, courseId) => shiftCourse(schedule, courseId, -1),
+      ArrowRight: (schedule, courseId) => shiftCourse(schedule, courseId, 1),
+    };
+
   function handleKeydown(event: KeyboardEvent): void {
-    const target = event.target as HTMLElement | null;
-    if (
-      loading ||
-      !(event.ctrlKey || event.metaKey) ||
-      target?.closest('input, select, textarea, [contenteditable]')
-    ) {
+    if (loading || loadError) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    const modifier = event.ctrlKey || event.metaKey;
+
+    // Before the text-field check: the browser's own Ctrl+S (save page) is never wanted here.
+    if (modifier && key === 's' && !event.shiftKey && !event.altKey) {
+      event.preventDefault();
+      void handleCopyLink();
       return;
     }
 
-    const key = event.key.toLowerCase();
-    if (key === 'z' && !event.shiftKey) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, select, textarea, [contenteditable]')) {
+      return;
+    }
+
+    if (modifier) {
+      if (key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        store.undo();
+      } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+        event.preventDefault();
+        store.redo();
+      }
+      return;
+    }
+
+    const course = store.selectedCourse;
+    if (!course || event.altKey || event.shiftKey) {
+      return;
+    }
+    const move = COURSE_KEYS[event.key];
+    if (move) {
       event.preventDefault();
-      store.undo();
-    } else if ((key === 'z' && event.shiftKey) || key === 'y') {
+      store.apply((schedule) => move(schedule, course.id));
+      store.reveal(course.id, true);
+    } else if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
-      store.redo();
+      store.removeSelectedCourse();
+    } else if (event.key === 'Escape') {
+      store.selectedCourseId = null;
     }
   }
 
@@ -88,22 +236,45 @@
 
     const text = await file.text();
     input.value = '';
-    const imported = store.apply(() => {
-      const parsed = JSON.parse(text) as ScheduleFile;
-      if (!parsed || typeof parsed !== 'object' || !parsed.semesters) {
-        throw new Error('Invalid schedule JSON format. Expected an object with a semesters field.');
-      }
-      return store.detangled(buildSchedule(store.catalog, parsed));
-    }, `Imported schedule from ${file.name}`);
-    if (imported) {
-      store.selectedCourseId = null;
+    const skipped: string[] = [];
+    let schedule: ScheduleState;
+    try {
+      schedule = store.detangled(
+        buildSchedule(store.catalog, parseScheduleFile(JSON.parse(text)), skipped),
+      );
+    } catch (error) {
+      store.notice = {
+        kind: 'error',
+        text: errorMessage(error, 'That file could not be imported.'),
+      };
+      return;
     }
+    applyPlan(schedule, skipped, `Imported schedule from ${file.name}.`);
   }
 
   onMount(async () => {
     try {
       const data = await loadSchedulerData();
+      defaultSchedule = data.schedule;
       store.load(data.catalog, data.schedule);
+
+      const encoded = planFromHash(window.location.hash);
+      if (encoded) {
+        try {
+          const { schedule, skipped } = await scheduleFromLink(encoded);
+          store.load(data.catalog, schedule, false);
+          if (skipped.length > 0) {
+            store.notice = {
+              kind: 'error',
+              text: 'Loaded the shared plan.' + skippedNote(skipped),
+            };
+          }
+        } catch (error) {
+          const reason = errorMessage(error, 'Could not load the plan link.');
+          store.notice = { kind: 'error', text: `${reason} Showing the default plan instead.` };
+        }
+      }
+      loadedSchedule = store.schedule;
     } catch (error) {
       loadError = errorMessage(error, 'Failed to load scheduler data.');
     } finally {
@@ -112,7 +283,7 @@
   });
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onhashchange={handleHashChange} />
 
 <svelte:head>
   <title>Scheduler · JosephCicalese.com</title>
@@ -152,22 +323,33 @@
             type="button"
             onclick={() => store.undo()}
             disabled={!store.canUndo}
-            title="Undo (Ctrl+Z)">Undo</button
+            title="Undo (Ctrl+Z)"
+            aria-keyshortcuts="Control+Z">Undo</button
           >
           <button
             type="button"
             onclick={() => store.redo()}
             disabled={!store.canRedo}
-            title="Redo (Ctrl+Shift+Z)">Redo</button
+            title="Redo (Ctrl+Shift+Z)"
+            aria-keyshortcuts="Control+Shift+Z Control+Y">Redo</button
           >
         </div>
         <button type="button" onclick={() => store.apply((schedule) => store.detangled(schedule))}
           >Auto-detangle lines</button
         >
+        <button type="button" onclick={handleReset}>Reset to default plan</button>
         <button type="button" class="danger" onclick={handleClear}>Clear All</button>
       </div>
 
-      <Panel title="Import / Export">
+      <Panel title="Save / Share">
+        <p>The page URL holds your plan and updates as you edit. Bookmark it or share it.</p>
+        <button
+          type="button"
+          class="copy-link"
+          onclick={handleCopyLink}
+          title="Copy link (Ctrl+S)"
+          aria-keyshortcuts="Control+S">Copy link to plan</button
+        >
         <div class="io-actions">
           <button type="button" onclick={() => importInputElement?.click()}>Import JSON</button>
           <button type="button" onclick={handleExportJson}>Export JSON</button>
@@ -224,6 +406,10 @@
     opacity: 0.45;
     cursor: not-allowed;
     box-shadow: none;
+  }
+
+  .copy-link {
+    width: 100%;
   }
 
   .history-actions,

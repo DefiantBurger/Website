@@ -118,8 +118,30 @@ export function createCourse(
   };
 }
 
-/** Expand a schedule file into course instances: one column per semester, sorted by date. */
-export function buildSchedule(catalog: CourseCatalog, scheduleFile: ScheduleFile): ScheduleState {
+/** Check the shape of untrusted JSON (an imported file or a share link) before building it. */
+export function parseScheduleFile(value: unknown): ScheduleFile {
+  const semesters = (value as { semesters?: unknown } | null)?.semesters;
+  if (!value || typeof value !== 'object' || !semesters || typeof semesters !== 'object') {
+    throw new Error('Invalid schedule format. Expected an object with a semesters field.');
+  }
+  for (const [key, entries] of Object.entries(semesters)) {
+    if (!Array.isArray(entries) || !entries.every((entry) => typeof entry === 'string')) {
+      throw new Error(`Semester '${key}' must be a list of course codes.`);
+    }
+  }
+  return value as ScheduleFile;
+}
+
+/**
+ * Expand a schedule file into course instances: one column per semester, sorted by date.
+ * Bad course entries throw, unless `skipped` is given: then they're left out and listed there,
+ * so an old link still loads after the catalog changes.
+ */
+export function buildSchedule(
+  catalog: CourseCatalog,
+  scheduleFile: ScheduleFile,
+  skipped?: string[],
+): ScheduleState {
   const semesters = scheduleFile.semesters ?? {};
   for (const key of Object.keys(semesters)) {
     if (!isSemesterKey(key)) {
@@ -145,11 +167,19 @@ export function buildSchedule(catalog: CourseCatalog, scheduleFile: ScheduleFile
       throw new Error(`Semester '${formatSemester(semester)}' must be a list of courses.`);
     }
     for (const entry of entries) {
-      const { courseName, requestedCredits } = parseCourseEntry(entry);
-      const occurrenceIndex = (occurrenceCounts[courseName] ?? 0) + 1;
-      occurrenceCounts[courseName] = occurrenceIndex;
-
-      const course = createCourse(catalog, courseName, occurrenceIndex, semester, requestedCredits);
+      let course: CourseInstance;
+      try {
+        const { courseName, requestedCredits } = parseCourseEntry(entry);
+        const occurrenceIndex = (occurrenceCounts[courseName] ?? 0) + 1;
+        course = createCourse(catalog, courseName, occurrenceIndex, semester, requestedCredits);
+        occurrenceCounts[courseName] = occurrenceIndex;
+      } catch (error) {
+        if (!skipped) {
+          throw error;
+        }
+        skipped.push(entry);
+        continue;
+      }
       coursesById[course.id] = course;
       columnCourseIds[semester].push(course.id);
     }

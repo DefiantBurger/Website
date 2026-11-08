@@ -6,6 +6,7 @@ import {
   exportSchedule,
   getValidCredits,
   parseCourseEntry,
+  parseScheduleFile,
   resolveCourseQuery,
   searchCatalog,
 } from '../../src/lib/scheduler/catalog.ts';
@@ -17,6 +18,7 @@ import {
   boardColumns,
   emptySchedule,
   moveCourse,
+  nudgeCourse,
   removeCourse,
   removeSemester,
   renameSemester,
@@ -182,6 +184,35 @@ describe('buildSchedule / exportSchedule', () => {
       /Unknown semester 'Fall 1'/,
     );
   });
+  test('skips bad course entries when asked, keeping occurrence numbering intact', () => {
+    const skipped: string[] = [];
+    const schedule = buildSchedule(
+      catalog,
+      { semesters: { fall24: ['NOPE 100', 'E C E 399[9]', 'E C E 399', 'MATH 221[x]'] } },
+      skipped,
+    );
+    assert.deepEqual(skipped, ['NOPE 100', 'E C E 399[9]', 'MATH 221[x]']);
+    assert.deepEqual(schedule.columnCourseIds.fall24, ['E C E 399__1']);
+    assert.throws(
+      () => buildSchedule(catalog, { semesters: { 'Fall 1': ['MATH 221'] } }, []),
+      /Unknown semester/,
+    );
+  });
+});
+
+describe('parseScheduleFile', () => {
+  test('accepts a well-formed file', () => {
+    const file = { semesters: { fall24: ['MATH 221'] } };
+    assert.equal(parseScheduleFile(file), file);
+  });
+
+  test('rejects anything without a semesters object of string lists', () => {
+    for (const value of [null, 3, 'x', [], {}, { semesters: 'x' }]) {
+      assert.throws(() => parseScheduleFile(value), /semesters field/);
+    }
+    assert.throws(() => parseScheduleFile({ semesters: { fall24: 'MATH 221' } }), /list of course/);
+    assert.throws(() => parseScheduleFile({ semesters: { fall24: [5] } }), /list of course/);
+  });
 });
 
 describe('searchCatalog / resolveCourseQuery', () => {
@@ -344,6 +375,25 @@ describe('schedule edits', () => {
     assert.equal(earlier.coursesById['MATH 222__1'].semester, PRECOLLEGE_SEMESTER);
     const atEnd = base();
     assert.equal(shiftCourse(atEnd, 'E C E 352__1', 1), atEnd);
+    // Shifting keeps the card's row, clamped to the target column's length.
+    assert.deepEqual(shiftCourse(base(), 'MATH 222__1', 1).columnCourseIds.spring25, [
+      'MATH 222__1',
+      'E C E 352__1',
+    ]);
+    assert.deepEqual(shiftCourse(base(), 'E C E 252__1', 1).columnCourseIds.spring25, [
+      'E C E 352__1',
+      'E C E 252__1',
+    ]);
+
+    const down = nudgeCourse(base(), 'MATH 222__1', 1);
+    assert.deepEqual(down.columnCourseIds.fall24, ['E C E 252__1', 'MATH 222__1']);
+    assert.deepEqual(nudgeCourse(down, 'MATH 222__1', -1).columnCourseIds.fall24, [
+      'MATH 222__1',
+      'E C E 252__1',
+    ]);
+    const top = base();
+    assert.equal(nudgeCourse(top, 'MATH 222__1', -1), top);
+    assert.equal(nudgeCourse(top, 'E C E 252__1', 1), top);
 
     const withCourse = addCourse(catalog, base(), 'E C E 399', 'fall24');
     const credited = setCourseCredits(catalog, withCourse.schedule, 'E C E 399__1', 3);

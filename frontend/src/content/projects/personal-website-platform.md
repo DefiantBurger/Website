@@ -231,7 +231,7 @@ Better Stack monitors uptime externally, and a public status page is linked from
 
 The platform hosts several interactive utilities that showcase different engineering challenges:
 
-- **Class Scheduler** (`/utilities/scheduler`): semester-based drag-and-drop planning with prerequisite validation, a dependency graph, variable-credit courses, auto-detangling of graph edges, and JSON import/export.
+- **Class Scheduler** (`/utilities/scheduler`): semester-based drag-and-drop planning with prerequisite validation, a dependency graph, variable-credit courses, auto-detangling of graph edges, plans saved and shared through the URL, and JSON import/export.
 - **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. Files are encrypted at rest (scrypt + AES-256-GCM), looked up by an HMAC of the key, limited to 100 MB each and 1 GB total, and expire after 10 minutes.
 - **Message Board** (`/utilities/message-board`): an anonymous board where posts expire 30 seconds after posting, with allowlist sanitization, a 280-character limit, and per-IP rate limiting.
 

@@ -28,14 +28,20 @@
   }
 
   $effect(() => {
-    if (element && store.revealRequest?.courseId === courseId) {
+    const request = store.revealRequest;
+    if (element && request?.courseId === courseId) {
       // JS scrolling ignores the CSS reduced-motion rule, so check it here.
       const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       element.scrollIntoView({
         behavior: smooth ? 'smooth' : 'auto',
-        block: 'center',
+        // Centering on every arrow press would make the board jump around.
+        block: request.fromKeyboard ? 'nearest' : 'center',
         inline: 'nearest',
       });
+      if (request.fromKeyboard) {
+        // A move re-creates or re-inserts the card, which drops focus to the page.
+        element.focus({ preventScroll: true });
+      }
       store.revealRequest = null;
     }
   });

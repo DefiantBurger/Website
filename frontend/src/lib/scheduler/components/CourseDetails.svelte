@@ -1,6 +1,6 @@
 <script lang="ts">
   import { buildRequirements } from '../catalog';
-  import { removeCourse, setCourseCredits, shiftCourse } from '../schedule';
+  import { setCourseCredits, shiftCourse } from '../schedule';
   import { PRECOLLEGE_SEMESTER, formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
   import type { RequirementCheck } from '../types';
@@ -9,7 +9,6 @@
   let { store }: { store: SchedulerStore } = $props();
 
   const course = $derived(store.selectedCourse);
-  const progress = $derived(course ? store.progressPercent(course.id) : null);
   const checks = $derived(course ? (store.graph.requirementChecksByCourseId[course.id] ?? []) : []);
   // Precollege courses aren't checked, so list their raw requirements instead.
   const uncheckedRequirements = $derived(
@@ -28,17 +27,6 @@
       ? store.schedule.coursesById[check.satisfiedByCourseId]
       : undefined;
     return satisfying ? `${satisfying.name}, ${formatSemester(satisfying.semester)}` : null;
-  }
-
-  function remove(): void {
-    if (course) {
-      const { id, name, semester } = course;
-      store.apply(
-        (schedule) => removeCourse(schedule, id),
-        `Removed ${name} from ${formatSemester(semester)}.`,
-      );
-      store.selectedCourseId = null;
-    }
   }
 </script>
 
@@ -70,9 +58,6 @@
       {/if}
     </div>
     <p>Semester: {formatSemester(course.semester)}</p>
-    {#if progress !== null}
-      <p>Prereq coverage: {progress}%</p>
-    {/if}
 
     <div class="move-controls">
       <button type="button" onclick={() => store.apply((s) => shiftCourse(s, course.id, -1))}>
@@ -83,7 +68,11 @@
       </button>
     </div>
 
-    <button type="button" class="danger" onclick={remove}>Remove Course</button>
+    <p class="key-hint">Keys: arrows move it, Delete removes it, Esc deselects.</p>
+
+    <button type="button" class="danger" onclick={() => store.removeSelectedCourse()}
+      >Remove Course</button
+    >
 
     <h3>Requirement Groups</h3>
     {#if uncheckedRequirements.length > 0}
@@ -148,6 +137,19 @@
   .move-controls button {
     font-size: 0.82rem;
     padding: 0.4rem 0.7rem;
+  }
+
+  .key-hint {
+    margin: 0 0 0.35rem;
+    font-size: 0.8rem;
+    opacity: 0.75;
+  }
+
+  /* Touch-only devices have no keyboard to use it with. */
+  @media (hover: none) {
+    .key-hint {
+      display: none;
+    }
   }
 
   ul {
