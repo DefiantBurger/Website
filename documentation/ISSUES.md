@@ -39,7 +39,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 3. The deploy smoke test only checks `/api/health/`, so it can't catch a broken frontend. PRs also run type checks but no frontend build, so build failures only appear on `main`.
 4. **Minor:** `pnpm audit` reports DOMPurify 3.4.16 (1 critical, 1 high, 1 low) and KaTeX 0.16.47 (1 low), both through Mermaid. Project Markdown is the only input and only the site owner writes it, so real exposure is low. Whether Mermaid uses the affected paths hasn't been confirmed.
 5. **Possible:** no DMARC, CAA, or DNSSEC. HSTS has no `includeSubDomains`, and there's no `security.txt`.
-6. **High:** the course catalog is the site's biggest transfer. Every scheduler load fetches `course_data.json` (about 3 MB; 10,414 courses) with `Cache-Control: no-cache`. It gzips to about 250 KB, but Debian's default Nginx only compresses `text/html` and `nginx.conf.tftpl` sets no `gzip_types`, so the VM sends the full 3 MB through the tunnel on every visit. Cloudflare compresses to the visitor but doesn't cache API JSON by default. Fix: `gzip on; gzip_types application/json;` in the Nginx template (one line). Going further: `gzip_static` with a pre-compressed copy, or a long `max_age` with a content hash in the URL. The ETag already makes repeat visits a cheap 304.
 
 ## Utilities
 

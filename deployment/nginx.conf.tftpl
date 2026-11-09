@@ -19,6 +19,13 @@ server {
 
 	client_max_body_size 1M;
 
+	# Debian's default only compresses text/html; the course catalog alone is ~3 MB
+	# of JSON (~250 KB gzipped). `any` because requests via Cloudflare may carry Via.
+	gzip on;
+	gzip_proxied any;
+	gzip_vary on;
+	gzip_types application/json text/css application/javascript image/svg+xml;
+
 	# `expires` rather than add_header, so the security headers below still apply.
 	expires $html_expires;
 
