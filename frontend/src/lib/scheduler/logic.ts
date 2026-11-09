@@ -1,10 +1,15 @@
 import { buildRequirements } from './catalog';
+import { boardColumns } from './schedule';
 import { PRECOLLEGE_SEMESTER } from './semesters';
 import type {
+  CheckStatus,
   CourseCatalog,
+  CreditOverlap,
   PrereqEdge,
   RequirementCheck,
   Requirement,
+  RequirementNode,
+  RequirementStatus,
   ScheduleProblem,
   ScheduleState,
   SchedulerGraph,
@@ -29,28 +34,88 @@ export function semesterIndexMap(schedule: ScheduleState): Record<string, number
   };
 }
 
-/** Pick the earliest-scheduled course instance that can satisfy the requirement. */
-function chooseBestRequirementCourse(
-  requirement: Requirement,
-  courseIdsByName: Record<string, string[]>,
-  coursesById: Record<string, { id: string; semester: string }>,
-  semesterToIndex: Record<string, number>,
-): string | undefined {
-  let bestCourseId: string | undefined;
+const STATUS_RANK: Record<CheckStatus, number> = {
+  met: 3,
+  concurrent: 2,
+  'out-of-order': 1,
+  missing: 0,
+};
 
-  for (const option of requirement.courseChoices) {
-    for (const candidateId of courseIdsByName[option] ?? []) {
-      if (
-        !bestCourseId ||
-        indexOf(semesterToIndex, coursesById[candidateId].semester) <
-          indexOf(semesterToIndex, coursesById[bestCourseId].semester)
-      ) {
-        bestCourseId = candidateId;
-      }
+const EDGE_STATUS: Record<Exclude<CheckStatus, 'missing'>, RequirementStatus> = {
+  met: 'valid',
+  concurrent: 'concurrent',
+  'out-of-order': 'invalid',
+};
+
+/** A node's result: its status, the semester it depends on, and the leaves that decided it. */
+interface NodeResult {
+  status: CheckStatus;
+  // Latest semester among the deciding leaves; breaks ties toward earlier courses.
+  semesterIndex: number;
+  leaves: { courseId: string; status: Exclude<CheckStatus, 'missing'> }[];
+}
+
+const MISSING: NodeResult = { status: 'missing', semesterIndex: Infinity, leaves: [] };
+
+/** Better status first, then the earlier semester; stable, so row order breaks remaining ties. */
+function compareResults(a: NodeResult, b: NodeResult): number {
+  return STATUS_RANK[b.status] - STATUS_RANK[a.status] || a.semesterIndex - b.semesterIndex;
+}
+
+interface EvaluationContext {
+  courseIndex: number;
+  courseIdsByName: Record<string, string[]>;
+  coursesById: Record<string, { semester: string }>;
+  semesterToIndex: Record<string, number>;
+}
+
+/**
+ * Evaluate a requirement node for a course in column `ctx.courseIndex`. A leaf
+ * uses its earliest scheduled instance; `any` takes its best child, `all` its
+ * worst, and `atleast k` its k-th best. `concurrent` is true under an `any`
+ * marked concurrent.
+ */
+function evaluateNode(
+  node: RequirementNode,
+  ctx: EvaluationContext,
+  concurrent: boolean,
+): NodeResult {
+  if (typeof node === 'string') {
+    const courseId = ctx.courseIdsByName[node]?.[0];
+    if (!courseId) {
+      return MISSING;
     }
+    const semesterIndex = indexOf(ctx.semesterToIndex, ctx.coursesById[courseId].semester);
+    const status: NodeResult['leaves'][number]['status'] =
+      semesterIndex < ctx.courseIndex
+        ? 'met'
+        : semesterIndex === ctx.courseIndex && concurrent
+          ? 'concurrent'
+          : 'out-of-order';
+    return { status, semesterIndex, leaves: [{ courseId, status }] };
   }
 
-  return bestCourseId;
+  if ('any' in node) {
+    const childConcurrent = concurrent || node.concurrent === true;
+    const results = node.any.map((child) => evaluateNode(child, ctx, childConcurrent));
+    return results.sort(compareResults)[0] ?? MISSING;
+  }
+
+  const [children, required] =
+    'all' in node ? [node.all, node.all.length] : [node.of, node.atleast];
+  const chosen = children
+    .map((child) => evaluateNode(child, ctx, concurrent))
+    .sort(compareResults)
+    .slice(0, required);
+  const worst = chosen.at(-1);
+  if (!worst || chosen.length < required) {
+    return MISSING;
+  }
+  return {
+    status: worst.status,
+    semesterIndex: Math.max(...chosen.map((result) => result.semesterIndex)),
+    leaves: chosen.flatMap((result) => result.leaves),
+  };
 }
 
 function buildCourseIdsByName(
@@ -75,8 +140,8 @@ function buildCourseIdsByName(
 }
 
 /**
- * Build prerequisite edges, a check per requirement group, and each course's
- * progress (satisfied groups / all groups). Precollege courses are taken as
+ * Build prerequisite edges, a check per requirement row, and each course's
+ * progress (satisfied rows / all rows). Precollege courses are taken as
  * already earned, so their own requirements aren't checked.
  */
 export function computeSchedulerGraph({
@@ -95,44 +160,30 @@ export function computeSchedulerGraph({
       continue;
     }
 
+    const ctx: EvaluationContext = {
+      courseIndex: indexOf(semesterToIndex, courseSemester),
+      courseIdsByName,
+      coursesById,
+      semesterToIndex,
+    };
     const checks: RequirementCheck[] = [];
     for (const requirement of requirements) {
-      const satisfiedByCourseId = chooseBestRequirementCourse(
-        requirement,
-        courseIdsByName,
-        coursesById,
-        semesterToIndex,
-      );
-      if (!satisfiedByCourseId) {
-        checks.push({ requirement, status: 'missing' });
-        continue;
+      const result = evaluateNode(requirement.node, ctx, false);
+      const matchedCourseIds: string[] = [];
+      for (const leaf of result.leaves) {
+        // The same course can decide a row through two branches; draw it once.
+        if (matchedCourseIds.includes(leaf.courseId)) {
+          continue;
+        }
+        matchedCourseIds.push(leaf.courseId);
+        edges.push({
+          id: `${courseId}__${requirement.key}__${leaf.courseId}`,
+          fromCourseId: leaf.courseId,
+          toCourseId: courseId,
+          status: EDGE_STATUS[leaf.status],
+        });
       }
-
-      const courseIndex = indexOf(semesterToIndex, courseSemester);
-      const reqIndex = indexOf(semesterToIndex, coursesById[satisfiedByCourseId].semester);
-
-      let status: PrereqEdge['status'];
-      if (courseIndex > reqIndex) {
-        status = 'valid';
-      } else if (courseIndex === reqIndex && requirement.canBeConcurrent) {
-        status = 'concurrent';
-      } else {
-        status = 'invalid';
-      }
-
-      checks.push({
-        requirement,
-        satisfiedByCourseId,
-        status:
-          status === 'valid' ? 'met' : status === 'concurrent' ? 'concurrent' : 'out-of-order',
-      });
-      edges.push({
-        id: `${courseId}__${satisfiedByCourseId}__${requirement.courseChoices.join('|')}`,
-        fromCourseId: satisfiedByCourseId,
-        toCourseId: courseId,
-        requirement,
-        status,
-      });
+      checks.push({ requirement, status: result.status, matchedCourseIds });
     }
 
     requirementChecksByCourseId[courseId] = checks;
@@ -158,16 +209,60 @@ export function scheduleGraph(catalog: CourseCatalog, schedule: ScheduleState): 
   });
 }
 
-/** Courses with unmet requirement groups, in board order (column, then card). */
-export function listProblems(schedule: ScheduleState, graph: SchedulerGraph): ScheduleProblem[] {
+/**
+ * Pairs of scheduled courses that can't both count for credit. Uses each
+ * course's earliest instance; the later of the two (by semester, then card
+ * order) is the redundant one. Pairs entirely in precollege are already earned.
+ */
+export function findCreditOverlaps(
+  schedule: ScheduleState,
+  overlapIndex: Record<string, string[]>,
+): CreditOverlap[] {
+  const position: Record<string, [number, number]> = {};
+  const earliestByName: Record<string, string> = {};
+  for (const [column, semester] of boardColumns(schedule).entries()) {
+    for (const [row, courseId] of (schedule.columnCourseIds[semester] ?? []).entries()) {
+      position[courseId] = [column, row];
+      earliestByName[schedule.coursesById[courseId].name] ??= courseId;
+    }
+  }
+  const compareBoardOrder = (a: string, b: string) =>
+    position[a][0] - position[b][0] || position[a][1] - position[b][1];
+
+  const overlaps: CreditOverlap[] = [];
+  for (const [name, courseId] of Object.entries(earliestByName)) {
+    for (const otherName of overlapIndex[name] ?? []) {
+      const otherCourseId = earliestByName[otherName];
+      // Each pair is seen from both sides; keep the side where this course is the later one.
+      if (
+        otherCourseId &&
+        compareBoardOrder(courseId, otherCourseId) > 0 &&
+        schedule.coursesById[courseId].semester !== PRECOLLEGE_SEMESTER
+      ) {
+        overlaps.push({ courseId, otherCourseId });
+      }
+    }
+  }
+  return overlaps;
+}
+
+/** Courses with unmet requirement rows or redundant credit, in board order (column, then card). */
+export function listProblems(
+  schedule: ScheduleState,
+  graph: SchedulerGraph,
+  overlaps: CreditOverlap[] = [],
+): ScheduleProblem[] {
   const problems: ScheduleProblem[] = [];
   for (const semester of schedule.semesterOrder) {
     for (const courseId of schedule.columnCourseIds[semester] ?? []) {
       const checks = (graph.requirementChecksByCourseId[courseId] ?? []).filter(
         (check) => check.status === 'out-of-order' || check.status === 'missing',
       );
-      if (checks.length > 0) {
-        problems.push({ courseId, checks });
+      const overlapsWith = overlaps
+        .filter((overlap) => overlap.courseId === courseId)
+        .map((overlap) => overlap.otherCourseId);
+      if (checks.length > 0 || overlapsWith.length > 0) {
+        problems.push({ courseId, checks, overlapsWith });
       }
     }
   }

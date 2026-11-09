@@ -2,6 +2,7 @@
   import { formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
   import Panel from './Panel.svelte';
+  import RequirementText from './RequirementText.svelte';
 
   let { store }: { store: SchedulerStore } = $props();
 </script>
@@ -18,14 +19,21 @@
             type="button"
             class="problem"
             class:selected={store.selectedCourseId === problem.courseId}
+            class:warning-only={problem.checks.length === 0}
             onclick={() => store.reveal(problem.courseId)}
           >
             <strong>{course.name}</strong>
             <span class="semester">{formatSemester(course.semester)}</span>
-            {#each problem.checks as check (check.requirement.courseChoices.join('|'))}
+            {#each problem.checks as check (check.requirement.key)}
               <span class="detail">
-                {check.requirement.courseChoices.join(' OR ')}
+                <RequirementText node={check.requirement.node} />
                 {check.status === 'missing' ? 'missing' : 'too late'}
+              </span>
+            {/each}
+            {#each problem.overlapsWith as otherId (otherId)}
+              {@const other = store.schedule.coursesById[otherId]}
+              <span class="detail overlap">
+                no credit: overlaps {other.name} ({formatSemester(other.semester)})
               </span>
             {/each}
           </button>
@@ -63,15 +71,24 @@
   }
 
   .problem.selected {
-    box-shadow: 0 0 0 1px var(--color-text-primary);
+    /* Inset: the scrolling list clips anything drawn outside the card. */
+    box-shadow: inset 0 0 0 1px var(--color-text-primary);
   }
 
   .semester {
     color: var(--color-text-muted);
   }
 
+  .problem.warning-only {
+    border-color: var(--color-warning);
+  }
+
   .detail {
     width: 100%;
     color: var(--color-error);
+  }
+
+  .detail.overlap {
+    color: var(--color-warning);
   }
 </style>

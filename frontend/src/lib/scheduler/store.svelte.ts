@@ -1,10 +1,10 @@
 // Scheduler page state shared by its components. Schedule edits go through `apply`, which
 // records undo history; the edits themselves are pure functions in schedule.ts.
 import { errorMessage } from '../api';
-import { getValidCredits } from './catalog';
+import { buildCreditOverlapIndex, getValidCredits } from './catalog';
 import { createHistory, commit, redo, undo } from './history';
 import { formatSemester } from './semesters';
-import { detangleCourseOrder, listProblems, scheduleGraph } from './logic';
+import { detangleCourseOrder, findCreditOverlaps, listProblems, scheduleGraph } from './logic';
 import { boardColumns, emptySchedule, removeCourse, repeatPositions } from './schedule';
 import type { CourseCatalog, ScheduleState } from './types';
 
@@ -25,7 +25,9 @@ export class SchedulerStore {
   readonly schedule = $derived(this.history.present);
   readonly columns = $derived(boardColumns(this.schedule));
   readonly graph = $derived(scheduleGraph(this.catalog, this.schedule));
-  readonly problems = $derived(listProblems(this.schedule, this.graph));
+  readonly creditOverlapIndex = $derived(buildCreditOverlapIndex(this.catalog));
+  readonly creditOverlaps = $derived(findCreditOverlaps(this.schedule, this.creditOverlapIndex));
+  readonly problems = $derived(listProblems(this.schedule, this.graph, this.creditOverlaps));
   readonly repeats = $derived(repeatPositions(this.schedule));
   readonly canUndo = $derived(this.history.past.length > 0);
   readonly canRedo = $derived(this.history.future.length > 0);
@@ -94,6 +96,17 @@ export class SchedulerStore {
   reveal(courseId: string, fromKeyboard = false): void {
     this.selectedCourseId = courseId;
     this.revealRequest = { courseId, fromKeyboard };
+  }
+
+  /** Scheduled courses that can't count for credit alongside this one (either side of a pair). */
+  overlapPartners(courseId: string): string[] {
+    return this.creditOverlaps.flatMap((overlap) =>
+      overlap.courseId === courseId
+        ? [overlap.otherCourseId]
+        : overlap.otherCourseId === courseId
+          ? [overlap.courseId]
+          : [],
+    );
   }
 
   progressPercent(courseId: string): number | null {

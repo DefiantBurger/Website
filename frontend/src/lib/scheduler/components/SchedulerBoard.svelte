@@ -54,8 +54,8 @@
         continue;
       }
 
-      // Concurrent edges join card centers; others run right side -> left side.
-      const isConcurrent = edge.requirement.canBeConcurrent;
+      // Concurrent (same-semester) edges join card centers; others run right side -> left side.
+      const isConcurrent = edge.status === 'concurrent';
       lines.push({
         id: edge.id,
         fromCourseId: edge.fromCourseId,

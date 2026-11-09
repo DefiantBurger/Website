@@ -2,16 +2,24 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import {
+  buildCreditOverlapIndex,
   buildSchedule,
   exportSchedule,
   getValidCredits,
+  parseCatalogFile,
   parseCourseEntry,
   parseScheduleFile,
   resolveCourseQuery,
+  requirementText,
   searchCatalog,
 } from '../../src/lib/scheduler/catalog.ts';
 import { commit, createHistory, redo, undo } from '../../src/lib/scheduler/history.ts';
-import { detangleCourseOrder, listProblems, scheduleGraph } from '../../src/lib/scheduler/logic.ts';
+import {
+  detangleCourseOrder,
+  findCreditOverlaps,
+  listProblems,
+  scheduleGraph,
+} from '../../src/lib/scheduler/logic.ts';
 import {
   addCourse,
   addSemester,
@@ -35,37 +43,77 @@ import {
   sortSemesters,
   upcomingMainTerm,
 } from '../../src/lib/scheduler/semesters.ts';
-import type { CourseCatalog, PrereqEdge, ScheduleState } from '../../src/lib/scheduler/types.ts';
+import type {
+  CourseCatalogFile,
+  CourseCatalogRecord,
+  PrereqEdge,
+  RequirementNode,
+  ScheduleState,
+  SchedulerGraph,
+} from '../../src/lib/scheduler/types.ts';
 
-// Small made-up catalog covering fixed and variable credits, alternatives, and
-// concurrent prereqs. Kept separate from the real course_data.json so the tests
-// don't break when the catalog is regenerated.
-const catalog: CourseCatalog = {
-  'MATH 221': { title: 'Calculus I', credits: 5, prereqs: [], concurrent_prereqs: [] },
-  'MATH 222': { title: 'Calculus II', credits: 4, prereqs: [['MATH 221']], concurrent_prereqs: [] },
-  'PHYSICS 201': {
-    title: 'Physics I',
-    credits: 5,
-    prereqs: [],
-    concurrent_prereqs: [['MATH 222']],
-  },
-  'E C E 252': { title: 'Digital Systems', credits: 3, prereqs: [], concurrent_prereqs: [] },
-  'E C E 352': {
-    title: 'Digital System Fundamentals',
-    credits: 3,
-    prereqs: [['E C E 252'], ['MATH 222', 'PHYSICS 201']],
-    concurrent_prereqs: [],
-  },
-  'E C E 399': {
-    title: 'Independent Study',
-    min_credits: 1,
-    max_credits: 3,
-    prereqs: [],
-    concurrent_prereqs: [],
+// Small made-up catalog in the version 2 file format, covering fixed and
+// variable credits, alternatives, nesting, atleast, and scoped concurrency.
+// Kept separate from the real course_data.json so the tests don't break when
+// the catalog is regenerated.
+const course = (
+  title: string,
+  credits: number | [number, number],
+  ...rows: RequirementNode[]
+): CourseCatalogRecord => ({
+  title,
+  ...(Array.isArray(credits) ? { min_credits: credits[0], max_credits: credits[1] } : { credits }),
+  requisites_text: rows.length > 0 ? 'made up' : '',
+  requires: rows.length > 0 ? { all: rows } : null,
+  not_open_with_credit_for: [],
+  last_taught: null,
+});
+
+const catalogFile: CourseCatalogFile = {
+  version: 2,
+  generated: '2026-11-09',
+  source: 'test',
+  courses: {
+    'MATH 221': course('Calculus I', 5),
+    'MATH 222': course('Calculus II', 4, 'MATH 221'),
+    'PHYSICS 201': course('Physics I', 5, { any: ['MATH 222'], concurrent: true }),
+    'E C E 252': course('Digital Systems', 3),
+    'E C E 352': course('Digital System Fundamentals', 3, 'E C E 252', {
+      any: ['MATH 222', 'PHYSICS 201'],
+    }),
+    'E C E 399': course('Independent Study', [1, 3]),
+    'ECON 101': course('Microeconomics', 4),
+    'ECON 102': course('Macroeconomics', 4),
+    'ECON 111': course('Principles Accelerated', 4),
+    'ECON 301': course('Intermediate Micro', 4, {
+      any: [{ all: ['ECON 101', 'ECON 102'] }, 'ECON 111'],
+    }),
+    'ART 458': course('Typography', 3),
+    'ART 463': course('Interaction Design', 3),
+    'ART 465': course('Motion Design', 3),
+    'ART 560': course('Senior Thesis', 3, {
+      atleast: 2,
+      of: ['ART 458', 'ART 463', 'ART 465'],
+    }),
+    // Listed on one side only, as in the real catalog.
+    'MATH 340': { ...course('Linear Algebra', 3), not_open_with_credit_for: ['MATH 341'] },
+    'MATH 341': course('Linear Algebra Proofs', 3),
+    'CBE 310': course('Transport Phenomena', 3),
+    'CHEM 561': course('Physical Chemistry', 3),
+    'CBE 320': course('Reactor Design', 3, {
+      any: ['CBE 310', { any: ['CHEM 561'], concurrent: true }],
+    }),
   },
 };
+const catalog = parseCatalogFile(catalogFile);
 
 const graphFor = (schedule: ScheduleState) => scheduleGraph(catalog, schedule);
+// [status, matched course ids] for each requirement row of a course.
+const rowStatuses = (graph: SchedulerGraph, courseId: string) =>
+  graph.requirementChecksByCourseId[courseId].map((check) => [
+    check.status,
+    check.matchedCourseIds,
+  ]);
 
 describe('parseCourseEntry', () => {
   test('plain names, trimmed', () => {
@@ -83,6 +131,42 @@ describe('parseCourseEntry', () => {
     assert.throws(() => parseCourseEntry('E C E 399[2'), /bracket not closed/);
     assert.throws(() => parseCourseEntry('E C E 399[x]'), /not a valid credit count/);
     assert.throws(() => parseCourseEntry('E C E 399[-1]'), /not a valid credit count/);
+  });
+});
+
+describe('parseCatalogFile', () => {
+  test('unwraps a version 2 file', () => {
+    assert.equal(parseCatalogFile(catalogFile), catalogFile.courses);
+  });
+
+  test('rejects other versions and the old unversioned format', () => {
+    assert.throws(
+      () => parseCatalogFile({ ...catalogFile, version: 3 }),
+      /version 3.*expected version 2/,
+    );
+    assert.throws(() => parseCatalogFile({ 'MATH 221': {} }), /version none/);
+    assert.throws(() => parseCatalogFile(null), /expected version 2/);
+    assert.throws(() => parseCatalogFile({ version: 2 }), /no courses/);
+  });
+});
+
+describe('requirementText', () => {
+  test('renders rows readably, marking concurrent courses', () => {
+    const text = (name: string) => requirementText(catalog[name].requires!.all[0]);
+    assert.equal(text('E C E 352'), 'E C E 252');
+    assert.equal(requirementText({ any: ['ART 102', 'ART 107'] }), 'ART 102 or ART 107');
+    assert.equal(text('ECON 301'), 'ECON 101 and ECON 102, or ECON 111');
+    assert.equal(text('ART 560'), '2 of: ART 458, ART 463, ART 465');
+    assert.equal(text('CBE 320'), 'CBE 310 or CHEM 561*');
+    assert.equal(text('PHYSICS 201'), 'MATH 222*');
+    assert.equal(
+      requirementText({ any: [{ all: ['A 1', { any: ['B 1', 'C 1'] }] }, 'D 1'] }),
+      '(A 1 and (B 1 or C 1)) or D 1',
+    );
+    assert.equal(
+      requirementText({ atleast: 2, of: [{ all: ['A 1', 'B 1'] }, 'C 1', 'D 1'] }),
+      '2 of: (A 1 and B 1), C 1, D 1',
+    );
   });
 });
 
@@ -285,22 +369,17 @@ describe('scheduleGraph', () => {
     assert.ok(!graph.edges.some((edge) => edge.toCourseId === 'E C E 352__1'));
   });
 
-  test('checks each group: met, concurrent, out of order, or missing', () => {
+  test('checks each row: met, concurrent, out of order, or missing', () => {
     const schedule = buildSchedule(catalog, {
       semesters: { fall24: ['MATH 222', 'PHYSICS 201', 'E C E 352'], spring25: ['MATH 221'] },
     });
     const graph = graphFor(schedule);
-    const statuses = (id: string) =>
-      graph.requirementChecksByCourseId[id].map((check) => [
-        check.status,
-        check.satisfiedByCourseId,
-      ]);
 
-    assert.deepEqual(statuses('MATH 222__1'), [['out-of-order', 'MATH 221__1']]);
-    assert.deepEqual(statuses('PHYSICS 201__1'), [['concurrent', 'MATH 222__1']]);
-    assert.deepEqual(statuses('E C E 352__1'), [
-      ['missing', undefined],
-      ['out-of-order', 'MATH 222__1'],
+    assert.deepEqual(rowStatuses(graph, 'MATH 222__1'), [['out-of-order', ['MATH 221__1']]]);
+    assert.deepEqual(rowStatuses(graph, 'PHYSICS 201__1'), [['concurrent', ['MATH 222__1']]]);
+    assert.deepEqual(rowStatuses(graph, 'E C E 352__1'), [
+      ['missing', []],
+      ['out-of-order', ['MATH 222__1']],
     ]);
     assert.equal(graph.requirementProgressByCourseId['E C E 352__1'], 0);
     assert.equal(graph.requirementProgressByCourseId['PHYSICS 201__1'], 1);
@@ -314,10 +393,105 @@ describe('scheduleGraph', () => {
         fall25: ['E C E 352'],
       },
     });
-    const edge = graphFor(schedule).edges.find(
-      (item) => item.toCourseId === 'E C E 352__1' && item.requirement.courseChoices.length === 2,
+    assert.deepEqual(rowStatuses(graphFor(schedule), 'E C E 352__1')[1], [
+      'met',
+      ['PHYSICS 201__1'],
+    ]);
+  });
+
+  test('nested any/all: a complete pair or the single alternative', () => {
+    const check = (semesters: Record<string, string[]>) =>
+      rowStatuses(graphFor(buildSchedule(catalog, { semesters })), 'ECON 301__1')[0];
+
+    assert.deepEqual(check({ fall24: ['ECON 101', 'ECON 102'], spring25: ['ECON 301'] }), [
+      'met',
+      ['ECON 101__1', 'ECON 102__1'],
+    ]);
+    // Half the pair isn't enough, but the scheduled half still decides the row.
+    assert.deepEqual(check({ fall24: ['ECON 101'], spring25: ['ECON 301'] }), [
+      'missing',
+      ['ECON 101__1'],
+    ]);
+    // A met alternative beats a pair with one course too late.
+    assert.deepEqual(
+      check({ fall24: ['ECON 101', 'ECON 111'], spring25: ['ECON 301'], fall25: ['ECON 102'] }),
+      ['met', ['ECON 111__1']],
     );
-    assert.equal(edge?.fromCourseId, 'PHYSICS 201__1');
+    // With no met option, the pair is only as good as its worst course.
+    assert.deepEqual(check({ fall24: ['ECON 101'], spring25: ['ECON 301', 'ECON 102'] }), [
+      'out-of-order',
+      ['ECON 101__1', 'ECON 102__1'],
+    ]);
+  });
+
+  test('atleast: satisfied, not enough, and out of order', () => {
+    const check = (semesters: Record<string, string[]>) => {
+      const graph = graphFor(buildSchedule(catalog, { semesters }));
+      return {
+        row: rowStatuses(graph, 'ART 560__1')[0],
+        edges: graph.edges.filter((edge) => edge.toCourseId === 'ART 560__1').length,
+      };
+    };
+
+    // Takes the two earliest of three met options.
+    assert.deepEqual(
+      check({
+        fall24: ['ART 463'],
+        spring25: ['ART 465'],
+        fall25: ['ART 458'],
+        spring26: ['ART 560'],
+      }),
+      { row: ['met', ['ART 463__1', 'ART 465__1']], edges: 2 },
+    );
+    assert.deepEqual(check({ fall24: ['ART 458'], spring25: ['ART 560'] }), {
+      row: ['missing', ['ART 458__1']],
+      edges: 1,
+    });
+    // The second-best option is in the same semester, which isn't allowed here.
+    assert.deepEqual(check({ fall24: ['ART 458'], spring25: ['ART 560', 'ART 463'] }), {
+      row: ['out-of-order', ['ART 458__1', 'ART 463__1']],
+      edges: 2,
+    });
+  });
+
+  test('concurrency is scoped to the marked node', () => {
+    const run = (semesters: Record<string, string[]>) => {
+      const graph = graphFor(buildSchedule(catalog, { semesters }));
+      return {
+        row: rowStatuses(graph, 'CBE 320__1')[0],
+        edges: graph.edges
+          .filter((edge) => edge.toCourseId === 'CBE 320__1')
+          .map((edge) => [edge.fromCourseId, edge.status]),
+      };
+    };
+
+    assert.deepEqual(run({ fall24: ['CBE 320', 'CHEM 561'] }), {
+      row: ['concurrent', ['CHEM 561__1']],
+      edges: [['CHEM 561__1', 'concurrent']],
+    });
+    // CBE 310 is outside the concurrent node, so the same semester is too late.
+    assert.deepEqual(run({ fall24: ['CBE 320', 'CBE 310'] }), {
+      row: ['out-of-order', ['CBE 310__1']],
+      edges: [['CBE 310__1', 'invalid']],
+    });
+    // Met beats concurrent.
+    assert.deepEqual(run({ fall24: ['CBE 310'], spring25: ['CBE 320', 'CHEM 561'] }), {
+      row: ['met', ['CBE 310__1']],
+      edges: [['CBE 310__1', 'valid']],
+    });
+  });
+
+  test('edge ids are unique per course, row, and leaf', () => {
+    const schedule = buildSchedule(catalog, {
+      semesters: {
+        fall24: ['MATH 221', 'E C E 252', 'ECON 101', 'ECON 102'],
+        spring25: ['MATH 222', 'ECON 301'],
+        fall25: ['E C E 352', 'E C E 352'],
+      },
+    });
+    const ids = graphFor(schedule).edges.map((edge) => edge.id);
+    assert.equal(new Set(ids).size, ids.length);
+    assert.ok(ids.includes('ECON 301__1__0__ECON 102__1'));
   });
 
   test('lists problems in board order with only the unmet groups', () => {
@@ -336,6 +510,56 @@ describe('scheduleGraph', () => {
         ['E C E 352__2', ['missing']],
       ],
     );
+  });
+});
+
+describe('credit overlaps', () => {
+  const overlapIndex = buildCreditOverlapIndex(catalog);
+  const overlapsFor = (semesters: Record<string, string[]>) =>
+    findCreditOverlaps(buildSchedule(catalog, { semesters }), overlapIndex).map((overlap) => [
+      overlap.courseId,
+      overlap.otherCourseId,
+    ]);
+
+  test('the index is symmetric', () => {
+    assert.deepEqual(overlapIndex['MATH 340'], ['MATH 341']);
+    assert.deepEqual(overlapIndex['MATH 341'], ['MATH 340']);
+    assert.equal(overlapIndex['MATH 221'], undefined);
+  });
+
+  test('flags the later course of a pair, whichever side lists it', () => {
+    assert.deepEqual(overlapsFor({ fall24: ['MATH 341'], spring25: ['MATH 340'] }), [
+      ['MATH 340__1', 'MATH 341__1'],
+    ]);
+    assert.deepEqual(overlapsFor({ fall24: ['MATH 340'], spring25: ['MATH 341'] }), [
+      ['MATH 341__1', 'MATH 340__1'],
+    ]);
+    // Same semester: the lower card is the redundant one.
+    assert.deepEqual(overlapsFor({ fall24: ['MATH 341', 'MATH 340'] }), [
+      ['MATH 340__1', 'MATH 341__1'],
+    ]);
+  });
+
+  test('precollege credit counts, but a pair already earned is not flagged', () => {
+    assert.deepEqual(overlapsFor({ [PRECOLLEGE_SEMESTER]: ['MATH 340'], fall24: ['MATH 341'] }), [
+      ['MATH 341__1', 'MATH 340__1'],
+    ]);
+    assert.deepEqual(overlapsFor({ [PRECOLLEGE_SEMESTER]: ['MATH 340', 'MATH 341'] }), []);
+    assert.deepEqual(overlapsFor({ fall24: ['MATH 340', 'MATH 340'] }), []);
+  });
+
+  test('overlaps appear in the problem list', () => {
+    const schedule = buildSchedule(catalog, {
+      semesters: { fall24: ['MATH 340'], spring25: ['MATH 341'] },
+    });
+    const problems = listProblems(
+      schedule,
+      graphFor(schedule),
+      findCreditOverlaps(schedule, overlapIndex),
+    );
+    assert.deepEqual(problems, [
+      { courseId: 'MATH 341__1', checks: [], overlapsWith: ['MATH 340__1'] },
+    ]);
   });
 });
 
@@ -465,7 +689,6 @@ describe('detangleCourseOrder', () => {
     id: `${toCourseId}__${fromCourseId}`,
     fromCourseId,
     toCourseId,
-    requirement: { courseChoices: [], canBeConcurrent: false },
     status: 'valid',
   });
 

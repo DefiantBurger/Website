@@ -19,6 +19,12 @@
   const course = $derived(store.schedule.coursesById[courseId]);
   const progress = $derived(store.progressPercent(courseId));
   const repeat = $derived(store.repeats[courseId]);
+  const overlapNames = $derived(
+    store
+      .overlapPartners(courseId)
+      .map((id) => store.schedule.coursesById[id]?.name)
+      .join(', '),
+  );
   const selected = $derived(store.selectedCourseId === courseId);
 
   let element = $state<HTMLButtonElement>();
@@ -84,6 +90,12 @@
           title="Repeated ({repeat.position} of {repeat.total})">↻</span
         >
         <span class="sr-only">, repeated, {repeat.position} of {repeat.total},</span>
+      {/if}
+      {#if overlapNames}
+        <span class="overlap-icon" aria-hidden="true" title="No credit with both: {overlapNames}"
+          >≠</span
+        >
+        <span class="sr-only">, no credit with both this and {overlapNames},</span>
       {/if}
       <span class="course-credits">{course.credits}cr</span>
     </span>
@@ -152,6 +164,12 @@
   .repeat-icon {
     font-size: 0.85rem;
     color: var(--color-accent);
+  }
+
+  .overlap-icon {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--color-warning);
   }
 
   .progress-wrap {

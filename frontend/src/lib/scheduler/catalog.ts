@@ -1,8 +1,10 @@
 // Course catalog helpers and conversion between schedule files and course instances.
 import type {
   CourseCatalog,
+  CourseCatalogFile,
   CourseInstance,
   Requirement,
+  RequirementNode,
   ScheduleFile,
   ScheduleState,
 } from './types';
@@ -86,19 +88,120 @@ function resolveCredits(
   return requestedCredits;
 }
 
+/** Unwrap `course_data.json`, failing clearly on any format but version 2. */
+export function parseCatalogFile(value: unknown): CourseCatalog {
+  const file = value as Partial<CourseCatalogFile> | null;
+  if (!file || typeof file !== 'object' || file.version !== 2) {
+    const found = file && typeof file === 'object' ? (file.version ?? 'none') : typeof value;
+    throw new Error(`Unsupported course catalog format (version ${found}); expected version 2.`);
+  }
+  if (!file.courses || typeof file.courses !== 'object') {
+    throw new Error('Course catalog has no courses object.');
+  }
+  return file.courses;
+}
+
+/**
+ * Courses that can't both count for credit, by course. Symmetric, because the
+ * catalog usually lists the pair on only one side (MATH 340 lists MATH 341, not
+ * the reverse).
+ */
+export function buildCreditOverlapIndex(catalog: CourseCatalog): Record<string, string[]> {
+  const index: Record<string, Set<string>> = {};
+  for (const [name, record] of Object.entries(catalog)) {
+    for (const other of record.not_open_with_credit_for ?? []) {
+      if (other !== name) {
+        (index[name] ??= new Set()).add(other);
+        (index[other] ??= new Set()).add(name);
+      }
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(index).map(([name, others]) => [name, [...others].sort()]),
+  );
+}
+
+/** One `Requirement` per item of the top-level `all`. */
 export function buildRequirements(catalog: CourseCatalog, courseName: string): Requirement[] {
-  const item = lookupCourse(catalog, courseName);
-  if (!item) {
-    return [];
+  return (lookupCourse(catalog, courseName)?.requires?.all ?? []).map((node, index) => ({
+    key: String(index),
+    node,
+  }));
+}
+
+/** A run of requirement text; `concurrent` marks a course that may be taken in the same semester. */
+export interface RequirementPart {
+  text: string;
+  concurrent?: boolean;
+}
+
+function childrenOf(node: Exclude<RequirementNode, string>): RequirementNode[] {
+  return 'all' in node ? node.all : 'any' in node ? node.any : node.of;
+}
+
+// A one-child any/all (e.g. `{"any": ["X"], "concurrent": true}`) reads as its child.
+function unwrap(node: RequirementNode): RequirementNode {
+  while (typeof node !== 'string' && !('atleast' in node) && childrenOf(node).length === 1) {
+    node = childrenOf(node)[0];
+  }
+  return node;
+}
+
+const isComposite = (node: RequirementNode) => typeof unwrap(node) !== 'string';
+// Small enough to read without parentheses: an any/all of plain courses.
+function isFlat(node: RequirementNode): boolean {
+  const inner = unwrap(node);
+  return (
+    typeof inner !== 'string' &&
+    !('atleast' in inner) &&
+    childrenOf(inner).every((child) => !isComposite(child))
+  );
+}
+
+/**
+ * Render a requirement row as text parts: "ART 102 or ART 107", "ECON 101 and
+ * ECON 102, or ECON 111", "2 of: ART 458, ART 463". Flat groups directly under
+ * the row stay bare (joined with ", or"/", and"); deeper groups get parentheses.
+ */
+export function requirementParts(
+  node: RequirementNode,
+  concurrent = false,
+  isRoot = true,
+): RequirementPart[] {
+  if (typeof node === 'string') {
+    return [{ text: node, ...(concurrent && { concurrent: true }) }];
   }
 
-  return [
-    ...(item.prereqs ?? []).map((group) => ({ courseChoices: group, canBeConcurrent: false })),
-    ...(item.concurrent_prereqs ?? []).map((group) => ({
-      courseChoices: group,
-      canBeConcurrent: true,
-    })),
-  ];
+  const childConcurrent = concurrent || ('any' in node && node.concurrent === true);
+  const children = childrenOf(node);
+  if (children.length === 1 && !('atleast' in node)) {
+    return requirementParts(children[0], childConcurrent, isRoot);
+  }
+  const bareGroups = isRoot && !('atleast' in node);
+  const rendered = children.map((child) => {
+    const parts = requirementParts(child, childConcurrent, false);
+    return isComposite(child) && !(bareGroups && isFlat(child))
+      ? [{ text: '(' }, ...parts, { text: ')' }]
+      : parts;
+  });
+
+  if ('atleast' in node) {
+    return [{ text: `${node.atleast} of: ` }, ...joinParts(rendered, ', ')];
+  }
+  const word = 'all' in node ? 'and' : 'or';
+  const hasBareGroup = children.some((child) => isComposite(child) && bareGroups && isFlat(child));
+  return joinParts(rendered, hasBareGroup ? `, ${word} ` : ` ${word} `);
+}
+
+function joinParts(groups: RequirementPart[][], separator: string): RequirementPart[] {
+  return groups.flatMap((parts, index) => (index === 0 ? parts : [{ text: separator }, ...parts]));
+}
+
+/** Plain-text form of `requirementParts`, with `*` after courses that may be concurrent. */
+export function requirementText(node: RequirementNode): string {
+  return requirementParts(node)
+    .map((part) => (part.concurrent ? `${part.text}*` : part.text))
+    .join('');
 }
 
 export function createCourse(

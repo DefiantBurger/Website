@@ -1,18 +1,35 @@
 <script lang="ts">
-  import { buildRequirements } from '../catalog';
+  import { buildRequirements, requirementText } from '../catalog';
   import { setCourseCredits, shiftCourse } from '../schedule';
   import { PRECOLLEGE_SEMESTER, formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
   import type { RequirementCheck } from '../types';
   import Panel from './Panel.svelte';
+  import RequirementText from './RequirementText.svelte';
 
   let { store }: { store: SchedulerStore } = $props();
 
   const course = $derived(store.selectedCourse);
   const checks = $derived(course ? (store.graph.requirementChecksByCourseId[course.id] ?? []) : []);
+  // Every course this one can't count alongside, flagged when it's in the plan.
+  const overlaps = $derived(
+    course
+      ? (store.creditOverlapIndex[course.name] ?? []).map((name) => ({
+          name,
+          scheduledId: store
+            .overlapPartners(course.id)
+            .find((id) => store.schedule.coursesById[id]?.name === name),
+        }))
+      : [],
+  );
   // Precollege courses aren't checked, so list their raw requirements instead.
   const uncheckedRequirements = $derived(
     course?.semester === PRECOLLEGE_SEMESTER ? buildRequirements(store.catalog, course.name) : [],
+  );
+  const showConcurrentLegend = $derived(
+    [...uncheckedRequirements, ...checks.map((check) => check.requirement)].some((requirement) =>
+      requirementText(requirement.node).includes('*'),
+    ),
   );
 
   const STATUS_LABELS: Record<RequirementCheck['status'], string> = {
@@ -22,11 +39,12 @@
     missing: 'missing',
   };
 
-  function satisfiedBy(check: RequirementCheck): string | null {
-    const satisfying = check.satisfiedByCourseId
-      ? store.schedule.coursesById[check.satisfiedByCourseId]
-      : undefined;
-    return satisfying ? `${satisfying.name}, ${formatSemester(satisfying.semester)}` : null;
+  function matchedBy(check: RequirementCheck): string {
+    return check.matchedCourseIds
+      .map((id) => store.schedule.coursesById[id])
+      .filter(Boolean)
+      .map((matched) => `${matched.name}, ${formatSemester(matched.semester)}`)
+      .join('; ');
   }
 </script>
 
@@ -74,32 +92,45 @@
       >Remove Course</button
     >
 
-    <h3>Requirement Groups</h3>
+    <h3>Requirements</h3>
     {#if uncheckedRequirements.length > 0}
       <p>Precollege credit, so these aren't checked:</p>
       <ul>
-        {#each uncheckedRequirements as requirement (requirement.courseChoices.join('|'))}
-          <li>{requirement.courseChoices.join(' OR ')}</li>
+        {#each uncheckedRequirements as requirement (requirement.key)}
+          <li><RequirementText node={requirement.node} /></li>
         {/each}
       </ul>
     {:else if checks.length === 0}
       <p>No catalog prerequisites.</p>
     {:else}
       <ul class="checks">
-        {#each checks as check (check.requirement.courseChoices.join('|'))}
-          {@const by = satisfiedBy(check)}
+        {#each checks as check (check.requirement.key)}
+          {@const by = matchedBy(check)}
           <li>
             <span class="status status-{check.status}">[{STATUS_LABELS[check.status]}]</span>
-            {check.requirement.courseChoices.join(' OR ')}
-            {#if check.requirement.canBeConcurrent}
-              <span class="req-tag">concurrent allowed</span>
-            {/if}
+            <RequirementText node={check.requirement.node} />
             {#if by}
               <span class="satisfied-by">via {by}</span>
             {/if}
           </li>
         {/each}
       </ul>
+    {/if}
+    {#if showConcurrentLegend}
+      <p class="legend">* may be taken in the same semester</p>
+    {/if}
+    {#if overlaps.length > 0}
+      <p class="overlaps">
+        <span class="label">No credit with both this and:</span>
+        {#each overlaps as overlap, index (overlap.name)}
+          {@const scheduled = overlap.scheduledId
+            ? store.schedule.coursesById[overlap.scheduledId]
+            : undefined}
+          {#if scheduled}<span class="in-plan"
+              >{overlap.name} (in plan, {formatSemester(scheduled.semester)})</span
+            >{:else}{overlap.name}{/if}{index < overlaps.length - 1 ? ', ' : ''}
+        {/each}
+      </p>
     {/if}
   {:else}
     <p>Select a course card to inspect details.</p>
@@ -182,10 +213,19 @@
     color: var(--color-error);
   }
 
-  .req-tag {
-    margin-left: 0.3rem;
-    font-size: 0.75rem;
-    color: var(--color-concurrent);
+  .legend,
+  .overlaps {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+  }
+
+  .overlaps .label {
+    font-weight: bold;
+  }
+
+  .in-plan {
+    color: var(--color-warning);
   }
 
   .satisfied-by {
