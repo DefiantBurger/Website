@@ -39,6 +39,7 @@ flowchart LR
 - `.github/workflows/deploy.yaml`: run by hand on `main`; reruns `test.yaml`, then deploys.
 - `documentation/`: these docs.
 - `start-dev.sh`: runs backend and frontend together for local development.
+- `deploy.sh`: dispatches the Deploy workflow on `main` and follows the run.
 - `test.sh`: runs every local check (backend tests, frontend unit tests, check, and build, browser smoke test and a11y scan).
 
 ## Runtime Flows

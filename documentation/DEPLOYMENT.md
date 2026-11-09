@@ -125,7 +125,7 @@ The deploy workflow ships only the release tarball (`backend/` app code and `fro
 | Change | How |
 | --- | --- |
 | App code or content | Push or merge to `main`; *Test* runs, as on pull requests. Nothing deploys until you run *Deploy* by hand (next row). |
-| Deploy the tip of `main` | Actions → *Deploy* → *Run workflow* on `main`, or `gh workflow run deploy.yaml --ref main`. The run calls `test.yaml`, then runs `package` and `deploy`. A release that already exists on the VM is reactivated without being rebuilt, so this also retries a failed deploy. |
+| Deploy the tip of `main` | `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, then follows the run and exits non-zero on failure). Or Actions → *Deploy* → *Run workflow* on `main`, or `gh workflow run deploy.yaml --ref main`. The run calls `test.yaml`, then runs `package` and `deploy`. A release that already exists on the VM is reactivated without being rebuilt, so this also retries a failed deploy. |
 | Docs only (`documentation/**` or any `README.md`) | Push to `main`. *Test* doesn't run, so nothing is tested. A push that also changes anything else runs the tests. Project write-ups are under `frontend/src/content/`, so they count as content and need a deploy to go live. |
 | Roll back | On the VM: `ls -t /opt/personalwebsite/releases`, then `sudo personalwebsite-deploy --rollback <sha>`. |
 | Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`) |
