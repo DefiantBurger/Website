@@ -10,6 +10,11 @@ describe('normalizePath', () => {
     assert.equal(normalizePath('/about///'), '/about');
   });
 
+  test('collapses leading slashes so the path stays same-origin', () => {
+    assert.equal(normalizePath('//evil.com/'), '/evil.com');
+    assert.equal(normalizePath('///about'), '/about');
+  });
+
   test('keeps the root path', () => {
     assert.equal(normalizePath('/'), '/');
     assert.equal(normalizePath('//'), '/');

@@ -15,7 +15,7 @@ import json
 import os
 import threading
 import unicodedata
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -372,14 +372,8 @@ def _evict_oldest_records(required_free_bytes: int) -> int:
 	return freed_bytes
 
 
-def save_upload(
-	uploaded_file: FileStorage, password: str, clear_existing: bool = False
-) -> FileShareRecord:
-	"""Encrypt and store a file under the key, evicting old files if over quota.
-
-	With `clear_existing`, the key's previous files are deleted first; otherwise the
-	file is appended at the next occurrence index.
-	"""
+def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
+	"""Encrypt and store a file at the key's next occurrence index, evicting old files if over quota."""
 	if not password.strip():
 		raise FileShareError('Access key is required.')
 	if uploaded_file.filename is None or not uploaded_file.filename.strip():
@@ -388,11 +382,7 @@ def save_upload(
 	cleanup_expired_records()
 	label = build_label(password)
 
-	if clear_existing:
-		_remove_record(label)
-		occurrence_index = 1
-	else:
-		occurrence_index = max(_existing_indices(label), default=0) + 1
+	occurrence_index = max(_existing_indices(label), default=0) + 1
 
 	meta_path, payload_path = _record_paths(label, occurrence_index)
 	plaintext = uploaded_file.read()
@@ -450,6 +440,18 @@ def save_upload(
 		salt_b64=salt_b64,
 		nonce_b64=nonce_b64,
 	)
+
+
+def delete_records(password: str, occurrence_indices: Iterable[int]) -> int:
+	"""Delete the key's files at the given indices (missing ones are skipped); returns how many were removed."""
+	if not password.strip():
+		raise FileShareError('Access key is required.')
+
+	label = build_label(password)
+	targets = set(_existing_indices(label)).intersection(occurrence_indices)
+	for occurrence_index in targets:
+		_remove_record(label, occurrence_index)
+	return len(targets)
 
 
 def decrypt_record_payload(record: FileShareRecord, password: str) -> bytes:

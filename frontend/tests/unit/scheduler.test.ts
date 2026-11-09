@@ -131,6 +131,8 @@ describe('parseCourseEntry', () => {
     assert.throws(() => parseCourseEntry('E C E 399[2'), /bracket not closed/);
     assert.throws(() => parseCourseEntry('E C E 399[x]'), /not a valid credit count/);
     assert.throws(() => parseCourseEntry('E C E 399[-1]'), /not a valid credit count/);
+    assert.throws(() => parseCourseEntry('E C E 399[3abc]'), /not a valid credit count/);
+    assert.throws(() => parseCourseEntry('E C E 399[]'), /not a valid credit count/);
   });
 });
 

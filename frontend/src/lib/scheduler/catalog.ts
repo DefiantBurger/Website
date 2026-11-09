@@ -36,15 +36,13 @@ export function parseCourseEntry(entry: string): { courseName: string; requested
   const bracketPos = entry.lastIndexOf('[');
   const courseName = entry.slice(0, bracketPos).trim();
   const creditText = entry.slice(bracketPos + 1, -1).trim();
-  const requestedCredits = Number.parseInt(creditText, 10);
-
-  if (Number.isNaN(requestedCredits) || requestedCredits < 0) {
+  if (!/^\d+$/.test(creditText)) {
     throw new Error(
       `Malformed course entry '${entry}': '${creditText}' is not a valid credit count.`,
     );
   }
 
-  return { courseName, requestedCredits };
+  return { courseName, requestedCredits: Number(creditText) };
 }
 
 /** Credit options for a course, lowest (the default) first. */

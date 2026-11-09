@@ -132,6 +132,39 @@ class TestViewsAPI(unittest.TestCase):
 		self.assertEqual(acc_res.data, b'Hello secret fileshare!')
 		self.assertIn('attachment', acc_res.headers.get('Content-Disposition', ''))
 
+	def _upload(self, name, content, password='pass'):
+		res = self.client.post(
+			'/api/fileshare/upload/',
+			data={'file': (BytesIO(content), name), 'password': password},
+			content_type='multipart/form-data',
+		)
+		self.assertEqual(res.status_code, 200)
+		return res.get_json()
+
+	def test_fileshare_replace_batch_flow(self):
+		# What the UI does: upload the new batch, then delete the old one.
+		old = self._upload('old.txt', b'old')
+		new = [self._upload(name, b'new') for name in ('a.txt', 'b.txt')]
+		self.assertEqual([r['occurrenceIndex'] for r in new], [2, 3])
+
+		res = self.client.post(
+			'/api/fileshare/delete/',
+			data={'password': 'pass', 'occurrenceIndices': str(old['occurrenceIndex'])},
+		)
+		self.assertEqual(res.status_code, 200)
+		self.assertEqual(res.get_json(), {'deletedCount': 1})
+
+		files = self.client.post('/api/fileshare/list/', data={'password': 'pass'}).get_json()
+		self.assertEqual([f['originalFilename'] for f in files['files']], ['a.txt', 'b.txt'])
+
+	def test_fileshare_delete_rejects_bad_input(self):
+		res = self.client.post(
+			'/api/fileshare/delete/', data={'password': 'pass', 'occurrenceIndices': '1,x'}
+		)
+		self.assertEqual(res.status_code, 400)
+		res = self.client.post('/api/fileshare/delete/', data={'occurrenceIndices': '1'})
+		self.assertEqual(res.status_code, 400)
+
 	def test_static_folder_is_not_served(self):
 		res = self.client.get('/static/json/course_data.json')
 		self.assertEqual(res.status_code, 404)

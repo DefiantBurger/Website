@@ -1,5 +1,6 @@
 /* Muted Terminal Theme - CSS Variables */
 :root {
+  color-scheme: dark;
   /* Primary Colors */
   --color-bg-dark: #0d111c;
   --color-bg-surface: #151a29;
@@ -30,6 +31,7 @@
 }
 
 :root[data-theme='light'] {
+  color-scheme: light;
   --color-bg-dark: #eef3f8;
   --color-bg-surface: #ffffff;
   --color-text-primary: #31444f;

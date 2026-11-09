@@ -80,7 +80,8 @@ All `POST` bodies are `multipart/form-data`. `password` is the access key.
 | Method | Path | Fields | Response |
 | --- | --- | --- | --- |
 | GET | `/api/fileshare/status/` | | storage status (below) |
-| POST | `/api/fileshare/upload/` | `file`, `password`, `clearExisting` (`"true"` deletes the key's existing files first) | upload record (below) |
+| POST | `/api/fileshare/upload/` | `file`, `password` | upload record (below), stored at the key's next `occurrenceIndex` |
+| POST | `/api/fileshare/delete/` | `password`, `occurrenceIndices` (comma-separated) | `{"deletedCount": n}`; missing indices are skipped |
 | POST | `/api/fileshare/list/` | `password` | `{"files": [{occurrenceIndex, originalFilename, sizeBytes, uploadedAt, expiresAt}]}`; 404 if none |
 | POST | `/api/fileshare/access/` | `password`, `occurrenceIndex` (default `1`) | file as an `application/octet-stream` attachment |
 
@@ -90,7 +91,7 @@ All `POST` bodies are `multipart/form-data`. `password` is the access key.
   "maxTotalBytes": 1000000000, "retentionSeconds": 600 }
 
 // upload
-{ "label": "<hex HMAC>", "originalFilename": "report.pdf", "sizeBytes": 123456,
+{ "label": "<hex HMAC>", "occurrenceIndex": 1, "originalFilename": "report.pdf", "sizeBytes": 123456,
   "uploadedAt": "2026-05-01T12:00:00+00:00", "expiresAt": "2026-05-01T12:10:00+00:00" }
 ```
 
@@ -106,7 +107,7 @@ Errors: `400` missing key/file, `403` decryption failed, `404` no matching file,
 - **Expiry.** Expired files are deleted during file-share API requests, not on a schedule.
 - **Downloads** ignore the uploader's MIME type and send `X-Content-Type-Options: nosniff`, so uploaded HTML can't execute on the site's origin.
 
-The UI uploads one or more files under one key (the first upload sends `clearExisting=true`, so a new batch replaces the key's previous files), lists the key's files, and downloads them individually or all at once.
+The UI uploads one or more files under one key, one request per file (each request is capped at 100 MB). A new batch replaces the key's previous files: the UI notes the existing indices, uploads every file, and only then deletes the old ones. If an upload fails, it deletes the files it already stored instead, so the previous batch survives (`lib/fileshare/replaceBatch.ts`). Indices keep counting up across batches rather than restarting at 1. The UI also lists the key's files and downloads them individually or all at once.
 
 ## Message Board
 

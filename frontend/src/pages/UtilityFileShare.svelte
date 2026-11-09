@@ -44,8 +44,8 @@
     ['Retention', formatSeconds(status?.retentionSeconds ?? 600)],
     ['Per-file cap', formatBytes(MAX_FILE_BYTES)],
     [
-      'Storage usage',
-      `${formatBytes(status?.usedBytes ?? 0)} used of ${formatBytes(status?.maxTotalBytes ?? 1_073_741_824)}`,
+      'Storage used',
+      `${formatBytes(status?.usedBytes ?? 0)} / ${formatBytes(status?.maxTotalBytes ?? 1_073_741_824)}`,
     ],
   ]);
 
@@ -87,20 +87,33 @@
 
     uploadBusy = true;
     try {
-      const results = await uploadFileShare(uploadFiles, uploadPassword.trim());
-      const fileNames = results.map((r) => r.originalFilename).join(', ');
-      uploadSuccess = `Stored ${results.length} file(s): ${fileNames}.`;
-      uploadPassword = '';
-      uploadFiles = [];
-      // The input keeps its own FileList, so clear it to match `uploadFiles`.
-      if (uploadInput) {
-        uploadInput.value = '';
+      const result = await uploadFileShare(uploadFiles, uploadPassword.trim());
+      if (result.ok) {
+        const fileNames = result.uploaded.map((r) => r.originalFilename).join(', ');
+        uploadSuccess = `Stored ${result.uploaded.length} file(s): ${fileNames}.`;
+        if (!result.oldFilesRemoved) {
+          uploadError =
+            "Couldn't remove this key's previous files; they stay listed until they expire.";
+        }
+        uploadPassword = '';
+        uploadFiles = [];
+        // The input keeps its own FileList, so clear it to match `uploadFiles`.
+        if (uploadInput) {
+          uploadInput.value = '';
+        }
+      } else {
+        const reason = errorMessage(result.error, 'Upload failed.');
+        const outcome =
+          result.uploadedCount === 0 || result.rolledBack
+            ? 'Nothing was replaced; the key still has its previous files.'
+            : `The ${result.uploadedCount} file(s) stored before it couldn't be removed and are listed alongside the previous files until they expire.`;
+        uploadError = `Upload failed on ${result.failedFile}: ${reason}\n${outcome}`;
       }
-      await loadStatus();
     } catch (error) {
       uploadError = errorMessage(error, 'Upload failed.');
     } finally {
       uploadBusy = false;
+      await loadStatus();
     }
   }
 
@@ -128,7 +141,8 @@
     try {
       accessFiles = (await listFileShareFiles(key)).files;
       if (accessFiles.length > 0) {
-        selectedFileIndex = 1;
+        // Indices don't restart at 1: a replaced batch keeps counting up.
+        selectedFileIndex = accessFiles[0].occurrenceIndex;
         accessSuccess = `Found ${accessFiles.length} file(s) for this access key.`;
       } else {
         accessError = 'No files found for this access key.';
@@ -330,16 +344,18 @@
 </section>
 
 <section class="terminal-box info-panel">
-  <h2 class="prompt">Storage Rules</h2>
-  <div class="stats">
+  <h2 class="prompt">Storage Info</h2>
+  <dl class="stats">
     {#each stats as [label, value] (label)}
-      <div><strong>{label}</strong><span>{value}</span></div>
+      <div>
+        <dt>{label}</dt>
+        <dd>{value}</dd>
+      </div>
     {/each}
-  </div>
-  <p>
-    Each access key hashes to one label. Uploading with an existing access key will override all
-    previous files for that key. Each file expires 10 minutes after it is uploaded, and the payloads
-    remain encrypted on disk using a key derived from the same access key.
+  </dl>
+  <p class="note">
+    Uploading under an existing key replaces its files. Files stay encrypted on disk with a key
+    derived from your access key.
   </p>
 </section>
 
@@ -410,36 +426,55 @@
 
   .info-panel {
     margin-top: 1.5rem;
+    container-type: inline-size;
   }
 
+  /* Explicit 1/2/4 steps so a stat is never left alone on a row; 4 columns need
+     ~80rem for the longest row ("999.9 MB / 1.00 GB") to stay on one line. */
   .stats {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+    grid-template-columns: 1fr;
+    column-gap: 2rem;
+    margin: 0 0 1rem;
+  }
+
+  @container (min-width: 40rem) {
+    .stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @container (min-width: 80rem) {
+    .stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
   }
 
   .stats div {
     display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 1rem;
-    border: 1px dashed var(--color-primary-opacity-30);
-    border-radius: 3px;
-    background: var(--color-primary-opacity-10);
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed var(--color-primary-opacity-30);
   }
 
-  .stats strong {
+  .stats dt {
+    opacity: 0.75;
+  }
+
+  .stats dd {
+    margin: 0;
+  }
+
+  .note {
+    margin: 0;
     font-size: 0.9rem;
-  }
-
-  .stats span {
-    font-size: 1.1rem;
+    opacity: 0.85;
   }
 
   @media (max-width: 900px) {
-    .grid,
-    .stats {
+    .grid {
       grid-template-columns: 1fr;
     }
   }

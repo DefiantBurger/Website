@@ -5,5 +5,6 @@ export function saveBlob(blob: Blob, filename: string): void {
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-  URL.revokeObjectURL(url);
+  // Firefox and Safari can fail the download if the URL is revoked before it starts.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }

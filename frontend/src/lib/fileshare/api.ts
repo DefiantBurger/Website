@@ -1,4 +1,5 @@
-import { apiFetch, apiJson } from '../api';
+import { ApiError, apiFetch, apiJson } from '../api';
+import { replaceBatch, type ReplaceBatchResult } from './replaceBatch';
 
 export interface FileShareStatus {
   activeFileCount: number;
@@ -10,6 +11,7 @@ export interface FileShareStatus {
 
 export interface FileShareUploadResult {
   label: string;
+  occurrenceIndex: number;
   originalFilename: string;
   sizeBytes: number;
   uploadedAt: string;
@@ -58,19 +60,56 @@ export function fetchFileShareStatus(): Promise<FileShareStatus> {
   return apiJson<FileShareStatus>('/api/fileshare/status/');
 }
 
-/** Upload files one at a time; the first clears the key's existing files, so each call replaces the previous batch. */
+/** Replace the key's files with `files`, keeping the old ones if any upload fails. */
 export async function uploadFileShare(
   files: File[],
   password: string,
-): Promise<FileShareUploadResult[]> {
-  const results: FileShareUploadResult[] = [];
-
-  for (const [index, file] of files.entries()) {
-    const init = postForm({ file, password, clearExisting: index === 0 ? 'true' : 'false' });
-    results.push(await apiJson<FileShareUploadResult>('/api/fileshare/upload/', init));
+): Promise<ReplaceBatchResult<FileShareUploadResult>> {
+  // Fail before touching the server if a selected file was moved or deleted since it was picked.
+  for (const file of files) {
+    await readFile(file.slice(0, 1), file.name);
   }
 
-  return results;
+  return replaceBatch(files, {
+    listIndices: async () => {
+      try {
+        return (await listFileShareFiles(password)).files.map((f) => f.occurrenceIndex);
+      } catch (error) {
+        // The list endpoint answers 404 when the key has no files.
+        if (error instanceof ApiError && error.status === 404) {
+          return [];
+        }
+        throw error;
+      }
+    },
+    upload: async (file) => {
+      // Send an in-memory copy: some browsers leave the fetch hanging forever when a
+      // disk-backed body file disappears, which would skip the rollback.
+      const copy = new File([await readFile(file, file.name)], file.name, { type: file.type });
+      return apiJson<FileShareUploadResult>(
+        '/api/fileshare/upload/',
+        postForm({ file: copy, password }),
+      );
+    },
+    deleteIndices: (indices) => deleteFileShareFiles(password, indices),
+  });
+}
+
+async function readFile(blob: Blob, name: string): Promise<ArrayBuffer> {
+  try {
+    return await blob.arrayBuffer();
+  } catch {
+    throw new Error(
+      `Couldn't read ${name}; it may have been moved or deleted. Choose the files again.`,
+    );
+  }
+}
+
+export async function deleteFileShareFiles(password: string, indices: number[]): Promise<void> {
+  await apiFetch(
+    '/api/fileshare/delete/',
+    postForm({ password, occurrenceIndices: indices.join(',') }),
+  );
 }
 
 export async function downloadFileShare(

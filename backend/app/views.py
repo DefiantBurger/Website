@@ -15,6 +15,7 @@ from .fileshare import (
 	FileShareError,
 	cleanup_expired_records,
 	decrypt_record_payload,
+	delete_records,
 	get_all_records_for_password,
 	get_record_for_password,
 	get_storage_status,
@@ -130,30 +131,50 @@ def fileshare_status():
 
 @views.route('/api/fileshare/upload/', methods=['POST'])
 def fileshare_upload():
-	# Form fields: file, password, clearExisting ("true" replaces the key's existing files).
+	# Form fields: file, password. Always appends; the client deletes the old batch afterwards.
 	uploaded_file = request.files.get('file')
 	password = request.form.get('password', '')
-	clear_existing_str = request.form.get('clearExisting', 'false')
-	clear_existing = clear_existing_str.lower() == 'true'
 
 	if uploaded_file is None:
 		return jsonify({'error': 'A file is required.'}), 400
 
 	try:
 		with transfer_slot():
-			record = save_upload(uploaded_file, password, clear_existing=clear_existing)
+			record = save_upload(uploaded_file, password)
 	except FileShareError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
 	return jsonify(
 		{
 			'label': record.label,
+			'occurrenceIndex': record.occurrence_index,
 			'originalFilename': record.original_filename,
 			'sizeBytes': record.size_bytes,
 			'uploadedAt': record.uploaded_at,
 			'expiresAt': record.expires_at,
 		}
 	)
+
+
+@views.route('/api/fileshare/delete/', methods=['POST'])
+def fileshare_delete():
+	# Form fields: password, occurrenceIndices (comma-separated).
+	password = request.form.get('password', '')
+	try:
+		occurrence_indices = [
+			int(part)
+			for part in request.form.get('occurrenceIndices', '').split(',')
+			if part.strip()
+		]
+	except ValueError:
+		return jsonify({'error': 'Invalid occurrence index.'}), 400
+
+	try:
+		deleted_count = delete_records(password, occurrence_indices)
+	except FileShareError as exc:
+		return jsonify({'error': exc.message}), exc.status_code
+
+	return jsonify({'deletedCount': deleted_count})
 
 
 @views.route('/api/fileshare/access/', methods=['POST'])

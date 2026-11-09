@@ -27,6 +27,7 @@ from app.fileshare import (
 	build_label,
 	cleanup_expired_records,
 	decrypt_record_payload,
+	delete_records,
 	get_all_records_for_password,
 	get_record_for_password,
 	get_storage_status,
@@ -220,38 +221,28 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 			decrypt_record_payload(record, 'wrong-key')
 		self.assertEqual(ctx.exception.status_code, 403)
 
-	def test_save_upload_clear_existing(self):
-		# Upload first file
-		f1 = self._create_mock_file('file1.txt', b'First')
-		save_upload(f1, 'shared-key', clear_existing=False)
+	def test_save_upload_appends_under_same_key(self):
+		rec1 = save_upload(self._create_mock_file('file1.txt', b'First'), 'shared-key')
+		rec2 = save_upload(self._create_mock_file('file2.txt', b'Second'), 'shared-key')
+		self.assertEqual((rec1.occurrence_index, rec2.occurrence_index), (1, 2))
+		self.assertEqual(len(get_all_records_for_password('shared-key')), 2)
 
-		# Upload second file with same key, without clear_existing
-		f2 = self._create_mock_file('file2.txt', b'Second')
-		rec2 = save_upload(f2, 'shared-key', clear_existing=False)
-		self.assertEqual(rec2.occurrence_index, 2)
+	def test_delete_records_removes_only_given_indices(self):
+		save_upload(self._create_mock_file('old.txt', b'1'), 'del-key')
+		save_upload(self._create_mock_file('new.txt', b'2'), 'del-key')
+		other = save_upload(self._create_mock_file('other.txt', b'3'), 'other-key')
 
-		all_records = get_all_records_for_password('shared-key')
-		self.assertEqual(len(all_records), 2)
+		# Index 5 doesn't exist and is skipped.
+		self.assertEqual(delete_records('del-key', [1, 5]), 1)
 
-		# Upload third file with clear_existing=True
-		f3 = self._create_mock_file('file3.txt', b'Third')
-		rec3 = save_upload(f3, 'shared-key', clear_existing=True)
-		self.assertEqual(rec3.occurrence_index, 1)
-
-		all_records_after = get_all_records_for_password('shared-key')
-		self.assertEqual(len(all_records_after), 1)
-		self.assertEqual(all_records_after[0].original_filename, 'file3.txt')
-
-	def test_clear_existing_removes_records_after_gap(self):
-		rec1 = save_upload(self._create_mock_file('one.txt', b'1'), 'gap-key')
-		save_upload(self._create_mock_file('two.txt', b'2'), 'gap-key')
-		for path in _record_paths(rec1.label, rec1.occurrence_index):
-			path.unlink()
-
-		save_upload(self._create_mock_file('new.txt', b'3'), 'gap-key', clear_existing=True)
-
-		names = [r.original_filename for r in get_all_records_for_password('gap-key')]
+		names = [r.original_filename for r in get_all_records_for_password('del-key')]
 		self.assertEqual(names, ['new.txt'])
+		self.assertEqual(get_all_records_for_password('other-key'), [other])
+
+	def test_delete_records_requires_key(self):
+		with self.assertRaises(FileShareError) as ctx:
+			delete_records('  ', [1])
+		self.assertEqual(ctx.exception.status_code, 400)
 
 	def test_cleanup_expired_records(self):
 		now = datetime.now(UTC)

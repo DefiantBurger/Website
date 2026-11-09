@@ -183,6 +183,13 @@
     white-space: pre-wrap;
   }
 
+  /* Undo the global inline `code` box so fenced blocks don't nest a border inside the `pre`. */
+  .project-content :global(pre code) {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+
   .project-content :global(ul),
   .project-content :global(ol) {
     margin-left: 1.2rem;

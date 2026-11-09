@@ -3,7 +3,8 @@
 /** Drop query, hash, and trailing slashes so each route has one canonical path. */
 export function normalizePath(path: string): string {
   const pathname = path.split(/[?#]/)[0];
-  return pathname.replace(/\/+$/, '') || '/';
+  // A leading `//` would make history.replaceState read the path as another origin.
+  return pathname.replace(/^\/+/, '/').replace(/\/+$/, '') || '/';
 }
 
 /** Params for `pathname` if it matches `pattern` (`:name` segments capture), else null. */
