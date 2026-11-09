@@ -1,35 +1,35 @@
 {
 	"semesters": {
 		"precollege": [
-			"MATH 221",
-			"E C E 210"
+			"E C E 210",
+			"MATH 221"
 		],
 		"fall24": [
-			"MATH 222",
 			"CHEM 103",
 			"COMP SCI 220",
+			"MATH 222",
 			"HIST SCI 150",
 			"SOC 196"
 		],
 		"spring25": [
-			"MATH 234",
+			"COMP SCI 300",
 			"E C E 252",
 			"COMP SCI 402",
-			"COMP SCI 300",
 			"PHYSICS 201",
+			"MATH 234",
 			"INTL ST 110"
 		],
 		"fall25": [
-			"E C E 352",
-			"COMP SCI 240",
 			"COMP SCI 400",
-			"PHYSICS 202",
-			"E C E 203"
+			"E C E 203",
+			"COMP SCI 240",
+			"E C E 352",
+			"PHYSICS 202"
 		],
 		"spring26": [
-			"E C E 230",
-			"E C E 270",
 			"E C E 354",
+			"E C E 270",
+			"E C E 230",
 			"E C E 235",
 			"SOC 220[4]"
 		],
@@ -37,35 +37,38 @@
 			"E C E 340"
 		],
 		"fall26": [
-			"E C E 222",
 			"E C E 353",
 			"E C E 315",
+			"E C E 271",
+			"E C E 222",
 			"E C E 551",
 			"PHYSICS 311",
-			"E C E 271",
 			"PHYSICS 499[3]"
 		],
 		"spring27": [
 			"INTEREGR 397",
-			"E C E 335",
-			"PHYSICS 531",
-			"STAT 311",
-			"E C E 305",
 			"E C E 313",
+			"E C E 335",
+			"E C E 305",
+			"STAT 311",
+			"PHYSICS 531",
 			"PHYSICS 301",
-			"PHYSICS 499[3]"
+			"PHYSICS 499[2]"
 		],
 		"fall27": [
-			"PHYSICS 321",
-			"E C E 555",
-			"E C E 320",
-			"COMP SCI 537"
+			"E C E 1"
 		],
 		"spring28": [
 			"E C E 453",
-			"E C E 549",
 			"E C E 556",
+			"E C E 549",
 			"PHYSICS 361"
+		],
+		"fall28": [
+			"COMP SCI 537",
+			"E C E 555",
+			"E C E 320",
+			"PHYSICS 321"
 		]
 	}
 }
