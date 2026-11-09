@@ -3,7 +3,6 @@ import unittest
 from app import create_app
 from app.views import (
 	_cloudflare_geolocation,
-	_mask_ip,
 	_resolve_client_ip,
 )
 
@@ -57,19 +56,6 @@ class TestIPHelpers(unittest.TestCase):
 			ip, source = _resolve_client_ip()
 			self.assertEqual(ip, '127.0.0.1')
 			self.assertEqual(source, 'remote_addr')
-
-	def test_mask_ip_ipv4(self):
-		self.assertEqual(_mask_ip('192.168.1.50'), '192.168.1.x')
-		self.assertEqual(_mask_ip('8.8.8.8'), '8.8.8.x')
-
-	def test_mask_ip_ipv6(self):
-		masked = _mask_ip('2001:0db8:85a3:0000:0000:8a2e:0370:7334')
-		self.assertEqual(masked, '2001:0db8:85a3:xxxx:xxxx:xxxx:xxxx:xxxx')
-
-	def test_mask_ip_invalid_and_empty(self):
-		self.assertEqual(_mask_ip(''), 'Unavailable')
-		self.assertEqual(_mask_ip('not-an-ip'), 'Unavailable')
-		self.assertEqual(_mask_ip('999.999.999.999'), 'Unavailable')
 
 
 class TestCloudflareGeolocation(unittest.TestCase):

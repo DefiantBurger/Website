@@ -73,12 +73,11 @@ All `POST` bodies are `multipart/form-data`. `password` is the access key.
 ```json
 // status
 { "activeFileCount": 3, "usedBytes": 8451200, "maxFileBytes": 100000000,
-  "maxTotalBytes": 1000000000, "retentionSeconds": 600, "uploadsPaused": false }
+  "maxTotalBytes": 1000000000, "retentionSeconds": 600 }
 
 // upload
 { "label": "<hex HMAC>", "originalFilename": "report.pdf", "sizeBytes": 123456,
-  "uploadedAt": "2026-05-01T12:00:00+00:00", "expiresAt": "2026-05-01T12:10:00+00:00",
-  "downloadEndpoint": "/api/fileshare/access/" }
+  "uploadedAt": "2026-05-01T12:00:00+00:00", "expiresAt": "2026-05-01T12:10:00+00:00" }
 ```
 
 Errors: `400` missing key/file, `403` decryption failed, `404` no matching file, `413` file over 100 MB, `503` storage full or too many concurrent transfers.
@@ -103,7 +102,7 @@ Anonymous board where messages expire 60 seconds after posting.
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| GET | `/api/messageboard/messages/` | | `{messages, serverTime, retentionSeconds, totalActive}`, newest first |
+| GET | `/api/messageboard/messages/` | | `{messages, retentionSeconds}`, newest first |
 | POST | `/api/messageboard/messages/` | JSON or form: `{"text": "..."}` | `201` with the message |
 | GET | `/api/messageboard/status/` | | `{activeCount, retentionSeconds, maxMessageLength, maxMessages}` |
 

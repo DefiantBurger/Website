@@ -1,4 +1,3 @@
-import ipaddress
 from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
@@ -63,26 +62,6 @@ def _resolve_client_ip() -> tuple[str, str]:
 		return x_real_ip, 'X-Real-IP'
 
 	return (request.remote_addr or '').strip(), 'remote_addr'
-
-
-def _mask_ip(raw_ip: str) -> str:
-	"""Hide the host part: last octet for IPv4, last five hextets for IPv6."""
-	if not raw_ip:
-		return 'Unavailable'
-
-	try:
-		parsed = ipaddress.ip_address(raw_ip)
-	except ValueError:
-		return 'Unavailable'
-
-	if isinstance(parsed, ipaddress.IPv4Address):
-		parts = raw_ip.split('.')
-		if len(parts) == 4:
-			return f'{parts[0]}.{parts[1]}.{parts[2]}.x'
-		return 'Unavailable'
-
-	hextets = parsed.exploded.split(':')
-	return f'{hextets[0]}:{hextets[1]}:{hextets[2]}:xxxx:xxxx:xxxx:xxxx:xxxx'
 
 
 def _cloudflare_header(name: str) -> str:
@@ -173,7 +152,6 @@ def fileshare_upload():
 			'sizeBytes': record.size_bytes,
 			'uploadedAt': record.uploaded_at,
 			'expiresAt': record.expires_at,
-			'downloadEndpoint': '/api/fileshare/access/',
 		}
 	)
 
@@ -256,7 +234,6 @@ def about_you_request_context():
 			},
 			'network': {
 				'clientIp': raw_ip or 'Unavailable',
-				'clientIpMasked': _mask_ip(raw_ip),
 				'ipSource': ip_source,
 				'hasForwardedHeaders': has_forwarded_headers,
 			},
@@ -282,9 +259,7 @@ def messageboard_messages():
 	return jsonify(
 		{
 			'messages': messages,
-			'serverTime': datetime.now(UTC).isoformat(),
 			'retentionSeconds': int(board_store.ttl_seconds),
-			'totalActive': len(messages),
 		}
 	)
 

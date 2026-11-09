@@ -272,7 +272,6 @@ def get_storage_status() -> dict[str, int | bool]:
 		'maxFileBytes': MAX_FILE_BYTES,
 		'maxTotalBytes': MAX_TOTAL_STORAGE_BYTES,
 		'retentionSeconds': RETENTION_SECONDS,
-		'uploadsPaused': used_bytes >= MAX_TOTAL_STORAGE_BYTES,
 	}
 
 

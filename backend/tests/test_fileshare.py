@@ -293,7 +293,6 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 		status = get_storage_status()
 		self.assertEqual(status['activeFileCount'], 0)
 		self.assertEqual(status['usedBytes'], 0)
-		self.assertFalse(status['uploadsPaused'])
 
 		f = self._create_mock_file('doc.txt', b'12345')
 		save_upload(f, 'test-status-key')

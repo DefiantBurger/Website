@@ -6,7 +6,6 @@ export interface FileShareStatus {
   maxFileBytes: number;
   maxTotalBytes: number;
   retentionSeconds: number;
-  uploadsPaused: boolean;
 }
 
 export interface FileShareUploadResult {
@@ -15,7 +14,6 @@ export interface FileShareUploadResult {
   sizeBytes: number;
   uploadedAt: string;
   expiresAt: string;
-  downloadEndpoint: string;
 }
 
 export interface FileShareListItem {

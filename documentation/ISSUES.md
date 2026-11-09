@@ -103,7 +103,6 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
    - `cleanup_expired_records()` reads every metadata file, yet it runs several times per request: `fileshare_status` calls it, then `get_storage_status` → `iter_active_records` calls it again, and a single upload runs it up to four times.
 4. **Minor:** in `messageboard.py`, the expired-message filter is written four times (`cleanup`, `add_message`, `get_active_messages`, `get_status`) and `now if now is not None else time.time()` five times. A `_purge_locked(now)` helper would replace them.
 5. **Minor:** `create_app` has two `Flask(...)` calls that differ only by `instance_path` (Flask accepts `None`). It also reads `SECRET_KEY` out of `test_config` and then applies all of `test_config` again.
-6. **Minor:** responses include fields that no client reads (`clientIpMasked`, `serverTime`, `totalActive`, `uploadsPaused`, `downloadEndpoint`), and they're still typed in the frontend API modules.
 
 ### Tests
 

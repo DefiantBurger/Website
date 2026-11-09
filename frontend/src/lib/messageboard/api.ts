@@ -12,9 +12,7 @@ export interface BoardMessage {
 
 export interface MessageBoardResponse {
   messages: BoardMessage[];
-  serverTime: string;
   retentionSeconds: number;
-  totalActive: number;
 }
 
 export interface MessageBoardStatus {

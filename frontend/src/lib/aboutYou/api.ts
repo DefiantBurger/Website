@@ -8,7 +8,6 @@ export type RequestContextSnapshot = {
   };
   network: {
     clientIp: string;
-    clientIpMasked: string;
     ipSource: string;
     hasForwardedHeaders: boolean;
   };

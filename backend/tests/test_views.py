@@ -53,7 +53,6 @@ class TestViewsAPI(unittest.TestCase):
 		data = res.get_json()
 
 		self.assertEqual(data['network']['clientIp'], '198.51.100.1')
-		self.assertEqual(data['network']['clientIpMasked'], '198.51.100.x')
 		self.assertEqual(data['network']['ipSource'], 'CF-Connecting-IP')
 		self.assertTrue(data['network']['hasForwardedHeaders'])
 		self.assertEqual(data['headers']['userAgent'], 'TestBrowser/1.0')
@@ -98,7 +97,6 @@ class TestViewsAPI(unittest.TestCase):
 		upload_data = res.get_json()
 		self.assertEqual(upload_data['originalFilename'], 'hello.txt')
 		self.assertEqual(upload_data['sizeBytes'], len(b'Hello secret fileshare!'))
-		self.assertIn('downloadEndpoint', upload_data)
 
 		# 4. List files with wrong password -> 404
 		list_res = self.client.post('/api/fileshare/list/', data={'password': 'wrong-password'})
