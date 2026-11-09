@@ -8,6 +8,15 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 2. Content is clipped on phones and can't be reached, because `body` sets `overflow-x: hidden`. At 375px, `/utilities/fileshare` is 429px wide (the file input stretches a `1fr` grid column), `/utilities` reaches 382px, and code blocks in project write-ups reach 403px.
 3. **Likely:** back navigation loses the scroll position.
 4. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
+5. A path starting with two slashes (e.g. `//evil.com/`) leaves the page blank. `routeToCurrentLocation` (`router.svelte.ts`) passes the canonical path `//evil.com` to `history.replaceState`, which the browser reads as a protocol-relative URL to another origin and rejects with a `SecurityError`. The exception escapes `initRouter`, so the app never mounts; in production Nginx serves the 404 shell for that path, which then crashes instead of showing the 404 page. Fix: collapse leading slashes in `normalizePath`, or build the URL with `new URL(path, location.origin)` and bail if the origin differs.
+6. `/projects/<unknown slug>` renders "Project not found." under the placeholder title "Project Details", because the `{#await}` in `ProjectDetail.svelte`'s `<svelte:head>` has no `:catch` and the route matched. The smoke test only loads `/test-missing-page`, so it can't catch this. Render `NotFound` from the catch branch, or route unknown slugs to the not-found route.
+7. Dark mode draws native form controls in light: nothing sets `color-scheme`, so scrollbars, number spinners, and `<select>` menus follow the browser default. Add `color-scheme: dark` to `:root` and `color-scheme: light` to `:root[data-theme='light']` in `app.css`.
+8. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
+9. **Minor:** the global `code` rule in `app.css` (`inline-flex`, border, padding) isn't reset inside `pre` by `ProjectDetail.svelte`. No write-up has a plain fenced code block today, but the first one will render as a bordered box inside the `pre` border. Add `pre code { display: block; border: 0; padding: 0 }` to the project styles.
+10. **Minor:** a `hashchange` also fires `popstate`, so pasting a new `#plan=` link on the scheduler or clicking a heading anchor re-runs `applyRoute`. That increments the About You visit count and replaces `router.params` with a new object, re-evaluating anything derived from it. Compare the old and new pathname before re-applying.
+11. **Likely:** `saveBlob` (`lib/download.ts`) revokes the blob URL synchronously after `click()`. Chrome tolerates this, but Firefox and Safari have failed downloads when the URL is gone before the download starts. Defer the revoke (e.g. `setTimeout`).
+12. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
+13. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
 
 ### SEO
 
@@ -30,12 +39,17 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 3. The deploy smoke test only checks `/api/health/`, so it can't catch a broken frontend. PRs also run type checks but no frontend build, so build failures only appear on `main`.
 4. **Minor:** `pnpm audit` reports DOMPurify 3.4.16 (1 critical, 1 high, 1 low) and KaTeX 0.16.47 (1 low), both through Mermaid. Project Markdown is the only input and only the site owner writes it, so real exposure is low. Whether Mermaid uses the affected paths hasn't been confirmed.
 5. **Possible:** no DMARC, CAA, or DNSSEC. HSTS has no `includeSubDomains`, and there's no `security.txt`.
+6. **High:** the course catalog is the site's biggest transfer. Every scheduler load fetches `course_data.json` (about 3 MB; 10,414 courses) with `Cache-Control: no-cache`. It gzips to about 250 KB, but Debian's default Nginx only compresses `text/html` and `nginx.conf.tftpl` sets no `gzip_types`, so the VM sends the full 3 MB through the tunnel on every visit. Cloudflare compresses to the visitor but doesn't cache API JSON by default. Fix: `gzip on; gzip_types application/json;` in the Nginx template (one line). Going further: `gzip_static` with a pre-compressed copy, or a long `max_age` with a content hash in the URL. The ETag already makes repeat visits a cheap 304.
 
 ## Utilities
 
 ### Class Scheduler
 
 1. Catalog and seed data may be incomplete or outdated. A separate repo grabs and parses the class data; it should be matured and documented here.
+2. Dropping a card on the card directly below it does nothing. `moveCourse` (`schedule.ts`) inserts before the target and decrements the index for same-column downward moves, so dragging A onto B in `[A, B, C]` yields `[A, B, C]`; you have to drop on C to move A down one slot. Insert after the target when moving down within a column, or pick before/after from the pointer's position in the target card. No unit test covers same-column drops.
+3. **Minor:** a plan whose last semester is `fall99` crashes the board. `nextSemesterKey` in `SchedulerBoard.svelte` is a `$derived` that calls `semesterKey`, which throws for years past 2099, and a thrown derived takes the component down. A shared link can carry that key. Clamp or catch there.
+4. **Minor:** `upcomingMainTerm` (`semesters.ts`) returns the current year's fall for June through December, so in December the "Add first semester" default is a term that is nearly over. Suggest spring of the next year from about October on.
+5. **Minor:** `parseCourseEntry` uses `parseInt`, so `MATH 221[3abc]` is accepted as 3 credits. A full-match regex would reject it.
 
 ### File Share
 
@@ -47,10 +61,13 @@ The items below come from code review and function-level tests, not live uploads
 3. **Likely:** the transfer slot is released before the response is sent, so more than two decrypted files can be in memory at once. The VM has 1 GB of RAM, and the Terraform config sets up no swap or `MemoryMax`.
 4. **High:** if a later file in a multi-file upload fails, the old batch is already gone (the first file replaces it), and the files that succeeded aren't reported.
 5. On Cloudflare plans with a 100 MB upload limit, a file right at the 100 MB cap may be rejected once form overhead is added. The zone's plan hasn't been checked. Lowering the cap to 80 MB may be the safe fix.
+6. An empty file is listed as 16 bytes. `_load_record` chains `size_bytes or stored_size_bytes or stat()`, and a real 0 is falsy, so it falls through to the ciphertext size (the AES-GCM tag). The upload response says 0, `/api/fileshare/list/` says 16. Use an explicit `is None` check. No test uploads an empty file.
+7. **Possible:** two clients uploading under the same key at once can clobber each other. `save_upload` computes the next occurrence index, then writes, with no lock between, so both get the same index and the second `write_bytes` overwrites the first. The two transfer slots allow exactly this pairing. A per-label lock, or opening the payload with `'x'` and retrying on `FileExistsError`, would close it.
 
 ### Message Board
 
 1. Sanitizing silently removes characters: `don't` becomes `dont`, and `café ñ 你好 🎉` becomes `caf`. The UI calls the allowlist "URL-safe", yet it strips `&`, `#`, `%`, `+`, and `@`.
+2. **Minor:** the 16 KB payload check reads `request.content_length`, so a chunked request (no `Content-Length`) is read in full by `get_json` before any size check. In production Nginx caps `/api/` bodies at 1 MB, so this only matters in development. Checking `len(request.get_data())` would hold everywhere.
 
 ## Duplication and Refactoring
 
@@ -106,7 +123,8 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Tests
 
-1. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
+1. Gaps that would have caught items above: a unit test for same-column drops in `moveCourse` (Class Scheduler #2), a smoke-test route for an unknown project slug (Frontend #6), and a backend test uploading an empty file (File Share #6).
+2. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI
 
