@@ -3,7 +3,7 @@
 Provisioning and releases are separate:
 
 - **Terraform** in `deployment/` provisions the infrastructure and the VM. That happens rarely.
-- **GitHub Actions:** `.github/workflows/test.yaml` tests pull requests and pushes to `main`; pushes that only change docs skip it. `.github/workflows/deploy.yaml` runs only by hand on `main`: it calls `test.yaml`, then builds a release and deploys it to the VM. Pushes and merges never deploy (see [Deploying Changes](#deploying-changes)).
+- **GitHub Actions:** `.github/workflows/test.yaml` tests pull requests and pushes to `main`; pushes that only change docs skip it. `.github/workflows/deploy.yaml` runs only by hand on `main`: it builds a release and deploys it to the VM without rerunning the tests. Pushes and merges never deploy (see [Deploying Changes](#deploying-changes)).
 
 Always run Terraform through `./tf.sh`, which fetches the Cloudflare API token first (see [Secrets](#secrets)).
 
@@ -13,6 +13,8 @@ cd deployment
 ./tf.sh plan
 ./tf.sh apply
 ```
+
+**After any apply that creates or replaces `flask-vm`, run *Deploy* on `main`** (`./deploy.sh` from the repo root). A new VM has no release, so the site shows a 404, Cloudflare 1033, or 502 until a deploy lands. Wait a few minutes after the apply first: the startup script has to finish provisioning, or the deploy fails (just rerun it).
 
 Versions (`versions.tf`): Terraform `>= 1.12.2, < 2.0.0`; providers `hashicorp/google` and `google-beta` `~> 7.27.0`, `cloudflare/cloudflare` `~> 4.52.7`, `hashicorp/random` `~> 3.7`.
 
@@ -126,26 +128,27 @@ The deploy workflow ships only the release tarball (`backend/` app code and `fro
 | Change | How |
 | --- | --- |
 | App code or content | Push or merge to `main`; *Test* runs, as on pull requests. Nothing deploys until you run *Deploy* by hand (next row). |
-| Deploy the tip of `main` | `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, then follows the run and exits non-zero on failure). Or Actions → *Deploy* → *Run workflow* on `main`, or `gh workflow run deploy.yaml --ref main`. The run calls `test.yaml`, then runs `package` and `deploy`. A release that already exists on the VM is reactivated without being rebuilt, so this also retries a failed deploy. |
+| Deploy the tip of `main` | `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, then follows the run and exits non-zero on failure). Or Actions → *Deploy* → *Run workflow* on `main`, or `gh workflow run deploy.yaml --ref main`. The run doesn't rerun the tests (check that *Test* passed on that commit first), then runs `package` and `deploy`. A release that already exists on the VM is reactivated without being rebuilt, so this also retries a failed deploy. |
 | Docs only (`documentation/**` or any `README.md`) | Push to `main`. *Test* doesn't run, so nothing is tested. A push that also changes anything else runs the tests. Project write-ups are under `frontend/src/content/`, so they count as content and need a deploy to go live. |
 | Roll back | On the VM: `ls -t /opt/personalwebsite/releases`, then `sudo personalwebsite-deploy --rollback <sha>`. |
-| Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`) |
-| VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM. Then run *Deploy* on `main` to deploy a release. Until then the site shows Cloudflare 1033 or 502. |
+| Terraform config | `./tf.sh plan` then `./tf.sh apply` (from `deployment/`). If the plan replaces `flask-vm`, run *Deploy* afterwards (next row). |
+| VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM. Then, once the startup script finishes (a few minutes), run *Deploy* on `main` to deploy a release. Until then the site shows a 404, Cloudflare 1033, or 502. |
 | Nginx config only, without downtime | Edit `nginx.conf.tftpl`, then apply the same change to the running VM by hand ([Runbook](./RUNBOOK.md#update-the-nginx-config-in-place)). The next `./tf.sh apply` still replaces the VM, with the same result. |
 
 The pipeline:
 
-*Test* (`test.yaml`, also the first stage of *Deploy*):
+*Test* (`test.yaml`, on pull requests and pushes to `main`):
 
 1. **test-backend:** `uv sync --frozen` and `uv run pytest --cov=app`.
 2. **test-frontend:** `pnpm install --frozen-lockfile`, `pnpm check`, and `pnpm test`. The pnpm version comes from `packageManager` in `frontend/package.json`.
-*Deploy* (`deploy.yaml`, manual, `main` only) then runs:
 
-3. **package:**
+*Deploy* (`deploy.yaml`, manual, `main` only):
+
+1. **package:**
    - Build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`.
    - Export hash-pinned backend requirements with `uv export --frozen --no-dev`.
    - Tar `backend/{main.py,app,requirements.txt}` and `frontend/dist`, and upload the tarball as artifact `release-<sha>`.
-4. **deploy** (in the `production` environment, serialized by `concurrency`):
+2. **deploy** (in the `production` environment, serialized by `concurrency`):
    - Authenticate through Workload Identity Federation.
    - Stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`.
    - Run `curl` against `https://josephcicalese.com/api/health/`.

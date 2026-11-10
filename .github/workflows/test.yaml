@@ -1,4 +1,4 @@
-# Tests every PR and push to main. deploy.yaml also calls it before shipping.
+# Tests every PR and push to main.
 # Pushes that only change docs skip it.
 name: Test
 
@@ -11,7 +11,6 @@ on:
       - 'documentation/**'
       - '**/README.md'
   pull_request:
-  workflow_call:
 
 permissions:
   contents: read
@@ -31,7 +30,7 @@ jobs:
         with:
           working-directory: backend
       - run: uv sync --frozen
-      # Lint and format warn instead of failing so they don't block tests or deploys.
+      # Lint and format warn instead of failing so they don't block the tests.
       - run: uv run ruff check . || echo '::warning::Ruff found lint problems (see this step log)'
       - run: uv run ruff format --check . || echo '::warning::Backend files need formatting (run ./format.sh)'
       - run: uv run pytest --cov=app --cov-report=xml
@@ -60,7 +59,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      # Lint and format warn instead of failing so they don't block tests or deploys.
+      # Lint and format warn instead of failing so they don't block the tests.
       - run: pnpm lint || echo '::warning::ESLint found lint problems (see this step log)'
       - run: pnpm format:check || echo '::warning::Frontend files need formatting (run ./format.sh)'
       - run: pnpm check

@@ -1,5 +1,6 @@
 # Manual only (Actions → Deploy → Run workflow, or `gh workflow run deploy.yaml`)
-# on main: reruns the tests, builds a release, and deploys it to the VM.
+# on main: builds a release and deploys it to the VM. It doesn't rerun the tests;
+# test.yaml already ran them on the push to main.
 # See documentation/DEPLOYMENT.md#deploying-changes.
 name: Deploy
 
@@ -15,13 +16,7 @@ env:
   GCE_ZONE: us-central1-a
 
 jobs:
-  test:
-    uses: ./.github/workflows/test.yaml
-    # Passes CODECOV_TOKEN through to the reusable workflow.
-    secrets: inherit
-
   package:
-    needs: test
     # Dispatch can target any branch; only main may ship.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
