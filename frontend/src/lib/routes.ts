@@ -16,6 +16,7 @@ import * as UtilityScheduler from '../pages/UtilityScheduler.svelte';
 import * as UtilityFileShare from '../pages/UtilityFileShare.svelte';
 import * as UtilityMessageBoard from '../pages/UtilityMessageBoard.svelte';
 import NotFound from '../pages/NotFound.svelte';
+import { hasProject } from './projects/content';
 import { routeDefinitions, type RouteKey } from './routeDefinitions';
 import type { PageLayout, Route } from './router.svelte';
 
@@ -37,10 +38,15 @@ const pages: Record<RouteKey, PageModule> = {
   messageBoard: UtilityMessageBoard,
 };
 
+const accepts: Partial<Record<RouteKey, Route['accepts']>> = {
+  projectDetail: ({ slug }) => hasProject(slug),
+};
+
 export const routes: Route[] = (Object.keys(routeDefinitions) as RouteKey[]).map((key) => ({
   ...routeDefinitions[key],
   page: pages[key].default,
   layout: pages[key].layout,
+  accepts: accepts[key],
 }));
 
 export const notFoundRoute: Route = { path: '/404', page: NotFound };

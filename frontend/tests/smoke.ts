@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 import type { Browser, Page } from 'playwright-core';
 
-import { BASE_URL, MISSING_PATH, assertServerUp, launchBrowser, routePaths } from './browser.ts';
+import { BASE_URL, MISSING_PATHS, assertServerUp, launchBrowser, routePaths } from './browser.ts';
 
 type Check = { name: string; run: (browser: Browser) => Promise<void> };
 
@@ -50,7 +50,7 @@ function routeCheck(path: string): Check {
         const heading = (
           await page.locator('main h1, h1').first().textContent({ timeout: 5000 })
         )?.trim();
-        if (path === MISSING_PATH) {
+        if (MISSING_PATHS.includes(path)) {
           assert.equal(heading, '404');
         } else {
           assert.ok(

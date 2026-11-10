@@ -17,6 +17,8 @@ export type PageLayout = {
 export type Route = RouteDefinition & {
   page: Component;
   layout?: PageLayout;
+  // Rejects params the page can't render (e.g. an unknown slug), so the 404 page shows.
+  accepts?: (params: Record<string, string>) => boolean;
 };
 
 let routes: Route[] = [];
@@ -39,7 +41,7 @@ function applyRoute(pathname: string) {
     const match = [candidate.path, ...(candidate.aliases ?? [])]
       .map((pattern) => matchPattern(pattern, pathname))
       .find((result) => result !== null);
-    if (match) {
+    if (match && (candidate.accepts?.(match) ?? true)) {
       route = candidate;
       params = match;
       break;

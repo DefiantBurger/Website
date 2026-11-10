@@ -88,6 +88,9 @@
   {:then project}
     <title>{project.title} · JosephCicalese.com</title>
     <meta name="description" content={project.summary || 'Explore this project in detail.'} />
+  {:catch}
+    <title>Project Failed to Load · JosephCicalese.com</title>
+    <meta name="description" content="Explore this project in detail." />
   {/await}
 </svelte:head>
 
@@ -149,8 +152,9 @@
       </p>
     </section>
   {/if}
-{:catch error}
-  <StatusMessage kind="error" message={errorMessage(error, 'Failed to load project details.')} />
+{:catch}
+  <!-- Unknown slugs 404 in the router, so this is a failed chunk load; its error text is a dev URL. -->
+  <StatusMessage kind="error" message="Couldn't load this project. Try refreshing the page." />
 {/await}
 
 <style>

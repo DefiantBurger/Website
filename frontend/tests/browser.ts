@@ -6,8 +6,8 @@ import { staticRoutePaths } from '../src/lib/routeDefinitions.ts';
 
 export const BASE_URL = (process.env.TEST_BASE_URL ?? 'http://localhost:5173').replace(/\/$/, '');
 
-/** A path that matches no route, so the 404 page renders. */
-export const MISSING_PATH = '/test-missing-page';
+/** Paths that should render the 404 page: no matching route, and an unknown project slug. */
+export const MISSING_PATHS = ['/test-missing-page', '/projects/test-missing-project'];
 
 export async function launchBrowser(): Promise<Browser> {
   // Prefer an installed Chrome, so no browser download is needed.
@@ -37,7 +37,7 @@ export async function assertServerUp(): Promise<void> {
   }
 }
 
-/** Static routes plus one project page and an unknown path (the 404 page). */
+/** Static routes plus one project page and the paths that should 404. */
 export async function routePaths(context: BrowserContext): Promise<string[]> {
   const page = await context.newPage();
   await page.goto(`${BASE_URL}/projects`, { waitUntil: 'networkidle' });
@@ -51,5 +51,5 @@ export async function routePaths(context: BrowserContext): Promise<string[]> {
   if (!projectPath) {
     console.warn('No project found on /projects; skipping project detail.');
   }
-  return [...staticRoutePaths(), ...(projectPath ? [projectPath] : []), MISSING_PATH];
+  return [...staticRoutePaths(), ...(projectPath ? [projectPath] : []), ...MISSING_PATHS];
 }

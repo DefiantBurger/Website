@@ -44,7 +44,7 @@ flowchart LR
 
 ## Runtime Flows
 
-**Navigation.** The router maps the URL to a page component; pages that need data fetch it on mount and switch among loading, error, and ready states. Unknown paths render a 404 page with a closest-match suggestion.
+**Navigation.** The router maps the URL to a page component; pages that need data fetch it on mount and switch among loading, error, and ready states. Unknown paths, including project slugs that don't exist, render a 404 page with a closest-match suggestion.
 
 **Utilities.** Each utility page calls its `/api/<utility>/` endpoints. Scheduler logic (prerequisite validation, graph layout) runs entirely in the browser; File Share and Message Board state lives on the backend. Details: [Utilities](./UTILITIES.md).
 

@@ -7,11 +7,10 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. **Minor:** links to a section don't scroll on page load, because the content renders after the browser tries to scroll.
 2. **Likely:** back navigation loses the scroll position.
 3. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
-4. `/projects/<unknown slug>` renders "Project not found." under the placeholder title "Project Details", because the `{#await}` in `ProjectDetail.svelte`'s `<svelte:head>` has no `:catch` and the route matched. The smoke test only loads `/test-missing-page`, so it can't catch this. Render `NotFound` from the catch branch, or route unknown slugs to the not-found route.
-5. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
-6. **Minor:** a `hashchange` also fires `popstate`, so pasting a new `#plan=` link on the scheduler or clicking a heading anchor re-runs `applyRoute`. That increments the About You visit count and replaces `router.params` with a new object, re-evaluating anything derived from it. Compare the old and new pathname before re-applying.
-7. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
-8. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
+4. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
+5. **Minor:** a `hashchange` also fires `popstate`, so pasting a new `#plan=` link on the scheduler or clicking a heading anchor re-runs `applyRoute`. That increments the About You visit count and replaces `router.params` with a new object, re-evaluating anything derived from it. Compare the old and new pathname before re-applying.
+6. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
+7. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
 
 ### SEO
 
@@ -113,7 +112,7 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Tests
 
-1. Gaps that would have caught items above: a smoke-test route for an unknown project slug (Frontend #4) and a backend test uploading an empty file (File Share #5).
+1. A gap that would have caught an item above: no backend test uploads an empty file (File Share #5).
 2. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI
