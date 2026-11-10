@@ -41,6 +41,7 @@ import {
   parseSemesterKey,
   semesterKey,
   sortSemesters,
+  suggestedNextSemester,
   upcomingMainTerm,
 } from '../../src/lib/scheduler/semesters.ts';
 import type {
@@ -212,6 +213,19 @@ describe('semesters', () => {
     assert.deepEqual(nextMainTerm('winter25'), { term: 'spring', year: 2025 });
     assert.deepEqual(upcomingMainTerm(new Date(2026, 2, 1)), { term: 'spring', year: 2026 });
     assert.deepEqual(upcomingMainTerm(new Date(2026, 7, 1)), { term: 'fall', year: 2026 });
+    assert.deepEqual(upcomingMainTerm(new Date(2026, 8, 30)), { term: 'fall', year: 2026 });
+    assert.deepEqual(upcomingMainTerm(new Date(2026, 9, 1)), { term: 'spring', year: 2027 });
+    assert.deepEqual(upcomingMainTerm(new Date(2026, 11, 15)), { term: 'spring', year: 2027 });
+  });
+
+  test('suggested next semester follows the plan and never throws', () => {
+    const today = new Date(2026, 11, 15);
+    assert.equal(suggestedNextSemester(undefined, today), 'spring27');
+    assert.equal(suggestedNextSemester('fall24', today), 'spring25');
+    assert.equal(suggestedNextSemester('spring99', today), 'fall99');
+    // Spring 2100 has no two-digit key; clamp instead of crashing the board.
+    assert.equal(suggestedNextSemester('fall99', today), 'fall99');
+    assert.equal(suggestedNextSemester(undefined, new Date(2099, 11, 1)), 'fall99');
   });
 });
 

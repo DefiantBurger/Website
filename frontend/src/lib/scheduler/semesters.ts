@@ -74,7 +74,20 @@ export function nextMainTerm(key: string): TermParts {
 /** Default first semester for an empty plan: the upcoming fall or spring. */
 export function upcomingMainTerm(today: Date): TermParts {
   const month = today.getMonth();
+  const year = today.getFullYear();
+  // By October fall is well underway, so planning starts from next spring.
   return month < 5
-    ? { term: 'spring', year: today.getFullYear() }
-    : { term: 'fall', year: today.getFullYear() };
+    ? { term: 'spring', year }
+    : month < 9
+      ? { term: 'fall', year }
+      : { term: 'spring', year: year + 1 };
+}
+
+/** Key the add-semester form starts at, clamped to the last representable term. */
+export function suggestedNextSemester(lastKey: string | undefined, today: Date): string {
+  const next = lastKey ? nextMainTerm(lastKey) : upcomingMainTerm(today);
+  // A shared link can end at fall99, and semesterKey throws past MAX_YEAR.
+  return next.year > MAX_YEAR
+    ? semesterKey({ term: 'fall', year: MAX_YEAR })
+    : semesterKey({ term: next.term, year: Math.max(next.year, MIN_YEAR) });
 }

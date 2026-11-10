@@ -4,8 +4,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ## Frontend
 
-1. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
-
 ### SEO
 
 1. No structured data, and Open Graph tags are static (the same for every page) because the HTML is never rendered per route. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the client-side canonical tag points crawlers at the main path.
@@ -30,8 +28,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ### Class Scheduler
 
 1. Catalog and seed data may be incomplete or outdated. A separate repo grabs and parses the class data; it should be matured and documented here.
-2. **Minor:** a plan whose last semester is `fall99` crashes the board. `nextSemesterKey` in `SchedulerBoard.svelte` is a `$derived` that calls `semesterKey`, which throws for years past 2099, and a thrown derived takes the component down. A shared link can carry that key. Clamp or catch there.
-3. **Minor:** `upcomingMainTerm` (`semesters.ts`) returns the current year's fall for June through December, so in December the "Add first semester" default is a term that is nearly over. Suggest spring of the next year from about October on.
 
 ### File Share
 
@@ -80,6 +76,7 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 
 - `Home.svelte` hard-codes "Featured Projects" instead of using the project content (`lib/projects/content.ts`), so the owner chooses which projects to display.
 - A dark system preference is ignored, and first-time visitors always get the light theme, because the site looks better in light mode.
+- Visitors who chose dark see a brief flash of the light theme on load, since `index.html` hard-codes `data-theme="light"` and the saved theme is applied once the bundle runs. A blocking external script in `<head>` that set the theme from `localStorage` was tried (2026-11) and made the flash worse (the CSP rules out an inline script).
 - The router doesn't manage scroll position: Back/Forward don't restore it, and a link to a `#section` may not scroll there once the page renders. Restoring it was tried (2026-11) and dropped. Content renders asynchronously (project Markdown, then Mermaid), so the position had to be held while the layout settled, which felt jittery and drifted on pages whose diagrams resize after load.
 - The About You map requests tiles from `tile.openstreetmap.org`, which shows a third party the visitor's approximate location, while the page says "Nothing here is stored". The page exists to show that this is possible, so the lack of a disclosure or privacy policy isn't treated as an issue.
 

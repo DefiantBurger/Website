@@ -1,6 +1,6 @@
 <script lang="ts">
   import { addSemester } from '../schedule';
-  import { formatSemester, nextMainTerm, semesterKey, upcomingMainTerm } from '../semesters';
+  import { formatSemester, suggestedNextSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
   import type { PrereqEdge } from '../types';
   import SemesterColumn from './SemesterColumn.svelte';
@@ -22,9 +22,7 @@
   let edgeLines = $state.raw<EdgeLine[]>([]);
 
   const lastSemester = $derived(store.schedule.semesterOrder.at(-1));
-  const nextSemesterKey = $derived(
-    semesterKey(lastSemester ? nextMainTerm(lastSemester) : upcomingMainTerm(new Date())),
-  );
+  const nextSemesterKey = $derived(suggestedNextSemester(lastSemester, new Date()));
 
   /** Attachment: keep `courseElements[courseId]` pointing at the card. */
   function trackCourseElement(courseId: string) {
