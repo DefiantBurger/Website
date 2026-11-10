@@ -26,11 +26,9 @@ Then load `/`, `/projects`, and each `/utilities/*` page in a browser.
 
 ## Update Project Content
 
-Write-ups are rendered at build time, so content changes go live with a deploy.
-
 1. Edit or add `frontend/src/content/projects/<slug>.md` ([frontmatter](./IMPLEMENTATION.md#project-frontmatter)).
-2. Check locally at `http://localhost:5173/projects/<slug>` (the dev server reloads on save), and run `pnpm build` to catch slug errors.
-3. Push to `main`, then deploy ([Deploying Changes](./DEPLOYMENT.md#deploying-changes)).
+2. Check it at `http://localhost:5173/projects/<slug>`, and run `pnpm build` to catch slug errors.
+3. Push to `main`, then deploy.
 
 ## Roll Back a Release
 
@@ -41,11 +39,11 @@ ls -t /opt/personalwebsite/releases                      # newest first; the las
 sudo personalwebsite-deploy --rollback <commit sha>
 ```
 
-The next push to `main` that isn't [docs-only](./DEPLOYMENT.md#deploying-changes) deploys forward again. To stop that, revert the bad commit instead.
+It stays rolled back until the next manual deploy, so revert or fix the bad commit before deploying again.
 
 ## Update the Nginx Config in Place
 
-Pushes don't touch Nginx ([Deploying Changes](./DEPLOYMENT.md#deploying-changes)). To apply an edited `deployment/nginx.conf.tftpl` without replacing the VM, run this from the repo root:
+Deploys don't touch Nginx. To apply an edited `deployment/nginx.conf.tftpl` without replacing the VM, run this from the repo root:
 
 ```bash
 sed -e 's|${domain}|josephcicalese.com|' -e 's|${app_path}|/opt/personalwebsite|' \
@@ -93,18 +91,3 @@ The key is wrong, the files expired (10 minutes), the VM was replaced, or someon
 ### Site shows Cloudflare error 1033
 
 `cloudflared` isn't connected. Check `systemctl status cloudflared` and its journal. Right after a VM replacement, the startup script may still be running (`/var/log/startup-script.log`). A replaced VM also serves 502 until a release is deployed.
-
-## Secrets
-
-1. Never commit secrets or secret-bearing files (`.env`, `*.tfstate`).
-2. Rotate an exposed secret immediately in Secret Manager, then reboot the VM so it re-reads secrets. Rotating `flask-secret` invalidates current file-share files.
-3. Grant the VM access only to the secrets it needs.
-
-## Docs Checklist
-
-When changing behavior, check that:
-
-- [ ] Route and API tables in [Implementation](./IMPLEMENTATION.md) match `routes.ts` and `views.py`.
-- [ ] Utility contracts and limits in [Utilities](./UTILITIES.md) match the code constants.
-- [ ] [Deployment](./DEPLOYMENT.md) matches the Terraform files, `startup.sh.tftpl`, `deploy.sh.tftpl`, and `.github/workflows/deploy.yaml`.
-- [ ] [Issues](./ISSUES.md) are still open.
