@@ -8,6 +8,7 @@
   import { onMount } from 'svelte';
 
   import { errorMessage } from '../lib/api';
+  import { AsyncTask } from '../lib/asyncTask.svelte';
   import { saveBlob } from '../lib/download';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
@@ -27,8 +28,8 @@
 
   const store = new SchedulerStore();
 
-  let loading = $state(true);
-  let loadError = $state<string | null>(null);
+  // Starts busy so the URL-sync effect doesn't save the empty pre-load plan.
+  const load = new AsyncTask('Failed to load scheduler data.', { busy: true });
   let importInputElement = $state<HTMLInputElement>();
 
   // Plain (non-reactive) bookkeeping for keeping the URL in sync with the plan.
@@ -42,7 +43,7 @@
   // The fragment holds the plan, so it doubles as autosave (reload, Back, reopened tabs).
   $effect(() => {
     const schedule = store.schedule;
-    if (loading || (!urlSyncStarted && schedule === loadedSchedule)) {
+    if (load.busy || (!urlSyncStarted && schedule === loadedSchedule)) {
       return;
     }
     urlSyncStarted = true;
@@ -99,7 +100,7 @@
   // Pasting another plan link into the same tab changes only the fragment, so nothing reloads.
   async function handleHashChange(): Promise<void> {
     const encoded = planFromHash(window.location.hash);
-    if (loading || loadError || !encoded) {
+    if (load.busy || load.error || !encoded) {
       return;
     }
     try {
@@ -150,7 +151,7 @@
     };
 
   function handleKeydown(event: KeyboardEvent): void {
-    if (loading || loadError) {
+    if (load.busy || load.error) {
       return;
     }
     const key = event.key.toLowerCase();
@@ -252,8 +253,8 @@
     applyPlan(schedule, skipped, `Imported schedule from ${file.name}.`);
   }
 
-  onMount(async () => {
-    try {
+  onMount(() => {
+    void load.run(async () => {
       const data = await loadSchedulerData();
       defaultSchedule = data.schedule;
       store.load(data.catalog, data.schedule);
@@ -275,11 +276,7 @@
         }
       }
       loadedSchedule = store.schedule;
-    } catch (error) {
-      loadError = errorMessage(error, 'Failed to load scheduler data.');
-    } finally {
-      loading = false;
-    }
+    });
   });
 </script>
 
@@ -302,10 +299,10 @@
   </p>
 </PageHeader>
 
-{#if loading}
+{#if load.busy}
   <StatusMessage kind="loading" message="Loading scheduler..." />
-{:else if loadError}
-  <StatusMessage kind="error" message={loadError} />
+{:else if load.error}
+  <StatusMessage kind="error" message={load.error} />
 {:else}
   <div class="scheduler-layout">
     <section class="terminal-box scheduler-board-wrap">

@@ -3,7 +3,7 @@
 
   import { loadRequestContextSnapshot, type RequestContextSnapshot } from '../lib/aboutYou/api';
   import { getInteractionSnapshot } from '../lib/aboutYou/interactionStore';
-  import { errorMessage } from '../lib/api';
+  import { AsyncTask } from '../lib/asyncTask.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import FactList, { type Fact } from '../lib/aboutYou/FactList.svelte';
   import LocationMap from '../lib/aboutYou/LocationMap.svelte';
@@ -46,8 +46,7 @@
   let now = $state(new Date());
 
   let requestContext = $state<RequestContextSnapshot | null>(null);
-  let requestContextError = $state('');
-  let requestContextLoading = $state(true);
+  const serverSnapshot = new AsyncTask('Failed to fetch request context.', { busy: true });
 
   const geo = $derived(requestContext?.geolocation.available ? requestContext.geolocation : null);
   const hasCoordinates = $derived(
@@ -222,17 +221,15 @@
   });
 
   async function refreshServerSnapshot(): Promise<void> {
-    requestContextLoading = true;
-    requestContextError = '';
-
-    try {
-      requestContext = await loadRequestContextSnapshot();
-    } catch (error) {
-      requestContextError = errorMessage(error, 'Failed to fetch request context.');
-      requestContext = null;
-    } finally {
-      requestContextLoading = false;
-    }
+    await serverSnapshot.run(async () => {
+      // Cleared only on failure, so the map stays mounted while a refresh loads.
+      try {
+        requestContext = await loadRequestContextSnapshot();
+      } catch (error) {
+        requestContext = null;
+        throw error;
+      }
+    });
   }
 
   function refreshLocalSnapshot(): void {
@@ -277,11 +274,11 @@
   <div class="dossier">
     <p class="prompt eyebrow">Based on your IP address, you're probably in</p>
 
-    {#if requestContextLoading}
+    {#if serverSnapshot.busy}
       <p class="place">Locating you<span class="cursor">_</span></p>
-    {:else if requestContextError}
+    {:else if serverSnapshot.error}
       <p class="place">Somewhere</p>
-      <p class="place-sub error">{requestContextError}</p>
+      <p class="place-sub error">{serverSnapshot.error}</p>
     {:else if geo && placeName}
       <p class="place">{placeName}</p>
       <p class="place-sub">
@@ -330,7 +327,7 @@
       />
     {:else}
       <div class="map-placeholder">
-        {requestContextLoading ? 'Loading map...' : 'No coordinates to map.'}
+        {serverSnapshot.busy ? 'Loading map...' : 'No coordinates to map.'}
       </div>
     {/if}
   </div>
@@ -340,10 +337,10 @@
   <section class="terminal-box group">
     <h2 class="prompt">What the Server Sees</h2>
     <p class="source">From your request to this site's API</p>
-    {#if requestContextLoading}
+    {#if serverSnapshot.busy}
       <p>Loading request context...</p>
-    {:else if requestContextError}
-      <p class="error">{requestContextError}</p>
+    {:else if serverSnapshot.error}
+      <p class="error">{serverSnapshot.error}</p>
     {:else}
       <FactList facts={serverFacts} />
     {/if}

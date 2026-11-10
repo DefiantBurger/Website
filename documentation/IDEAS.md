@@ -79,6 +79,10 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 Warn when a course is placed in a term it isn't offered in (e.g. fall-only courses in a spring column). Semester keys already carry the term, so only the data is missing: the catalog scraper would need to record which terms each course is offered in (e.g. an `offered: ["fall", "spring"]` field), and `logic.ts` would add a problem for a mismatch. Show it in the Problems panel and on the card, separate from prerequisite problems.
 
+### File Share: upload progress
+
+Show a progress bar while uploading. `fetch` can't report upload progress, so this needs `XMLHttpRequest` (`upload.onprogress`). Uploads currently have no timeout (`timeoutMs: null`) because a large upload can legitimately take minutes; with progress events, a stall timeout (no bytes sent for ~30 s) could replace that.
+
 ### File Share: encryption in the browser and QR codes
 
 **Encrypt in the browser** so the server only ever stores ciphertext and can't read uploaded files.

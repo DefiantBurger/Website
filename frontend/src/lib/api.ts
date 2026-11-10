@@ -1,4 +1,6 @@
 // Shared fetch helpers for every feature's API client.
+import { fetchWithTimeout, type TimedRequestInit } from './fetchTimeout';
+
 // Without VITE_BACKEND_URL, dev talks to the local Flask server and production
 // builds use the page's own origin (never the visitor's localhost).
 export const BACKEND_BASE_URL =
@@ -43,9 +45,12 @@ async function readErrorMessage(response: Response): Promise<string> {
   return STATUS_MESSAGES[response.status] ?? `Request failed (${response.status}).`;
 }
 
-/** Fetch `path` from the backend, throwing an `ApiError` unless the response is 2xx. */
-export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
-  const response = await fetch(`${BACKEND_BASE_URL}${path}`, init);
+/**
+ * Fetch `path` from the backend, throwing an `ApiError` unless the response is 2xx.
+ * Gives up after `DEFAULT_TIMEOUT_MS` without response headers unless `init.timeoutMs` says otherwise.
+ */
+export async function apiFetch(path: string, init?: TimedRequestInit): Promise<Response> {
+  const response = await fetchWithTimeout(`${BACKEND_BASE_URL}${path}`, init);
   if (!response.ok) {
     throw new ApiError(response.status, await readErrorMessage(response));
   }
@@ -56,7 +61,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
  * Like `apiFetch`, but parses the body as JSON. A non-JSON body (e.g. the dev
  * server's index.html when the backend URL is wrong) is reported explicitly.
  */
-export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiJson<T>(path: string, init?: TimedRequestInit): Promise<T> {
   const response = await apiFetch(path, init);
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
   if (!contentType.includes('application/json')) {

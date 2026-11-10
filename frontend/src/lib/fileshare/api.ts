@@ -85,10 +85,11 @@ export async function uploadFileShare(
       // Send an in-memory copy: some browsers leave the fetch hanging forever when a
       // disk-backed body file disappears, which would skip the rollback.
       const copy = new File([await readFile(file, file.name)], file.name, { type: file.type });
-      return apiJson<FileShareUploadResult>(
-        '/api/fileshare/upload/',
-        postForm({ file: copy, password }),
-      );
+      // No timeout: the server only answers once the whole body has arrived, which can take minutes.
+      return apiJson<FileShareUploadResult>('/api/fileshare/upload/', {
+        ...postForm({ file: copy, password }),
+        timeoutMs: null,
+      });
     },
     deleteIndices: (indices) => deleteFileShareFiles(password, indices),
   });

@@ -16,24 +16,23 @@
     type FileShareListItem,
   } from '../lib/fileshare/api';
   import { errorMessage } from '../lib/api';
+  import { AsyncTask } from '../lib/asyncTask.svelte';
   import { saveBlob } from '../lib/download';
+  import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
   let status = $state<FileShareStatus | null>(null);
-  let statusError = $state<string | null>(null);
+  const statusTask = new AsyncTask('Failed to load storage status.');
 
   let uploadFiles = $state<File[]>([]);
   let uploadPassword = $state('');
-  let uploadError = $state<string | null>(null);
-  let uploadSuccess = $state<string | null>(null);
-  let uploadBusy = $state(false);
+  const upload = new AsyncTask('Upload failed.');
   let uploadInput = $state<HTMLInputElement | null>(null);
 
   let accessPassword = $state('');
-  let accessError = $state<string | null>(null);
-  let accessSuccess = $state<string | null>(null);
-  let accessBusy = $state(false);
+  // List and download share one task, so only one access request runs at a time.
+  const access = new AsyncTask("Couldn't retrieve files.");
   let accessFiles = $state<FileShareListItem[]>([]);
   let selectedFileIndex = $state(1);
 
@@ -75,26 +74,21 @@
   }
 
   async function loadStatus(): Promise<void> {
-    statusError = null;
-    try {
+    await statusTask.run(async () => {
       status = await fetchFileShareStatus();
-    } catch (error) {
-      statusError = errorMessage(error, 'Failed to load storage status.');
-    }
+    });
   }
 
   async function handleUploadSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    uploadError = null;
-    uploadSuccess = null;
 
     if (uploadFiles.length === 0) {
-      uploadError = 'Choose at least one file to upload.';
+      upload.fail('Choose at least one file to upload.');
       return;
     }
 
     if (!uploadPassword.trim()) {
-      uploadError = 'Enter an access key for the file.';
+      upload.fail('Enter an access key for the file.');
       return;
     }
 
@@ -102,18 +96,19 @@
     const maxFileBytes = status?.maxFileBytes ?? Infinity;
     const oversizedCount = uploadFiles.filter((f) => f.size > maxFileBytes).length;
     if (oversizedCount > 0) {
-      uploadError = `Files must be ${formatLimit(maxFileBytes)} or smaller. ${oversizedCount} file(s) exceeded the limit.`;
+      upload.fail(
+        `Files must be ${formatLimit(maxFileBytes)} or smaller. ${oversizedCount} file(s) exceeded the limit.`,
+      );
       return;
     }
 
-    uploadBusy = true;
-    try {
+    await upload.run(async () => {
       const result = await uploadFileShare(uploadFiles, uploadPassword.trim());
       if (result.ok) {
         const fileNames = result.uploaded.map((r) => r.originalFilename).join(', ');
-        uploadSuccess = `Stored ${result.uploaded.length} file(s): ${fileNames}.`;
+        upload.success = `Stored ${result.uploaded.length} file(s): ${fileNames}.`;
         if (!result.oldFilesRemoved) {
-          uploadError =
+          upload.error =
             "Couldn't remove this key's previous files; they stay listed until they expire.";
         }
         uploadPassword = '';
@@ -128,23 +123,17 @@
           result.uploadedCount === 0 || result.rolledBack
             ? 'Nothing was replaced; the key still has its previous files.'
             : `The ${result.uploadedCount} file(s) stored before it couldn't be removed and are listed alongside the previous files until they expire.`;
-        uploadError = `Upload failed on ${result.failedFile}: ${reason}\n${outcome}`;
+        upload.error = `Upload failed on ${result.failedFile}: ${reason}\n${outcome}`;
       }
-    } catch (error) {
-      uploadError = errorMessage(error, 'Upload failed.');
-    } finally {
-      uploadBusy = false;
-      await loadStatus();
-    }
+    });
+    await loadStatus();
   }
 
-  /** Clear access messages and return the trimmed key, or null (with an error shown) if it is missing. */
-  function startAccess(missingKeyMessage: string): string | null {
-    accessError = null;
-    accessSuccess = null;
+  /** The trimmed access key, or null (with `missingKeyMessage` shown) if it is empty. */
+  function requireAccessKey(missingKeyMessage: string): string | null {
     const key = accessPassword.trim();
     if (!key) {
-      accessError = missingKeyMessage;
+      access.fail(missingKeyMessage);
       return null;
     }
     return key;
@@ -152,27 +141,23 @@
 
   async function handleListSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    accessFiles = [];
-    const key = startAccess('Enter the access key to retrieve files.');
+    const key = requireAccessKey('Enter the access key to retrieve files.');
     if (!key) {
+      accessFiles = [];
       return;
     }
 
-    accessBusy = true;
-    try {
+    await access.run(async () => {
+      accessFiles = []; // so a failed lookup doesn't leave the previous key's files listed
       accessFiles = (await listFileShareFiles(key)).files;
       if (accessFiles.length > 0) {
         // Indices don't restart at 1: a replaced batch keeps counting up.
         selectedFileIndex = accessFiles[0].occurrenceIndex;
-        accessSuccess = `Found ${accessFiles.length} file(s) for this access key.`;
+        access.success = `Found ${accessFiles.length} file(s) for this access key.`;
       } else {
-        accessError = 'No files found for this access key.';
+        access.error = 'No files found for this access key.';
       }
-    } catch (error) {
-      accessError = errorMessage(error, 'Failed to list files.');
-    } finally {
-      accessBusy = false;
-    }
+    });
   }
 
   async function downloadFile(key: string, file: FileShareListItem): Promise<void> {
@@ -185,55 +170,54 @@
   }
 
   async function handleDownload(): Promise<void> {
-    const key = startAccess('Enter the access key to retrieve the file.');
+    const key = requireAccessKey('Enter the access key to retrieve the file.');
+    if (!key) {
+      return;
+    }
     const selectedFile = accessFiles.find((f) => f.occurrenceIndex === selectedFileIndex);
-    if (!key || !selectedFile) {
-      accessError ??= 'No files available for download.';
+    if (!selectedFile) {
+      access.fail('No files available for download.');
       return;
     }
 
-    accessBusy = true;
-    try {
+    await access.run(async () => {
       await downloadFile(key, selectedFile);
-      accessSuccess = `Started download for ${selectedFile.originalFilename}.`;
-    } catch (error) {
-      accessError = errorMessage(error, 'Download failed.');
-    } finally {
-      accessBusy = false;
-    }
+      access.success = `Started download for ${selectedFile.originalFilename}.`;
+    });
   }
 
   async function handleDownloadAll(): Promise<void> {
-    const key = startAccess('Enter the access key to retrieve files.');
-    if (!key || accessFiles.length === 0) {
-      accessError ??= 'No files available for download.';
+    const key = requireAccessKey('Enter the access key to retrieve files.');
+    if (!key) {
+      return;
+    }
+    if (accessFiles.length === 0) {
+      access.fail('No files available for download.');
       return;
     }
 
-    let succeeded = 0;
-    const failures: string[] = [];
-
-    accessBusy = true;
-    for (const file of accessFiles) {
-      try {
-        await downloadFile(key, file);
-        succeeded += 1;
-      } catch (error) {
-        failures.push(`- ${file.originalFilename}: ${errorMessage(error, 'Download failed.')}`);
+    await access.run(async () => {
+      let succeeded = 0;
+      const failures: string[] = [];
+      for (const file of accessFiles) {
+        try {
+          await downloadFile(key, file);
+          succeeded += 1;
+        } catch (error) {
+          failures.push(`- ${file.originalFilename}: ${errorMessage(error, 'Download failed.')}`);
+        }
       }
-    }
-    accessBusy = false;
 
-    const summaryHeader = `${succeeded} succeeded, ${failures.length} failed`;
-    if (failures.length === 0) {
-      accessSuccess = `${summaryHeader}.`;
-      return;
-    }
-
-    accessError = `${summaryHeader}:\n${failures.join('\n')}`;
-    if (succeeded > 0) {
-      accessSuccess = `Started ${succeeded} download(s).`;
-    }
+      const summaryHeader = `${succeeded} succeeded, ${failures.length} failed`;
+      if (failures.length === 0) {
+        access.success = `${summaryHeader}.`;
+        return;
+      }
+      access.error = `${summaryHeader}:\n${failures.join('\n')}`;
+      if (succeeded > 0) {
+        access.success = `Started ${succeeded} download(s).`;
+      }
+    });
   }
 
   onMount(() => {
@@ -262,22 +246,13 @@
   </label>
 {/snippet}
 
-{#snippet messages(error: string | null, success: string | null)}
-  {#if error}
-    <StatusMessage kind="error" message={error} compact />
-  {/if}
-  {#if success}
-    <StatusMessage kind="success" message={success} compact />
-  {/if}
-{/snippet}
-
 <PageHeader
   title="Utilities / File Share"
   description="Upload one or more files with an access key. The access key is hashed into the file label, and the stored file contents are encrypted at rest with a key derived from that same access key. Anyone with the same access key can retrieve all files until they expire."
 />
 
-{#if statusError}
-  <StatusMessage kind="error" message={statusError} />
+{#if statusTask.error}
+  <StatusMessage kind="error" message={statusTask.error} />
 {/if}
 
 <section class="auto-grid" style:--grid-min="25rem">
@@ -314,10 +289,11 @@
     {/if}
 
     <div>
-      <button type="submit" disabled={uploadBusy}>{uploadBusy ? 'Uploading...' : 'Upload'}</button>
+      <button type="submit" disabled={upload.busy}>{upload.busy ? 'Uploading...' : 'Upload'}</button
+      >
     </div>
 
-    {@render messages(uploadError, uploadSuccess)}
+    <FormMessages error={upload.error} success={upload.success} />
   </form>
 
   <form class="terminal-box panel" onsubmit={handleListSubmit}>
@@ -333,8 +309,8 @@
     )}
 
     <div>
-      <button type="submit" disabled={accessBusy}
-        >{accessBusy ? 'Fetching...' : 'List Files'}</button
+      <button type="submit" disabled={access.busy}
+        >{access.busy ? 'Fetching...' : 'List Files'}</button
       >
     </div>
 
@@ -350,16 +326,16 @@
             {/each}
           </select>
         </label>
-        <button type="button" onclick={handleDownload} disabled={accessBusy}>
-          {accessBusy ? 'Fetching...' : 'Download'}
+        <button type="button" onclick={handleDownload} disabled={access.busy}>
+          {access.busy ? 'Fetching...' : 'Download'}
         </button>
-        <button type="button" onclick={handleDownloadAll} disabled={accessBusy}>
-          {accessBusy ? 'Fetching...' : 'Download All'}
+        <button type="button" onclick={handleDownloadAll} disabled={access.busy}>
+          {access.busy ? 'Fetching...' : 'Download All'}
         </button>
       </div>
     {/if}
 
-    {@render messages(accessError, accessSuccess)}
+    <FormMessages error={access.error} success={access.success} />
   </form>
 </section>
 

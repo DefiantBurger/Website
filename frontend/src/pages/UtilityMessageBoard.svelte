@@ -13,7 +13,8 @@
     type BoardMessage,
     type MessageBoardStatus,
   } from '../lib/messageboard/api';
-  import { errorMessage } from '../lib/api';
+  import { AsyncTask } from '../lib/asyncTask.svelte';
+  import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
@@ -23,54 +24,40 @@
   const maxLength = $derived(limits?.maxMessageLength);
 
   let messages = $state<BoardMessage[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+  const feed = new AsyncTask('Failed to load messages.', { busy: true });
 
   let messageText = $state('');
-  let isPosting = $state(false);
-  let postError = $state<string | null>(null);
-  let postSuccess = $state<string | null>(null);
+  const post = new AsyncTask('Failed to post message.');
 
   async function loadMessages(): Promise<void> {
-    loading = true;
-    error = null;
-    try {
+    await feed.run(async () => {
       messages = (await fetchActiveMessages()).messages;
-    } catch (err) {
-      error = errorMessage(err, 'Failed to load messages.');
-    } finally {
-      loading = false;
-    }
+    });
   }
 
   async function handlePost(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    postError = null;
-    postSuccess = null;
 
     const trimmed = messageText.trim();
     if (!trimmed) {
-      postError = 'Please enter a message to broadcast.';
+      post.fail('Please enter a message to broadcast.');
       return;
     }
 
     if (maxLength !== undefined && trimmed.length > maxLength) {
-      postError = `Message exceeds ${maxLength} characters.`;
+      post.fail(`Message exceeds ${maxLength} characters.`);
       return;
     }
 
-    isPosting = true;
-    try {
+    const posted = await post.run(async () => {
       await postBoardMessage(trimmed);
       messageText = '';
-      postSuccess = ttl
+      post.success = ttl
         ? `Message posted! It will remain active on the server for ${ttl}.`
         : 'Message posted!';
+    });
+    if (posted) {
       await loadMessages();
-    } catch (err) {
-      postError = errorMessage(err, 'Failed to post message.');
-    } finally {
-      isPosting = false;
     }
   }
 
@@ -109,8 +96,13 @@
   description="Post short anonymous notes to the public board. All messages are ephemeral and automatically expire on the server shortly after posting. Reload anytime to refresh active notes."
 >
   {#snippet actions()}
-    <button type="button" class="reload-btn" onclick={loadMessages} disabled={loading || isPosting}>
-      {loading ? 'Refreshing...' : 'Reload Board'}
+    <button
+      type="button"
+      class="reload-btn"
+      onclick={loadMessages}
+      disabled={feed.busy || post.busy}
+    >
+      {feed.busy ? 'Refreshing...' : 'Reload Board'}
     </button>
   {/snippet}
 </PageHeader>
@@ -124,12 +116,12 @@
       {/if}
     </div>
 
-    {#if loading && messages.length === 0}
+    {#if feed.busy && messages.length === 0}
       <div class="terminal-box empty-card">
         <StatusMessage kind="loading" message="Fetching active broadcasts..." />
       </div>
-    {:else if error}
-      <StatusMessage kind="error" message={error} />
+    {:else if feed.error}
+      <StatusMessage kind="error" message={feed.error} />
     {:else if messages.length === 0}
       <div class="terminal-box empty-card">
         <p class="empty-title">[ NO ACTIVE BROADCASTS ]</p>
@@ -175,7 +167,7 @@
         placeholder={ttl ? `Type a note (vanishes in ${ttl})...` : 'Type a note...'}
         maxlength={maxLength}
         rows="4"
-        disabled={isPosting}></textarea>
+        disabled={post.busy}></textarea>
 
       <div class="compose-meta">
         <span
@@ -184,17 +176,12 @@
         >
           {messageText.length}{maxLength !== undefined ? `/${maxLength}` : ''}
         </span>
-        <button type="submit" class="submit-btn" disabled={isPosting || !messageText.trim()}>
-          {isPosting ? 'Posting...' : 'Post Note'}
+        <button type="submit" class="submit-btn" disabled={post.busy || !messageText.trim()}>
+          {post.busy ? 'Posting...' : 'Post Note'}
         </button>
       </div>
 
-      {#if postError}
-        <StatusMessage kind="error" message={postError} compact />
-      {/if}
-      {#if postSuccess}
-        <StatusMessage kind="success" message={postSuccess} compact />
-      {/if}
+      <FormMessages error={post.error} success={post.success} />
     </form>
   </aside>
 </div>

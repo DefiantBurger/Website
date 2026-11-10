@@ -110,12 +110,16 @@ On each client-side navigation (not the first load), `App.svelte` moves focus to
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`); `ProjectDetail` re-renders Mermaid diagrams when it changes.
 - `lib/components/PageHeader.svelte`: page title with optional description, extra content, and an `actions` snippet for header buttons.
 - `lib/components/StatusMessage.svelte`: loading, error, and success messages (`compact` for sidebars and forms). It's a live region that renders empty and fills in ~100 ms after mounting, because screen readers ignore content a live region is inserted with.
+- `lib/components/FormMessages.svelte`: a form's error and success `StatusMessage`s; both can show at once.
+- `lib/asyncTask.svelte.ts`: `AsyncTask`, the `busy`/`error`/`success` state for one async action. `run(fn)` clears the messages, ignores calls while running, and turns a throw into `error`; `fail(message)` shows a validation error. Pass `{ busy: true }` for pages that load on mount, so they render as loading before the first run.
 - `lib/components/TagList.svelte`: project tags.
 - `lib/download.ts`: `saveBlob` for client-side file downloads.
 
 ### API Clients
 
 `src/lib/api.ts` holds the shared fetch helpers: `apiFetch` (throws `ApiError` with the backend's `{ error }` message on non-2xx), `apiJson` (also rejects non-JSON responses with a preview of the body), and `errorMessage`. Each feature's client under `src/lib/<feature>/` builds on them. The base URL is `VITE_BACKEND_URL` (default `http://localhost:5000` in dev and same-origin in production builds); the production build sets it to `https://<domain>`. Non-JSON error bodies (e.g. Nginx's HTML error pages) are never shown; users get a status-based message instead.
+
+Requests go through `fetchWithTimeout` (`lib/fetchTimeout.ts`), which gives up if the response headers take longer than 15 s; the body isn't timed, so slow downloads finish. Pass `timeoutMs: null` to wait forever, as File Share uploads do (the server answers only after the whole body arrives). Timeouts and network failures become readable messages instead of the browser's `TypeError`.
 
 ### Scheduler
 
