@@ -7,7 +7,6 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
-import type { MarkdownRenderDebug } from '../src/lib/projects/types.ts';
 
 // Just the hast fields this plugin reads; @types/hast is only a transitive dependency.
 interface HastNode {
@@ -77,9 +76,7 @@ const sanitizeSchema: SanitizeSchema = {
   },
 };
 
-export async function renderProjectMarkdownWithDebug(
-  markdown: string,
-): Promise<{ html: string; debug: MarkdownRenderDebug }> {
+export async function renderProjectMarkdown(markdown: string): Promise<string> {
   const counter = { transformed: 0 };
 
   const rendered = await unified()
@@ -104,15 +101,10 @@ export async function renderProjectMarkdownWithDebug(
     .process(markdown);
 
   const html = String(rendered);
-  return {
-    html,
-    debug: {
-      markdownLength: markdown.length,
-      inputHasMermaidFence: /```\s*mermaid\b/.test(markdown),
-      transformedMermaidBlocks: counter.transformed,
-      outputHasMermaidDiv: /class="mermaid"/.test(html),
-      outputHasMermaidCodeFence: /language-mermaid/.test(html),
-      htmlLength: html.length,
-    },
-  };
+  // Fail the build rather than ship a diagram that shows up as raw source.
+  const mermaidDivs = html.match(/<div class="mermaid">/g)?.length ?? 0;
+  if (html.includes('class="language-mermaid"') || mermaidDivs < counter.transformed) {
+    throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
+  }
+  return html;
 }

@@ -7,7 +7,7 @@ import { basename, resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { parse as parseYaml } from 'yaml';
 import type { ProjectDetail, ProjectSummary } from '../src/lib/projects/types.ts';
-import { renderProjectMarkdownWithDebug } from './renderMarkdown.ts';
+import { renderProjectMarkdown } from './renderMarkdown.ts';
 
 export interface ProjectSource extends ProjectSummary {
   priority: number;
@@ -112,8 +112,8 @@ export function projectsPlugin(dir: string): Plugin {
         if (!project) {
           this.error(`projects: no published project "${slug}"`);
         }
-        const { html, debug } = await renderProjectMarkdownWithDebug(project.markdown);
-        const detail: ProjectDetail = { ...toSummary(project), html, debug };
+        const html = await renderProjectMarkdown(project.markdown);
+        const detail: ProjectDetail = { ...toSummary(project), html };
         return `export default ${JSON.stringify(detail)};`;
       }
     },

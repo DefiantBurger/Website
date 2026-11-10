@@ -4,10 +4,8 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ## Frontend
 
-1. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
-2. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
-3. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
-4. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
+1. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
+2. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
 
 ### SEO
 
@@ -18,10 +16,9 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### Accessibility
 
-`pnpm a11y` (axe-core) reports no violations. It excludes Mermaid diagrams (item 1) and can't judge screen-reader flow or drag-and-drop.
+`pnpm a11y` (axe-core) reports no violations. It can't judge screen-reader flow or drag-and-drop.
 
-1. **Minor:** Mermaid edge labels in project diagrams are #ccc on #585858 (4.43:1). The colors come from Mermaid's built-in theme; `themeVariables` in `ProjectDetail.svelte` could override them.
-2. **Minor:** links that open a new tab (Status, Contact, project repo/demo, OpenStreetMap) don't say so to screen readers.
+1. **Minor:** links that open a new tab (Status, Contact, project repo/demo, OpenStreetMap) don't say so to screen readers.
 
 ## Infrastructure
 
@@ -62,7 +59,7 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 1. Card links are built four separate times: featured projects and quick links in `Home.svelte`, then `Projects.svelte` and `Utilities.svelte`. Each writes `terminal-box hover-lift clickable-card` + title + text + `stretched-link` with its own heading reset and spacing, and `Projects.svelte` overrides the shared hover lift (`-4px` instead of `-2px`). A `<LinkCard title href cta>` component with a `children` snippet (for `TagList`) would replace all four.
 2. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>` and description, `index.html` repeats the site name three more times, and `ProjectDetail.svelte` repeats its fallback description. A shared `<PageMeta title description>` component would own the suffix.
 3. **Minor:** the utility metadata is split up. Each utility's card name and description live in `Utilities.svelte`, the `Utilities / <Name>` header title is hard-coded in each utility page, and the `<title>` is written again. Each page could export `{ name, description }` from `<script module>` (like its `layout`), and `Utilities.svelte` could read them from `routes`.
-4. **Minor:** new-tab links are written by hand with two different `rel` values: `rel="noopener noreferrer"` in `Nav.svelte` and `LocationMap.svelte`, `rel="noreferrer"` in `Contact.svelte` and `ProjectDetail.svelte` (twice). An `<ExternalLink>` component would make them consistent and is the natural fix for Accessibility item 2.
+4. **Minor:** new-tab links are written by hand with two different `rel` values: `rel="noopener noreferrer"` in `Nav.svelte` and `LocationMap.svelte`, `rel="noreferrer"` in `Contact.svelte` and `ProjectDetail.svelte` (twice). An `<ExternalLink>` component would make them consistent and is the natural fix for Accessibility item 1.
 5. **Minor:** the error/success message pair is a snippet (`messages`) in `UtilityFileShare.svelte` and is copied inline in `UtilityMessageBoard.svelte`. The scheduler does the same job with a single `notice` (`SchedulerStore`). A `<FormMessages error success>` component would give the three utilities one pattern.
 6. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `AboutYou.svelte` has six identical groups (`h2.prompt`, `p.source`, `FactList`) that could be one `{#each}` over `{ title, source, facts }`. `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
 
@@ -73,14 +70,12 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 3. Async loading and submitting is hand-rolled eight times, each with its own `loading`/`busy` + error (+ success) state and `try/catch/finally`: `loadStatus`, upload, list, and download in `UtilityFileShare.svelte`, load and post in `UtilityMessageBoard.svelte`, `onMount` in `UtilityScheduler.svelte`, and `refreshServerSnapshot` in `AboutYou.svelte`. A small rune class in a `.svelte.ts` module (`busy`, `error`, `success`, `run(fn)`) would replace them, and one-shot loads could use `{#await}` like `ProjectDetail.svelte` does.
 4. **Minor:** formatting helpers are scattered: `formatBytes` (in `fileshare/api.ts`), `formatSeconds` (`UtilityFileShare.svelte`), `formatTimestamp` (`UtilityMessageBoard.svelte`), and `toDisplayValue`, `formatCounts`, and the clock format (`AboutYou.svelte`). The two `toLocaleTimeString` calls use different hour formats. A shared `lib/format.ts` would be unit-testable.
 5. **Minor:** `AboutYou.svelte` holds its browser detection (`describeBrowser`, `readBrowser`, `UA_BROWSERS`) and fact building in the component, out of reach of unit tests; a plain `.ts` module would fix that. `getInteractionSnapshot()` in `interactionStore.ts` re-lists every state field to copy it, where `structuredClone(state)` wouldn't need updating when a field is added.
-6. **Possible:** Mermaid diagnostics are collected twice, once at build time (`MarkdownRenderDebug` in `plugins/renderMarkdown.ts`, shipped in every project chunk) and again at runtime (`mermaidRun` in `ProjectDetail.svelte`), for the `?debugMermaid=1` panel. If the pipeline is stable, removing both would cut about 80 lines.
 
 ### Styles
 
 1. **Minor:** the global `h2` in `app.css` has a bottom border that four components undo: `.project-item h2` (Projects), `.utility-card h2` (Utilities), `.feed-header h2` (Message Board), and `.semester-header h2` (Scheduler). Either move the border onto a section-heading class or add a `.card-title` utility.
 2. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
-   - The error box (error color, border, `--color-error-opacity-05`) appears in `StatusMessage.svelte` and in `.debug-error` (`ProjectDetail.svelte`), and `AboutYou.svelte` styles its own `.error` text.
-   - `pre` styling appears twice in `ProjectDetail.svelte` (`.project-content pre` and `.debug-panel pre`).
+   - `StatusMessage.svelte` draws an error box (error color, border, `--color-error-opacity-05`), but `AboutYou.svelte` styles its own `.error` text.
    - Dashed, tinted boxes (`--color-primary-opacity-30` border on `--color-primary-opacity-10`) appear in File Share `.stats div` and `.file-list`, Scheduler `.semester-column`, and Message Board `.pill`.
    - Each form page re-declares the stacked `label` layout.
 3. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.

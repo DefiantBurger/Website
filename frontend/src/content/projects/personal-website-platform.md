@@ -60,7 +60,7 @@ This write-up is intentionally detailed so it can work as both a portfolio expla
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     U[User Browser] --> CF[Cloudflare]
     CF -->|Tunnel| CFD[cloudflared on GCP VM]
     CFD --> NX[Nginx on loopback]

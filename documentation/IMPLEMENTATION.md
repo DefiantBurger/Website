@@ -122,9 +122,9 @@ On each client-side navigation (not the first load), `App.svelte` moves focus to
 
 ### Project Rendering
 
-Write-ups are `frontend/src/content/projects/*.md` ([frontmatter](#project-frontmatter)), rendered at build time by the Vite plugin in `plugins/projects.ts`. It exposes two virtual modules: `virtual:projects` (published summaries, highest `priority` first, plus a loader per slug) and `virtual:project/<slug>` (one project's summary, HTML, and render diagnostics, emitted as its own chunk). `src/lib/projects/content.ts` wraps them for pages, and `virtual.d.ts` types them. The build fails on a duplicate slug or a slug that isn't lowercase letters, digits, and hyphens. In dev, editing, adding, or removing a write-up invalidates the modules and reloads the page.
+Write-ups are `frontend/src/content/projects/*.md` ([frontmatter](#project-frontmatter)), rendered at build time by the Vite plugin in `plugins/projects.ts`. It exposes two virtual modules: `virtual:projects` (published summaries, highest `priority` first, plus a loader per slug) and `virtual:project/<slug>` (one project's summary and HTML, emitted as its own chunk). `src/lib/projects/content.ts` wraps them for pages, and `virtual.d.ts` types them. The build fails on a duplicate slug or a slug that isn't lowercase letters, digits, and hyphens. In dev, editing, adding, or removing a write-up invalidates the modules and reloads the page.
 
-`plugins/renderMarkdown.ts` runs remark-parse → GFM → rehype → heading slugs and `#` anchors → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → HTML. `ProjectDetail.svelte` injects the HTML, then renders Mermaid diagrams with a theme matching the site theme. `?debugMermaid=1` shows a diagnostics panel.
+`plugins/renderMarkdown.ts` runs remark-parse → GFM → rehype → heading slugs and `#` anchors → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → HTML, and fails the build if a Mermaid fence doesn't come out as a diagram div. `ProjectDetail.svelte` injects the HTML, then renders Mermaid diagrams with a theme matching the site theme. Wide diagrams stop shrinking at 60% of their natural width, and their box scrolls horizontally instead.
 
 ### About You
 

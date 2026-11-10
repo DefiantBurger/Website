@@ -5,25 +5,9 @@
   import { recordProjectView } from '../lib/aboutYou/interactionStore';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
   import TagList from '../lib/components/TagList.svelte';
-  import { errorMessage } from '../lib/api';
 
   // App remounts this page on every path change, so the slug is fixed per instance.
   const slug = router.params.slug;
-  const debugEnabled = new URLSearchParams(window.location.search).get('debugMermaid') === '1';
-
-  let mermaidRun = $state<{
-    domMermaidNodes: number;
-    domMermaidCodeNodes: number;
-    firstMermaidSource: string;
-    status: 'not-run' | 'success' | 'error';
-    error: string;
-  }>({
-    domMermaidNodes: 0,
-    domMermaidCodeNodes: 0,
-    firstMermaidSource: '',
-    status: 'not-run',
-    error: '',
-  });
 
   async function loadPage() {
     const project = await loadProject(slug);
@@ -33,52 +17,70 @@
 
   const pagePromise = loadPage();
 
+  // Runs are chained so two never touch the same nodes at once; a run queued
+  // behind a newer theme toggle is skipped.
+  let mermaidQueue = Promise.resolve();
+  let latestRun = 0;
+
   /** Attachment: render Mermaid diagrams, and re-render them when the site theme changes. */
   function renderMermaid(article: HTMLElement) {
     // Read the theme here, not after an await, so the attachment keeps tracking it.
-    void runMermaid(article, theme.current === 'dark' ? 'dark' : 'default');
+    const mermaidTheme = theme.current === 'dark' ? 'dark' : 'default';
+    const run = ++latestRun;
+    mermaidQueue = mermaidQueue.then(() =>
+      run === latestRun ? runMermaid(article, mermaidTheme) : undefined,
+    );
   }
 
   async function runMermaid(article: HTMLElement, mermaidTheme: 'dark' | 'default') {
     const nodes = Array.from(article.querySelectorAll<HTMLElement>('.mermaid'));
-    const codeNodes = Array.from(
-      article.querySelectorAll<HTMLElement>('pre > code.language-mermaid'),
-    );
-
-    mermaidRun.domMermaidNodes = nodes.length;
-    mermaidRun.domMermaidCodeNodes = codeNodes.length;
-    mermaidRun.firstMermaidSource =
-      (nodes[0] ?? codeNodes[0])?.textContent?.trim().slice(0, 220) ?? '';
-
-    if (nodes.length > 0) {
-      try {
-        // Loaded on demand: a static import would put Mermaid (most of the site's
-        // JS) in every page's preload list, since routes.ts imports all pages eagerly.
-        const { default: mermaid } = await import('mermaid');
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: mermaidTheme });
-
-        // Restore each diagram's source so a theme change can re-render it.
-        for (const node of nodes) {
-          node.dataset.mermaidSource ??= node.textContent?.trim() ?? '';
-          node.removeAttribute('data-processed');
-          node.textContent = node.dataset.mermaidSource;
-        }
-
-        await mermaid.run({ nodes });
-        mermaidRun.status = 'success';
-      } catch (mermaidError) {
-        mermaidRun.status = 'error';
-        mermaidRun.error = errorMessage(mermaidError, String(mermaidError));
-        console.error('Mermaid rendering failed', mermaidError);
-      }
+    if (nodes.length === 0) {
+      return;
     }
 
-    if (debugEnabled) {
-      console.log('Mermaid Debug', $state.snapshot(mermaidRun));
+    try {
+      // Loaded on demand: a static import would put Mermaid (most of the site's
+      // JS) in every page's preload list, since routes.ts imports all pages eagerly.
+      const { default: mermaid } = await import('mermaid');
+      const surface = getComputedStyle(article).getPropertyValue('--color-bg-surface').trim();
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'strict',
+        theme: mermaidTheme,
+        // The dark theme's gray edge-label box fails contrast; use the diagram background.
+        themeVariables: { edgeLabelBackground: surface },
+      });
+
+      // Restore each diagram's source so a theme change can re-render it.
+      for (const node of nodes) {
+        node.dataset.mermaidSource ??= node.textContent?.trim() ?? '';
+        node.removeAttribute('data-processed');
+        node.textContent = node.dataset.mermaidSource;
+      }
+
+      await mermaid.run({ nodes });
+      keepDiagramsReadable(nodes);
+    } catch (mermaidError) {
+      console.error('Mermaid rendering failed', mermaidError);
     }
   }
 
-  const yesNo = (value: boolean) => (value ? 'yes' : 'no');
+  /** Stop wide diagrams from shrinking past legibility; the `.mermaid` box scrolls instead. */
+  function keepDiagramsReadable(nodes: HTMLElement[]) {
+    for (const [index, node] of nodes.entries()) {
+      // Focusable so keyboard users can scroll the box with the arrow keys.
+      node.tabIndex = 0;
+      node.setAttribute('role', 'region');
+      node.setAttribute('aria-label', `Diagram ${index + 1}`);
+      const svg = node.querySelector('svg');
+      // Mermaid caps each SVG at its natural width via an inline max-width. At 60%,
+      // its 16px labels stay near 10px and the current diagrams still fit on desktop.
+      const naturalWidth = parseFloat(svg?.style.maxWidth ?? '');
+      if (svg && naturalWidth > 0) {
+        svg.style.minWidth = `${Math.round(naturalWidth * 0.6)}px`;
+      }
+    }
+  }
 </script>
 
 <svelte:head>
@@ -99,7 +101,6 @@
 {#await pagePromise}
   <StatusMessage kind="loading" message="Loading project..." />
 {:then project}
-  {@const renderDebug = project.debug}
   <header class="terminal-box">
     <h1 class="prompt">{project.title}</h1>
     <TagList tags={project.tags} />
@@ -118,40 +119,6 @@
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- build-time Markdown, sanitized by rehype-sanitize -->
     {@html project.html}
   </article>
-
-  {#if debugEnabled}
-    {@const debugRows = [
-      ['Slug', slug],
-      ['Markdown length', renderDebug.markdownLength],
-      ['Input has mermaid fence', yesNo(renderDebug.inputHasMermaidFence)],
-      ['Transformed mermaid blocks', renderDebug.transformedMermaidBlocks],
-      ['Output has .mermaid div', yesNo(renderDebug.outputHasMermaidDiv)],
-      ['Output still has language-mermaid code', yesNo(renderDebug.outputHasMermaidCodeFence)],
-      ['Rendered HTML length', renderDebug.htmlLength],
-      ['DOM .mermaid nodes', mermaidRun.domMermaidNodes],
-      ['DOM mermaid code nodes', mermaidRun.domMermaidCodeNodes],
-      ['Mermaid run status', mermaidRun.status],
-    ]}
-    <section class="debug-panel terminal-box">
-      <h2 class="prompt">Mermaid Debug Panel</h2>
-      {#each debugRows as [label, value] (label)}
-        <p><strong>{label}:</strong> {value}</p>
-      {/each}
-
-      {#if mermaidRun.error}
-        <pre class="debug-error">{mermaidRun.error}</pre>
-      {/if}
-
-      {#if mermaidRun.firstMermaidSource}
-        <p><strong>First Mermaid source preview:</strong></p>
-        <pre>{mermaidRun.firstMermaidSource}</pre>
-      {/if}
-
-      <p class="debug-hint">
-        Append <code>?debugMermaid=1</code> to this page URL to show this panel.
-      </p>
-    </section>
-  {/if}
 {:catch}
   <!-- Unknown slugs 404 in the router, so this is a failed chunk load; its error text is a dev URL. -->
   <StatusMessage kind="error" message="Couldn't load this project. Try refreshing the page." />
@@ -230,6 +197,11 @@
     margin-bottom: 1rem;
   }
 
+  .project-content :global(.mermaid svg) {
+    display: block;
+    margin-inline: auto;
+  }
+
   .project-content :global(.heading-anchor) {
     margin-left: 1rem;
     opacity: 0.5;
@@ -237,39 +209,5 @@
 
   .project-content :global(.heading-anchor:hover) {
     opacity: 1;
-  }
-
-  .debug-panel {
-    margin-top: 1rem;
-    border-style: dashed;
-  }
-
-  .debug-panel h2 {
-    font-size: 1.1rem;
-    margin-bottom: 0.8rem;
-  }
-
-  .debug-panel p {
-    margin-bottom: 0.45rem;
-  }
-
-  .debug-panel pre {
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    border: 1px solid var(--color-text-primary);
-    border-radius: 3px;
-    padding: 0.7rem;
-    background: var(--color-primary-opacity-10);
-    margin-bottom: 0.6rem;
-  }
-
-  .debug-error {
-    color: var(--color-error);
-    border-color: var(--color-error);
-    background: var(--color-error-opacity-05);
-  }
-
-  .debug-hint {
-    color: var(--color-text-muted);
   }
 </style>

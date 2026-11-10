@@ -25,8 +25,8 @@ const VIEWPORTS = [
 const RUN_OPTIONS: RunOptions = {
   runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'],
 };
-// Mermaid draws diagrams in its own theme colors (see ISSUES.md).
-const AXE_CONTEXT: ContextObject = { exclude: ['.mermaid'] };
+// axe rejects an empty context, so name the whole page.
+const AXE_CONTEXT: ContextObject = { include: ['body'] };
 const AXE_ARGS_JSON = JSON.stringify({ axeContext: AXE_CONTEXT, options: RUN_OPTIONS });
 
 // The page fills in after data loads, and StatusMessage fills its live region

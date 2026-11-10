@@ -3,11 +3,9 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { renderProjectMarkdownWithDebug } from '../../plugins/renderMarkdown.ts';
+import { renderProjectMarkdown } from '../../plugins/renderMarkdown.ts';
 
-async function render(markdown: string): Promise<string> {
-  return (await renderProjectMarkdownWithDebug(markdown)).html;
-}
+const render = renderProjectMarkdown;
 
 describe('sanitization', () => {
   test('drops script tags', async () => {
@@ -50,12 +48,9 @@ describe('rendering', () => {
   });
 
   test('turns mermaid fences into mermaid divs', async () => {
-    const { html, debug } = await renderProjectMarkdownWithDebug(
-      '```mermaid\ngraph TD; A-->B\n```',
-    );
+    const html = await render('```mermaid\ngraph TD; A-->B\n```');
     assert.match(html, /<div class="mermaid">graph TD; A-->B<\/div>/);
-    assert.equal(debug.transformedMermaidBlocks, 1);
-    assert.equal(debug.outputHasMermaidCodeFence, false);
+    assert.doesNotMatch(html, /language-mermaid/);
   });
 
   test('supports GitHub-flavored tables', async () => {
