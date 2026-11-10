@@ -10,7 +10,7 @@ from unittest.mock import patch
 from cryptography.exceptions import InvalidTag
 from werkzeug.datastructures import FileStorage
 
-from app import create_app
+from app import create_app, fileshare
 from app.fileshare import (
 	FileShareError,
 	FileShareRecord,
@@ -20,10 +20,11 @@ from app.fileshare import (
 	_derive_key,
 	_encrypt_bytes,
 	_evict_oldest_records,
-	_extract_occurrence_index,
+	_parse_stem,
 	_parse_timestamp,
 	_record_paths,
 	_sanitize_original_filename,
+	_sweep,
 	acquire_transfer_slot,
 	build_label,
 	cleanup_expired_records,
@@ -75,7 +76,6 @@ class TestFileShareCrypto(unittest.TestCase):
 			label='label',
 			occurrence_index=1,
 			original_filename='test.txt',
-			stored_filename='test.payload',
 			size_bytes=len(data),
 			mime_type='text/plain',
 			uploaded_at='',
@@ -95,7 +95,6 @@ class TestFileShareCrypto(unittest.TestCase):
 			label='label',
 			occurrence_index=1,
 			original_filename='test.txt',
-			stored_filename='test.payload',
 			size_bytes=len(data),
 			mime_type='text/plain',
 			uploaded_at='',
@@ -111,7 +110,6 @@ class TestFileShareCrypto(unittest.TestCase):
 			label='label',
 			occurrence_index=1,
 			original_filename='test.txt',
-			stored_filename='test.payload',
 			size_bytes=10,
 			mime_type='text/plain',
 			uploaded_at='',
@@ -143,13 +141,11 @@ class TestFileShareSanitizationAndParsing(unittest.TestCase):
 		# Partly ASCII names keep what survives.
 		self.assertEqual(_sanitize_original_filename('report_日本.pdf'), 'report_.pdf')
 
-	def test_extract_occurrence_index(self):
-		# From payload dict
-		self.assertEqual(_extract_occurrence_index(Path('foo.json'), {'occurrence_index': 3}), 3)
-		# From filename stem
-		self.assertEqual(_extract_occurrence_index(Path('abc__4.json'), {}), 4)
-		# Fallback
-		self.assertEqual(_extract_occurrence_index(Path('abc.json'), {}), 1)
+	def test_parse_stem(self):
+		self.assertEqual(_parse_stem('abc'), ('abc', 1))
+		self.assertEqual(_parse_stem('abc__12'), ('abc', 12))
+		self.assertIsNone(_parse_stem('abc__x'))
+		self.assertIsNone(_parse_stem('abc__'))
 
 	def test_parse_timestamp(self):
 		# ISO with Z
@@ -227,6 +223,36 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 		rec2 = save_upload(self._create_mock_file('file2.txt', b'Second'), 'shared-key')
 		self.assertEqual((rec1.occurrence_index, rec2.occurrence_index), (1, 2))
 		self.assertEqual(len(get_all_records_for_password('shared-key')), 2)
+
+	def test_empty_file_reports_zero_bytes(self):
+		record = save_upload(self._create_mock_file('empty.txt', b''), 'empty-key')
+		self.assertEqual(record.size_bytes, 0)
+
+		(listed,) = get_all_records_for_password('empty-key')
+		self.assertEqual(listed.size_bytes, 0)
+		self.assertEqual(decrypt_record_payload(listed, 'empty-key'), b'')
+
+	def test_save_upload_skips_index_claimed_concurrently(self):
+		save_upload(self._create_mock_file('a.txt', b'A'), 'race-key')
+		rec2 = save_upload(self._create_mock_file('b.txt', b'B'), 'race-key')
+
+		# Simulate a racing upload: the first index scan is stale and misses index 2.
+		real_indices = fileshare._existing_indices
+		stale = iter([[1]])
+		with patch.object(
+			fileshare, '_existing_indices', lambda label: next(stale, None) or real_indices(label)
+		):
+			rec3 = save_upload(self._create_mock_file('c.txt', b'C'), 'race-key')
+
+		self.assertEqual(rec3.occurrence_index, 3)
+		self.assertEqual(decrypt_record_payload(rec2, 'race-key'), b'B')
+		self.assertEqual(decrypt_record_payload(rec3, 'race-key'), b'C')
+
+	def test_records_ordered_by_numeric_index(self):
+		for i in range(11):
+			save_upload(self._create_mock_file(f'{i}.txt', b'x'), 'many-key')
+		indices = [r.occurrence_index for r in get_all_records_for_password('many-key')]
+		self.assertEqual(indices, list(range(1, 12)))
 
 	def test_delete_records_removes_only_given_indices(self):
 		save_upload(self._create_mock_file('old.txt', b'1'), 'del-key')
@@ -310,7 +336,7 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 		_ = save_upload(f2, 'key2')
 
 		# Evict records to free at least 1 byte
-		freed = _evict_oldest_records(required_free_bytes=1)
+		freed = _evict_oldest_records(_sweep()[0], required_free_bytes=1)
 		self.assertGreater(freed, 0)
 		# Oldest (rec1) should have been removed
 		self.assertIsNone(get_record_for_password('key1'))

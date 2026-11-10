@@ -17,7 +17,7 @@ import threading
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -43,6 +43,7 @@ KDF_P = 1
 # Each transfer holds roughly 3x the file size in memory (plaintext + ciphertext +
 # buffers), so this keeps two 80 MB transfers within the VM's 1 GB of RAM.
 MAX_CONCURRENT_TRANSFERS = 2
+MAX_INDEX_CLAIM_ATTEMPTS = 10
 
 _transfer_slots = threading.BoundedSemaphore(MAX_CONCURRENT_TRANSFERS)
 
@@ -59,7 +60,6 @@ class FileShareRecord:
 	label: str
 	occurrence_index: int
 	original_filename: str
-	stored_filename: str
 	size_bytes: int
 	mime_type: str
 	uploaded_at: str
@@ -115,28 +115,31 @@ def _storage_root() -> Path:
 	return root
 
 
-def _record_paths(label: str, occurrence_index: int = 1) -> tuple[Path, Path]:
-	root = _storage_root()
-	if occurrence_index == 1:
-		return root / f'{label}{META_SUFFIX}', root / f'{label}{PAYLOAD_SUFFIX}'
+def _record_stem(label: str, occurrence_index: int) -> str:
+	return label if occurrence_index == 1 else f'{label}__{occurrence_index}'
 
-	return (
-		root / f'{label}__{occurrence_index}{META_SUFFIX}',
-		root / f'{label}__{occurrence_index}{PAYLOAD_SUFFIX}',
-	)
+
+def _parse_stem(stem: str) -> tuple[str, int] | None:
+	"""Inverse of `_record_stem`: `(label, occurrence_index)`, or None for a malformed name."""
+	label, sep, suffix = stem.partition('__')
+	if not sep:
+		return label, 1
+	if not (suffix.isascii() and suffix.isdigit()):
+		return None
+	return label, int(suffix)
+
+
+def _record_paths(label: str, occurrence_index: int = 1) -> tuple[Path, Path]:
+	base = _storage_root() / _record_stem(label, occurrence_index)
+	return base.with_suffix(META_SUFFIX), base.with_suffix(PAYLOAD_SUFFIX)
 
 
 def _existing_indices(label: str) -> list[int]:
 	indices: set[int] = set()
 	for path in _storage_root().glob(f'{label}*'):
-		stem = path.name.removesuffix(META_SUFFIX).removesuffix(PAYLOAD_SUFFIX)
-		if stem == label:
-			indices.add(1)
-		elif stem.startswith(f'{label}__'):
-			try:
-				indices.add(int(stem[len(label) + 2 :]))
-			except ValueError:
-				continue
+		parsed = _parse_stem(path.name.split('.', 1)[0])
+		if parsed is not None and parsed[0] == label:
+			indices.add(parsed[1])
 	return sorted(indices)
 
 
@@ -160,51 +163,26 @@ def _derive_key(password: str, salt: bytes) -> bytes:
 	return kdf.derive(password.encode('utf-8'))
 
 
-def _extract_occurrence_index(meta_path: Path, payload: dict) -> int:
-	value = payload.get('occurrence_index')
-	if value is not None:
-		try:
-			return int(value)
-		except (TypeError, ValueError):
-			return 1
-
-	stem = meta_path.stem
-	if '__' in stem:
-		_, suffix = stem.rsplit('__', 1)
-		try:
-			return int(suffix)
-		except ValueError:
-			return 1
-
-	return 1
-
-
 def _load_record(meta_path: Path) -> FileShareRecord | None:
+	"""Read one record; None if it is unreadable or its payload is missing."""
+	parsed = _parse_stem(meta_path.stem)
+	if parsed is None:
+		return None
+	label, occurrence_index = parsed
+
 	try:
 		payload = json.loads(meta_path.read_text(encoding='utf-8'))
-	except (OSError, json.JSONDecodeError):
+		# Required, not defaulted: falsy-chaining it once reported empty files as 16 bytes.
+		size_bytes = int(payload['size_bytes'])
+	except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
 		return None
-
-	label = str(payload.get('label') or meta_path.stem.split('__', 1)[0])
-	occurrence_index = _extract_occurrence_index(meta_path, payload)
-	_, payload_path = _record_paths(label, occurrence_index)
-	if not payload_path.exists():
-		return None
-
-	try:
-		size_bytes = int(
-			payload.get('size_bytes')
-			or payload.get('stored_size_bytes')
-			or payload_path.stat().st_size
-		)
-	except (TypeError, ValueError, OSError):
+	if not meta_path.with_suffix(PAYLOAD_SUFFIX).exists():
 		return None
 
 	return FileShareRecord(
 		label=label,
 		occurrence_index=occurrence_index,
 		original_filename=str(payload.get('original_filename') or 'download'),
-		stored_filename=str(payload.get('stored_filename') or payload_path.name),
 		size_bytes=size_bytes,
 		mime_type=str(payload.get('mime_type') or 'application/octet-stream'),
 		uploaded_at=str(payload.get('uploaded_at') or ''),
@@ -214,119 +192,81 @@ def _load_record(meta_path: Path) -> FileShareRecord | None:
 	)
 
 
-def _remove_record(label: str, occurrence_index: int | None = None) -> None:
-	if occurrence_index is not None:
-		paths = [_record_paths(label, occurrence_index)]
-	else:
-		paths = [_record_paths(label, idx) for idx in _existing_indices(label)]
+def _unlink(*paths: Path) -> None:
+	for path in paths:
+		path.unlink(missing_ok=True)
 
-	for meta_path, payload_path in paths:
-		for path in (meta_path, payload_path):
-			try:
-				path.unlink()
-			except FileNotFoundError:
-				continue
+
+def _remove_record(label: str, occurrence_index: int) -> None:
+	_unlink(*_record_paths(label, occurrence_index))
+
+
+def _payload_size(record: FileShareRecord) -> int:
+	_, payload_path = _record_paths(record.label, record.occurrence_index)
+	try:
+		return payload_path.stat().st_size
+	except OSError:
+		return 0
+
+
+def _is_expired(record: FileShareRecord, now: datetime) -> bool:
+	try:
+		return now >= _parse_timestamp(record.expires_at)
+	except ValueError:
+		return True
+
+
+def _sweep(now: datetime | None = None) -> tuple[list[FileShareRecord], int]:
+	"""Delete expired or unreadable records in one pass over the metadata.
+
+	Returns the remaining records, ordered by label then index, and how many were deleted.
+	"""
+	current_time = now or _now_utc()
+	active: list[FileShareRecord] = []
+	deleted_count = 0
+
+	for meta_path in _storage_root().glob(f'*{META_SUFFIX}'):
+		record = _load_record(meta_path)
+		if record is not None and not _is_expired(record, current_time):
+			active.append(record)
+			continue
+		# Unlink by path so an unreadable record's payload doesn't linger outside the quota.
+		_unlink(meta_path, meta_path.with_suffix(PAYLOAD_SUFFIX))
+		deleted_count += 1
+
+	active.sort(key=lambda record: (record.label, record.occurrence_index))
+	return active, deleted_count
 
 
 def cleanup_expired_records(now: datetime | None = None) -> int:
 	"""Delete expired or unreadable records; returns how many were removed."""
-	root = _storage_root()
-	current_time = now or _now_utc()
-	deleted_count = 0
-
-	for meta_path in root.glob(f'*{META_SUFFIX}'):
-		record = _load_record(meta_path)
-		if record is None:
-			# Remove the payload too, or it lingers on disk outside the storage quota.
-			payload_path = meta_path.with_name(
-				meta_path.name.removesuffix(META_SUFFIX) + PAYLOAD_SUFFIX
-			)
-			deleted_count += 1
-			for path in (meta_path, payload_path):
-				try:
-					path.unlink()
-				except FileNotFoundError:
-					pass
-			continue
-
-		try:
-			expires_at = _parse_timestamp(record.expires_at)
-		except ValueError:
-			_remove_record(record.label, record.occurrence_index)
-			deleted_count += 1
-			continue
-
-		if current_time >= expires_at:
-			_remove_record(record.label, record.occurrence_index)
-			deleted_count += 1
-
-	return deleted_count
-
-
-def iter_active_records() -> list[FileShareRecord]:
-	cleanup_expired_records()
-	root = _storage_root()
-	records: list[FileShareRecord] = []
-
-	for meta_path in sorted(root.glob(f'*{META_SUFFIX}')):
-		record = _load_record(meta_path)
-		if record is not None:
-			records.append(record)
-
-	return records
+	return _sweep(now)[1]
 
 
 def get_storage_status() -> dict[str, int | bool]:
-	records = iter_active_records()
-	used_bytes = 0
-	for record in records:
-		_, payload_path = _record_paths(record.label, record.occurrence_index)
-		try:
-			used_bytes += payload_path.stat().st_size
-		except OSError:
-			continue
-
+	records, _ = _sweep()
 	return {
 		'activeFileCount': len(records),
-		'usedBytes': used_bytes,
+		'usedBytes': sum(_payload_size(record) for record in records),
 		'maxFileBytes': MAX_FILE_BYTES,
 		'maxTotalBytes': MAX_TOTAL_STORAGE_BYTES,
 		'retentionSeconds': RETENTION_SECONDS,
 	}
 
 
+def get_all_records_for_password(password: str) -> list[FileShareRecord]:
+	label = build_label(password)
+	return [record for record in _sweep()[0] if record.label == label]
+
+
 def get_record_for_password(
 	password: str, occurrence_index: int | None = None
 ) -> FileShareRecord | None:
 	"""Return the key's record at `occurrence_index`, or its first record when None."""
-	label = build_label(password)
-	cleanup_expired_records()
-
-	if occurrence_index is not None:
-		meta_path, _ = _record_paths(label, occurrence_index)
-		return _load_record(meta_path)
-
-	for idx in _existing_indices(label):
-		meta_path, _ = _record_paths(label, idx)
-		record = _load_record(meta_path)
-		if record is not None:
-			return record
-
-	return None
-
-
-def get_all_records_for_password(password: str) -> list[FileShareRecord]:
-	label = build_label(password)
-	cleanup_expired_records()
-	records: list[FileShareRecord] = []
-
-	for idx in _existing_indices(label):
-		meta_path, _ = _record_paths(label, idx)
-		record = _load_record(meta_path)
-		if record is not None:
-			records.append(record)
-
-	return records
+	records = get_all_records_for_password(password)
+	if occurrence_index is None:
+		return records[0] if records else None
+	return next((r for r in records if r.occurrence_index == occurrence_index), None)
 
 
 def _encrypt_bytes(password: str, plaintext: bytes) -> tuple[bytes, str, str]:
@@ -366,30 +306,60 @@ def _sanitize_original_filename(filename: str) -> str:
 	return clean_name or 'download'
 
 
-def _evict_oldest_records(required_free_bytes: int) -> int:
-	"""Delete records oldest-upload-first until at least `required_free_bytes` are freed; returns bytes freed."""
+def _evict_oldest_records(records: list[FileShareRecord], required_free_bytes: int) -> int:
+	"""Delete `records` oldest-upload-first until at least `required_free_bytes` are freed; returns bytes freed."""
 	if required_free_bytes <= 0:
 		return 0
 
-	records = iter_active_records()
 	try:
-		sorted_records = sorted(records, key=lambda record: _parse_timestamp(record.uploaded_at))
+		ordered = sorted(records, key=lambda record: _parse_timestamp(record.uploaded_at))
 	except ValueError:
-		sorted_records = records
+		ordered = records
 
 	freed_bytes = 0
-	for record in sorted_records:
+	for record in ordered:
 		if freed_bytes >= required_free_bytes:
 			break
-
-		_, payload_path = _record_paths(record.label, record.occurrence_index)
-		try:
-			freed_bytes += payload_path.stat().st_size
-		except OSError:
-			freed_bytes += int(record.size_bytes)
+		freed_bytes += _payload_size(record)
 		_remove_record(record.label, record.occurrence_index)
 
 	return freed_bytes
+
+
+def _write_new_payload(label: str, ciphertext: bytes) -> int:
+	"""Store the payload at the label's next free index and return that index.
+
+	Mode 'x' makes claiming an index atomic: if a concurrent upload under the same key
+	took it first, move on to the next index instead of overwriting that file.
+	"""
+	for _ in range(MAX_INDEX_CLAIM_ATTEMPTS):
+		occurrence_index = max(_existing_indices(label), default=0) + 1
+		_, payload_path = _record_paths(label, occurrence_index)
+		try:
+			handle = payload_path.open('xb')
+		except FileExistsError:
+			continue
+		try:
+			with handle:
+				handle.write(ciphertext)
+		except BaseException:
+			payload_path.unlink(missing_ok=True)
+			raise
+		return occurrence_index
+
+	raise FileShareError('The file share is busy right now; try again in a moment.', 503)
+
+
+def _write_text_atomically(path: Path, text: str) -> None:
+	# Sweeps delete metadata they can't parse, so they must never see a half-written file.
+	# The dot prefix keeps the temp file out of the `*.json` and `<label>*` globs.
+	temp_path = path.with_name(f'.{path.name}.tmp')
+	try:
+		temp_path.write_text(text, encoding='utf-8')
+		temp_path.replace(path)
+	except BaseException:
+		temp_path.unlink(missing_ok=True)
+		raise
 
 
 def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
@@ -399,12 +369,6 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 	if uploaded_file.filename is None or not uploaded_file.filename.strip():
 		raise FileShareError('A file is required.')
 
-	cleanup_expired_records()
-	label = build_label(password)
-
-	occurrence_index = max(_existing_indices(label), default=0) + 1
-
-	meta_path, payload_path = _record_paths(label, occurrence_index)
 	plaintext = uploaded_file.read()
 	if isinstance(plaintext, str):
 		plaintext = plaintext.encode('utf-8')
@@ -414,52 +378,49 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 		raise FileShareError(f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.', 413)
 
 	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes(password, plaintext)
-	current_status = get_storage_status()
-	required_free_bytes = (
-		int(current_status['usedBytes']) + len(ciphertext)
-	) - MAX_TOTAL_STORAGE_BYTES
+	records, _ = _sweep()
+	used_bytes = sum(_payload_size(record) for record in records)
+	required_free_bytes = used_bytes + len(ciphertext) - MAX_TOTAL_STORAGE_BYTES
 	if required_free_bytes >= 0:
-		_evict_oldest_records(required_free_bytes + 1)
-		current_status = get_storage_status()
-		if int(current_status['usedBytes']) + len(ciphertext) >= MAX_TOTAL_STORAGE_BYTES:
+		freed_bytes = _evict_oldest_records(records, required_free_bytes + 1)
+		if freed_bytes <= required_free_bytes:
 			raise FileShareError('Not enough storage available; try again later.', 503)
 
+	label = build_label(password)
 	now = _now_utc()
-	original_filename = _sanitize_original_filename(uploaded_file.filename)
-	metadata = {
-		'label': label,
-		'occurrence_index': occurrence_index,
-		'original_filename': original_filename,
-		'stored_filename': payload_path.name,
-		'size_bytes': len(plaintext),
-		'stored_size_bytes': len(ciphertext),
-		'mime_type': uploaded_file.mimetype or 'application/octet-stream',
-		'uploaded_at': now.isoformat(),
-		'expires_at': (now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
-		'salt_b64': salt_b64,
-		'nonce_b64': nonce_b64,
-	}
-
-	try:
-		payload_path.write_bytes(ciphertext)
-		meta_path.write_text(json.dumps(metadata, indent=2, sort_keys=True), encoding='utf-8')
-	except Exception as exc:
-		_remove_record(label, occurrence_index)
-		current_app.logger.exception('Failed to store fileshare upload')
-		raise FileShareError('Failed to store upload.', 500) from exc
-
-	return FileShareRecord(
+	record = FileShareRecord(
 		label=label,
-		occurrence_index=occurrence_index,
-		original_filename=original_filename,
-		stored_filename=payload_path.name,
+		occurrence_index=0,  # Set once the payload has claimed an index.
+		original_filename=_sanitize_original_filename(uploaded_file.filename),
 		size_bytes=len(plaintext),
-		mime_type=metadata['mime_type'],
-		uploaded_at=metadata['uploaded_at'],
-		expires_at=metadata['expires_at'],
+		mime_type=uploaded_file.mimetype or 'application/octet-stream',
+		uploaded_at=now.isoformat(),
+		expires_at=(now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
 		salt_b64=salt_b64,
 		nonce_b64=nonce_b64,
 	)
+	metadata = {
+		'original_filename': record.original_filename,
+		'size_bytes': record.size_bytes,
+		'mime_type': record.mime_type,
+		'uploaded_at': record.uploaded_at,
+		'expires_at': record.expires_at,
+		'salt_b64': record.salt_b64,
+		'nonce_b64': record.nonce_b64,
+	}
+
+	occurrence_index: int | None = None
+	try:
+		occurrence_index = _write_new_payload(label, ciphertext)
+		meta_path, _ = _record_paths(label, occurrence_index)
+		_write_text_atomically(meta_path, json.dumps(metadata, indent=2, sort_keys=True))
+	except OSError as exc:
+		if occurrence_index is not None:
+			_remove_record(label, occurrence_index)
+		current_app.logger.exception('Failed to store fileshare upload')
+		raise FileShareError('Failed to store upload.', 500) from exc
+
+	return replace(record, occurrence_index=occurrence_index)
 
 
 def delete_records(password: str, occurrence_indices: Iterable[int]) -> int:

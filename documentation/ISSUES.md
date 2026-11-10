@@ -47,11 +47,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
 2. Expiry is request-driven; idle files linger until the next file-share request.
 
-The items below come from code review and function-level tests, not live uploads.
-
-3. An empty file is listed as 16 bytes. `_load_record` chains `size_bytes or stored_size_bytes or stat()`, and a real 0 is falsy, so it falls through to the ciphertext size (the AES-GCM tag). The upload response says 0, `/api/fileshare/list/` says 16. Use an explicit `is None` check. No test uploads an empty file.
-4. **Possible:** two clients uploading under the same key at once can clobber each other. `save_upload` computes the next occurrence index, then writes, with no lock between, so both get the same index and the second `write_bytes` overwrites the first. The two transfer slots allow exactly this pairing. A per-label lock, or opening the payload with `'x'` and retrying on `FileExistsError`, would close it.
-
 ### Message Board
 
 1. Sanitizing silently removes characters: `don't` becomes `dont`, and `café ñ 你好 🎉` becomes `caf`. The UI calls the allowlist "URL-safe", yet it strips `&`, `#`, `%`, `+`, and `@`.
@@ -97,18 +92,12 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 1. `FileShareError` and `MessageBoardError` are identical classes, and `views.py` turns them into JSON with the same `try/except` → `jsonify({'error': ...}), status` four times. One base error class plus a blueprint `errorhandler` would replace both.
 2. Each record type is serialized to camelCase JSON by hand in two places: `FileShareRecord` in `fileshare_upload` and `fileshare_list`, and `BoardMessageRecord` in `messageboard_post_message` and `MessageBoardStore.get_active_messages`. A `to_json()` method on each dataclass would keep each field list in one place.
-3. Duplication in `fileshare.py`:
-   - `get_record_for_password` and `get_all_records_for_password` run the same `_existing_indices` → `_record_paths` → `_load_record` loop; the first could call the second.
-   - The `<label>__<n>` file naming is built in `_record_paths` but parsed separately in `_existing_indices`, `_extract_occurrence_index`, and `_load_record`.
-   - `_remove_record` and `cleanup_expired_records` each have their own unlink loop that ignores missing files (`Path.unlink(missing_ok=True)` would replace both), and both `get_storage_status` and `_evict_oldest_records` sum payload sizes.
-   - `cleanup_expired_records()` reads every metadata file, yet it runs several times per request: `fileshare_status` calls it, then `get_storage_status` → `iter_active_records` calls it again, and a single upload runs it up to four times.
-4. **Minor:** in `messageboard.py`, the expired-message filter is written four times (`cleanup`, `add_message`, `get_active_messages`, `get_status`) and `now if now is not None else time.time()` five times. A `_purge_locked(now)` helper would replace them.
-5. **Minor:** `create_app` has two `Flask(...)` calls that differ only by `instance_path` (Flask accepts `None`). It also reads `SECRET_KEY` out of `test_config` and then applies all of `test_config` again.
+3. **Minor:** in `messageboard.py`, the expired-message filter is written four times (`cleanup`, `add_message`, `get_active_messages`, `get_status`) and `now if now is not None else time.time()` five times. A `_purge_locked(now)` helper would replace them.
+4. **Minor:** `create_app` has two `Flask(...)` calls that differ only by `instance_path` (Flask accepts `None`). It also reads `SECRET_KEY` out of `test_config` and then applies all of `test_config` again.
 
 ### Tests
 
-1. A gap that would have caught an item above: no backend test uploads an empty file (File Share #3).
-2. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
+1. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI
 

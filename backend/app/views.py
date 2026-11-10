@@ -15,7 +15,6 @@ from werkzeug.wsgi import ClosingIterator
 from .fileshare import (
 	FileShareError,
 	acquire_transfer_slot,
-	cleanup_expired_records,
 	decrypt_record_payload,
 	delete_records,
 	get_all_records_for_password,
@@ -127,7 +126,6 @@ def scheduler_default_schedule():
 
 @views.route('/api/fileshare/status/', methods=['GET'])
 def fileshare_status():
-	cleanup_expired_records()
 	return jsonify(get_storage_status())
 
 

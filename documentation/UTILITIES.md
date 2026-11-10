@@ -101,7 +101,7 @@ Errors: `400` missing key/file, `403` decryption failed, `404` no matching file,
 
 `backend/app/fileshare.py`:
 
-- **Lookup.** The label is HMAC-SHA256(access key) keyed with `SECRET_KEY`, so stored labels can't be brute-forced without the server secret. A key can hold several files, stored as `<label>.json`/`.payload`, `<label>__2.json`/`.payload`, and so on, in `instance/fileshare/`.
+- **Lookup.** The label is HMAC-SHA256(access key) keyed with `SECRET_KEY`, so stored labels can't be brute-forced without the server secret. A key can hold several files, stored as `<label>.json`/`.payload`, `<label>__2.json`/`.payload`, and so on, in `instance/fileshare/`. Each upload claims its index by creating the payload exclusively, so concurrent uploads under one key never overwrite each other.
 - **Encryption.** Each file gets a random salt; scrypt (n=2¹⁴, r=8, p=1) derives an AES-256-GCM key from the access key.
 - **Limits.** 80 MB per file (kept below Cloudflare's 100 MB request limit), 1 GB total. If an upload would exceed the total, the oldest files are evicted; if that still isn't enough, the upload fails with `503`. At most 2 uploads/downloads run at once (`MAX_CONCURRENT_TRANSFERS`), because each holds about 3× the file size in RAM on a 1 GB VM. A download holds its slot until the server has finished sending the file, not just through decryption.
 - **Expiry.** Expired files are deleted during file-share API requests, not on a schedule.
