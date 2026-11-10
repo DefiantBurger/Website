@@ -19,8 +19,16 @@ export class SchedulerStore {
   revealRequest = $state<{ courseId: string; fromKeyboard: boolean } | null>(null);
 
   // Drag and drop between columns.
-  draggedCourseId: string | null = null;
+  draggedCourseId = $state<string | null>(null);
   dragOverSemester = $state<string | null>(null);
+  // The one insertion line on the board; null when the pointer isn't over a gap that would move the card.
+  dropLine = $state<{ courseId: string; after: boolean } | null>(null);
+
+  endDrag(): void {
+    this.draggedCourseId = null;
+    this.dragOverSemester = null;
+    this.dropLine = null;
+  }
 
   readonly schedule = $derived(this.history.present);
   readonly columns = $derived(boardColumns(this.schedule));

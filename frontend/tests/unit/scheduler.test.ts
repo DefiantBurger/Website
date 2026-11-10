@@ -593,6 +593,30 @@ describe('schedule edits', () => {
     assert.deepEqual(moved.columnCourseIds.fall24, ['E C E 352__1', 'MATH 222__1', 'E C E 252__1']);
     assert.equal(moved.coursesById['E C E 352__1'].semester, 'fall24');
 
+    // Same-column gaps count the column before the move: dropping the top card into the
+    // gap after its neighbor moves it down one, and its own gaps leave it in place.
+    assert.deepEqual(moveCourse(moved, 'E C E 352__1', 'fall24', 2).columnCourseIds.fall24, [
+      'MATH 222__1',
+      'E C E 352__1',
+      'E C E 252__1',
+    ]);
+    assert.deepEqual(moveCourse(moved, 'E C E 352__1', 'fall24', 1).columnCourseIds.fall24, [
+      'E C E 352__1',
+      'MATH 222__1',
+      'E C E 252__1',
+    ]);
+    assert.deepEqual(moveCourse(moved, 'E C E 252__1', 'fall24', 1).columnCourseIds.fall24, [
+      'E C E 352__1',
+      'E C E 252__1',
+      'MATH 222__1',
+    ]);
+    // The gap after the last card is the end, not one above it.
+    assert.deepEqual(moveCourse(moved, 'E C E 352__1', 'fall24', 3).columnCourseIds.fall24, [
+      'MATH 222__1',
+      'E C E 252__1',
+      'E C E 352__1',
+    ]);
+
     // No index: to the end of the column.
     const reordered = moveCourse(base(), 'MATH 222__1', 'fall24');
     assert.deepEqual(reordered.columnCourseIds.fall24, ['E C E 252__1', 'MATH 222__1']);

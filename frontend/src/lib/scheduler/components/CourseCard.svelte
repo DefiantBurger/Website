@@ -7,13 +7,16 @@
     store,
     courseId,
     track,
+    ondragovercard,
     ondropcard,
   }: {
     store: SchedulerStore;
     courseId: string;
     // Registers the card element so the board can measure edge endpoints.
     track: Attachment<HTMLElement>;
-    ondropcard: () => void;
+    // `after` is true when the pointer is over the card's lower half.
+    ondragovercard: (after: boolean) => void;
+    ondropcard: (after: boolean) => void;
   } = $props();
 
   const course = $derived(store.schedule.coursesById[courseId]);
@@ -28,6 +31,12 @@
   const selected = $derived(store.selectedCourseId === courseId);
 
   let element = $state<HTMLButtonElement>();
+  const dropLine = $derived(store.dropLine?.courseId === courseId ? store.dropLine : null);
+
+  function isLowerHalf(event: DragEvent & { currentTarget: HTMLElement }): boolean {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return event.clientY > rect.top + rect.height / 2;
+  }
 
   function select(): void {
     store.selectedCourseId = courseId;
@@ -68,15 +77,17 @@
     select();
     store.draggedCourseId = courseId;
   }}
-  ondragend={() => {
-    store.draggedCourseId = null;
-    store.dragOverSemester = null;
+  ondragend={() => store.endDrag()}
+  class:drop-before={dropLine && !dropLine.after}
+  class:drop-after={dropLine?.after}
+  ondragover={(event) => {
+    event.preventDefault();
+    ondragovercard(isLowerHalf(event));
   }}
-  ondragover={(event) => event.preventDefault()}
   ondrop={(event) => {
     event.preventDefault();
     event.stopPropagation();
-    ondropcard();
+    ondropcard(isLowerHalf(event));
   }}
 >
   <!-- Spans, not a heading: buttons may only contain phrasing content. -->
@@ -119,6 +130,30 @@
     user-select: none;
     text-align: left;
     width: 100%;
+    /* Anchors the drop line; no z-index, so it stays out of the stacking-context problem below. */
+    position: relative;
+  }
+
+  /* Insertion line, centered in the 0.6rem column gap (offsets include the 1px border). */
+  .course-card.drop-before::before,
+  .course-card.drop-after::after {
+    content: '';
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    height: 2px;
+    background: var(--color-text-primary);
+    box-shadow: 0 0 4px var(--color-text-primary);
+    pointer-events: none;
+    z-index: 3;
+  }
+
+  .course-card.drop-before::before {
+    top: calc(-0.3rem - 2px);
+  }
+
+  .course-card.drop-after::after {
+    bottom: calc(-0.3rem - 2px);
   }
 
   /* No press-scale: a transform would make the card its own stacking context and put the edge lines over its text. */

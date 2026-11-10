@@ -40,9 +40,8 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ### Class Scheduler
 
 1. Catalog and seed data may be incomplete or outdated. A separate repo grabs and parses the class data; it should be matured and documented here.
-2. Dropping a card on the card directly below it does nothing. `moveCourse` (`schedule.ts`) inserts before the target and decrements the index for same-column downward moves, so dragging A onto B in `[A, B, C]` yields `[A, B, C]`; you have to drop on C to move A down one slot. Insert after the target when moving down within a column, or pick before/after from the pointer's position in the target card. No unit test covers same-column drops.
-3. **Minor:** a plan whose last semester is `fall99` crashes the board. `nextSemesterKey` in `SchedulerBoard.svelte` is a `$derived` that calls `semesterKey`, which throws for years past 2099, and a thrown derived takes the component down. A shared link can carry that key. Clamp or catch there.
-4. **Minor:** `upcomingMainTerm` (`semesters.ts`) returns the current year's fall for June through December, so in December the "Add first semester" default is a term that is nearly over. Suggest spring of the next year from about October on.
+2. **Minor:** a plan whose last semester is `fall99` crashes the board. `nextSemesterKey` in `SchedulerBoard.svelte` is a `$derived` that calls `semesterKey`, which throws for years past 2099, and a thrown derived takes the component down. A shared link can carry that key. Clamp or catch there.
+3. **Minor:** `upcomingMainTerm` (`semesters.ts`) returns the current year's fall for June through December, so in December the "Add first semester" default is a term that is nearly over. Suggest spring of the next year from about October on.
 
 ### File Share
 
@@ -114,7 +113,7 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Tests
 
-1. Gaps that would have caught items above: a unit test for same-column drops in `moveCourse` (Class Scheduler #2), a smoke-test route for an unknown project slug (Frontend #4), and a backend test uploading an empty file (File Share #5).
+1. Gaps that would have caught items above: a smoke-test route for an unknown project slug (Frontend #4) and a backend test uploading an empty file (File Share #5).
 2. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI

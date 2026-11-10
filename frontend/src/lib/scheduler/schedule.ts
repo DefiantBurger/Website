@@ -68,7 +68,10 @@ export function removeCourse(schedule: ScheduleState, courseId: string): Schedul
   };
 }
 
-/** Move a card to `targetIndex` in `targetSemester` (the end when omitted). */
+/**
+ * Move a card into the gap `targetIndex` (0..length, counted in the column before the move)
+ * of `targetSemester`, or to the end when omitted.
+ */
 export function moveCourse(
   schedule: ScheduleState,
   courseId: string,
@@ -89,12 +92,11 @@ export function moveCourse(
     ? sourceIds
     : [...(schedule.columnCourseIds[targetSemester] ?? [])];
 
-  let destinationIndex =
-    targetIndex === undefined
-      ? destinationIds.length
-      : Math.max(0, Math.min(targetIndex, destinationIds.length));
-  if (sameColumn && targetIndex !== undefined && targetIndex > sourceIndex) {
-    destinationIndex -= 1;
+  let destinationIndex = destinationIds.length;
+  if (targetIndex !== undefined) {
+    // Shift for the removed card before clamping: the column's last gap is one past the shortened list.
+    const shifted = sameColumn && targetIndex > sourceIndex ? targetIndex - 1 : targetIndex;
+    destinationIndex = Math.max(0, Math.min(shifted, destinationIds.length));
   }
   destinationIds.splice(destinationIndex, 0, courseId);
 

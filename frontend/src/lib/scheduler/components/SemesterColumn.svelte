@@ -26,17 +26,27 @@
   );
   const isPrecollege = $derived(semester === PRECOLLEGE_SEMESTER);
 
-  function drop(targetCourseId?: string): void {
+  // moveCourse takes a gap index, so "after the target" is the gap past it.
+  function gapAt(targetCourseId: string, after: boolean): number {
+    return courseIds.indexOf(targetCourseId) + Number(after);
+  }
+
+  function hover(targetCourseId: string, after: boolean): void {
+    const source = store.draggedCourseId ? courseIds.indexOf(store.draggedCourseId) : -1;
+    const gap = gapAt(targetCourseId, after);
+    // The gaps on either side of the dragged card leave it where it is, so they get no line.
+    const noOp = source >= 0 && (gap === source || gap === source + 1);
+    store.dropLine = noOp ? null : { courseId: targetCourseId, after };
+  }
+
+  function drop(targetCourseId?: string, after = false): void {
     const draggedId = store.draggedCourseId;
-    store.draggedCourseId = null;
-    store.dragOverSemester = null;
+    store.endDrag();
     if (!draggedId || draggedId === targetCourseId) {
       return;
     }
-    const index = targetCourseId ? courseIds.indexOf(targetCourseId) : -1;
-    store.apply((schedule) =>
-      moveCourse(schedule, draggedId, semester, index >= 0 ? index : undefined),
-    );
+    const gap = targetCourseId ? gapAt(targetCourseId, after) : undefined;
+    store.apply((schedule) => moveCourse(schedule, draggedId, semester, gap));
   }
 
   function remove(): void {
@@ -70,11 +80,16 @@
   data-semester-column
   role="region"
   aria-label="Semester {label}"
+  ondragovercapture={() => {
+    // Cleared before the card under the pointer (if any) sets it, so empty space shows no line.
+    store.dropLine = null;
+  }}
   ondragover={(event) => {
     event.preventDefault();
     store.dragOverSemester = semester;
   }}
   ondragleave={() => {
+    store.dropLine = null;
     if (store.dragOverSemester === semester) {
       store.dragOverSemester = null;
     }
@@ -121,7 +136,13 @@
 
   <div class="semester-courses">
     {#each courseIds as courseId (courseId)}
-      <CourseCard {store} {courseId} track={track(courseId)} ondropcard={() => drop(courseId)} />
+      <CourseCard
+        {store}
+        {courseId}
+        track={track(courseId)}
+        ondragovercard={(after) => hover(courseId, after)}
+        ondropcard={(after) => drop(courseId, after)}
+      />
     {/each}
   </div>
 </div>
