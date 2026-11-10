@@ -9,6 +9,8 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from .errors import ApiError
+
 MESSAGE_TTL_SECONDS = 60.0
 MAX_MESSAGES_STORED = 200
 MAX_MESSAGE_LENGTH = 280
@@ -20,11 +22,8 @@ RATE_LIMIT_MAX_REQUESTS = 5
 _ALLOWED_CHARS_PATTERN = re.compile(r'[^a-zA-Z0-9\s,.\-!/()=?`*;:_{}\[\]\\|~^]')
 
 
-class MessageBoardError(RuntimeError):
-	def __init__(self, message: str, status_code: int = 400):
-		super().__init__(message)
-		self.message = message
-		self.status_code = status_code
+class MessageBoardError(ApiError):
+	pass
 
 
 @dataclass(frozen=True)
@@ -35,6 +34,19 @@ class BoardMessageRecord:
 	expires_at: str
 	created_at_epoch: float
 	expires_at_epoch: float
+
+	def to_json(self) -> dict:
+		return {
+			'id': self.id,
+			'text': self.text,
+			'createdAt': self.created_at,
+			'expiresAt': self.expires_at,
+		}
+
+
+def _now(now: float | None) -> float:
+	# Tests pass `now` explicitly; production uses the wall clock.
+	return time.time() if now is None else now
 
 
 def sanitize_message_text(raw_text: object) -> str:
@@ -86,7 +98,7 @@ class RateLimiter:
 		self._lock = threading.Lock()
 
 	def check_and_record(self, client_ip: str, now: float | None = None) -> bool:
-		current_time = now if now is not None else time.time()
+		current_time = _now(now)
 		key = (client_ip or 'unknown').strip()
 		cutoff = current_time - self.window_seconds
 
@@ -123,12 +135,15 @@ class MessageBoardStore:
 		self._messages: list[BoardMessageRecord] = []
 		self._lock = threading.Lock()
 
+	def _purge_locked(self, now: float) -> int:
+		"""Drop expired messages and return how many were removed. Caller holds `_lock`."""
+		initial_count = len(self._messages)
+		self._messages = [msg for msg in self._messages if msg.expires_at_epoch > now]
+		return initial_count - len(self._messages)
+
 	def cleanup(self, now: float | None = None) -> int:
-		current_time = now if now is not None else time.time()
 		with self._lock:
-			initial_count = len(self._messages)
-			self._messages = [msg for msg in self._messages if msg.expires_at_epoch > current_time]
-			return initial_count - len(self._messages)
+			return self._purge_locked(_now(now))
 
 	def add_message(
 		self,
@@ -136,12 +151,11 @@ class MessageBoardStore:
 		client_ip: str,
 		now: float | None = None,
 	) -> BoardMessageRecord:
-		current_time = now if now is not None else time.time()
+		current_time = _now(now)
 		text = sanitize_message_text(raw_text)
 
 		with self._lock:
-			# Purge expired messages first
-			self._messages = [msg for msg in self._messages if msg.expires_at_epoch > current_time]
+			self._purge_locked(current_time)
 
 			# Enforce storage cap
 			while len(self._messages) >= self.max_messages:
@@ -162,25 +176,13 @@ class MessageBoardStore:
 			return record
 
 	def get_active_messages(self, now: float | None = None) -> list[dict]:
-		current_time = now if now is not None else time.time()
 		with self._lock:
-			self._messages = [msg for msg in self._messages if msg.expires_at_epoch > current_time]
-
-			# Return list with newest messages first
-			return [
-				{
-					'id': msg.id,
-					'text': msg.text,
-					'createdAt': msg.created_at,
-					'expiresAt': msg.expires_at,
-				}
-				for msg in reversed(self._messages)
-			]
+			self._purge_locked(_now(now))
+			return [msg.to_json() for msg in reversed(self._messages)]  # Newest first.
 
 	def get_status(self, now: float | None = None) -> dict:
-		current_time = now if now is not None else time.time()
 		with self._lock:
-			self._messages = [msg for msg in self._messages if msg.expires_at_epoch > current_time]
+			self._purge_locked(_now(now))
 			active_count = len(self._messages)
 
 		return {

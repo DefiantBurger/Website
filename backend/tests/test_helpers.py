@@ -1,109 +1,76 @@
-import unittest
+import pytest
 
-from app import create_app
-from app.views import (
-	_cloudflare_geolocation,
-	_resolve_client_ip,
-)
+from app.views import _cloudflare_geolocation, _resolve_client_ip
 
 
-class TestIPHelpers(unittest.TestCase):
-	def setUp(self):
-		self.app = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True})
-
-	def test_resolve_client_ip_cf_connecting_ip(self):
-		with self.app.test_request_context(
-			'/',
-			headers={
+@pytest.mark.parametrize(
+	('headers', 'expected'),
+	[
+		(
+			{
 				'CF-Connecting-IP': '203.0.113.1',
 				'X-Forwarded-For': '203.0.113.2',
 				'X-Real-IP': '203.0.113.3',
 			},
-			environ_base={'REMOTE_ADDR': '127.0.0.1'},
-		):
-			ip, source = _resolve_client_ip()
-			self.assertEqual(ip, '203.0.113.1')
-			self.assertEqual(source, 'CF-Connecting-IP')
-
-	def test_resolve_client_ip_x_forwarded_for_multiple(self):
-		with self.app.test_request_context(
-			'/',
-			headers={
+			('203.0.113.1', 'CF-Connecting-IP'),
+		),
+		(
+			{
 				'X-Forwarded-For': '203.0.113.10, 198.51.100.20, 127.0.0.1',
 				'X-Real-IP': '203.0.113.30',
 			},
-			environ_base={'REMOTE_ADDR': '127.0.0.1'},
-		):
-			ip, source = _resolve_client_ip()
-			self.assertEqual(ip, '203.0.113.10')
-			self.assertEqual(source, 'X-Forwarded-For')
-
-	def test_resolve_client_ip_x_real_ip(self):
-		with self.app.test_request_context(
-			'/',
-			headers={'X-Real-IP': '203.0.113.5'},
-			environ_base={'REMOTE_ADDR': '127.0.0.1'},
-		):
-			ip, source = _resolve_client_ip()
-			self.assertEqual(ip, '203.0.113.5')
-			self.assertEqual(source, 'X-Real-IP')
-
-	def test_resolve_client_ip_remote_addr_fallback(self):
-		with self.app.test_request_context(
-			'/',
-			environ_base={'REMOTE_ADDR': '127.0.0.1'},
-		):
-			ip, source = _resolve_client_ip()
-			self.assertEqual(ip, '127.0.0.1')
-			self.assertEqual(source, 'remote_addr')
+			('203.0.113.10', 'X-Forwarded-For'),
+		),
+		({'X-Real-IP': '203.0.113.5'}, ('203.0.113.5', 'X-Real-IP')),
+		({}, ('127.0.0.1', 'remote_addr')),
+	],
+)
+def test_resolve_client_ip_precedence(app, headers, expected):
+	with app.test_request_context('/', headers=headers, environ_base={'REMOTE_ADDR': '127.0.0.1'}):
+		assert _resolve_client_ip() == expected
 
 
-class TestCloudflareGeolocation(unittest.TestCase):
-	def setUp(self):
-		self.app = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True})
-
-	def test_missing_headers_unavailable(self):
-		with self.app.test_request_context('/'):
-			result = _cloudflare_geolocation()
-		self.assertFalse(result['available'])
-		self.assertIn('not present', result['reason'])
-
-	def test_missing_headers_use_nyc_in_debug(self):
-		self.app.debug = True
-		with self.app.test_request_context('/'):
-			result = _cloudflare_geolocation()
-		self.assertTrue(result['available'])
-		self.assertEqual(result['provider'], 'Development default')
-		self.assertEqual(result['city'], 'New York')
-
-	def test_reads_visitor_location_headers(self):
-		headers = {
-			'CF-IPCountry': 'US',
-			'CF-IPCity': 'New York',
-			'CF-Region': 'New York',
-			'CF-Postal-Code': '10001',
-			'CF-Timezone': 'America/New_York',
-			'CF-IPLatitude': '40.7128',
-			'CF-IPLongitude': '-74.0060',
-		}
-		with self.app.test_request_context('/', headers=headers):
-			result = _cloudflare_geolocation()
-		self.assertTrue(result['available'])
-		self.assertEqual(result['provider'], 'Cloudflare')
-		self.assertEqual(result['country'], 'US')
-		self.assertEqual(result['city'], 'New York')
-		self.assertEqual(result['latitude'], 40.7128)
-		self.assertEqual(result['longitude'], -74.006)
-
-	def test_utf8_city_and_bad_coordinates(self):
-		# WSGI exposes header bytes as latin-1; Cloudflare sends UTF-8.
-		city_as_latin1 = 'São Paulo'.encode().decode('latin-1')
-		headers = {'CF-IPCity': city_as_latin1, 'CF-IPLatitude': 'not-a-number'}
-		with self.app.test_request_context('/', headers=headers):
-			result = _cloudflare_geolocation()
-		self.assertEqual(result['city'], 'São Paulo')
-		self.assertIsNone(result['latitude'])
+def test_geolocation_missing_headers_unavailable(app):
+	with app.test_request_context('/'):
+		result = _cloudflare_geolocation()
+	assert not result['available']
+	assert 'not present' in result['reason']
 
 
-if __name__ == '__main__':
-	unittest.main()
+def test_geolocation_missing_headers_use_nyc_in_debug(app):
+	app.debug = True
+	with app.test_request_context('/'):
+		result = _cloudflare_geolocation()
+	assert result['available']
+	assert result['provider'] == 'Development default'
+	assert result['city'] == 'New York'
+
+
+def test_geolocation_reads_visitor_location_headers(app):
+	headers = {
+		'CF-IPCountry': 'US',
+		'CF-IPCity': 'New York',
+		'CF-Region': 'New York',
+		'CF-Postal-Code': '10001',
+		'CF-Timezone': 'America/New_York',
+		'CF-IPLatitude': '40.7128',
+		'CF-IPLongitude': '-74.0060',
+	}
+	with app.test_request_context('/', headers=headers):
+		result = _cloudflare_geolocation()
+	assert result['available']
+	assert result['provider'] == 'Cloudflare'
+	assert result['country'] == 'US'
+	assert result['city'] == 'New York'
+	assert result['latitude'] == 40.7128
+	assert result['longitude'] == -74.006
+
+
+def test_geolocation_utf8_city_and_bad_coordinates(app):
+	# WSGI exposes header bytes as latin-1; Cloudflare sends UTF-8.
+	city_as_latin1 = 'São Paulo'.encode().decode('latin-1')
+	headers = {'CF-IPCity': city_as_latin1, 'CF-IPLatitude': 'not-a-number'}
+	with app.test_request_context('/', headers=headers):
+		result = _cloudflare_geolocation()
+	assert result['city'] == 'São Paulo'
+	assert result['latitude'] is None

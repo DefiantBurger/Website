@@ -27,6 +27,8 @@ from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
+from .errors import ApiError
+
 # Below Cloudflare's 100 MB request limit with room for multipart overhead.
 MAX_FILE_BYTES = 80 * 1_000_000
 MAX_TOTAL_STORAGE_BYTES = 1_000_000_000
@@ -48,11 +50,8 @@ MAX_INDEX_CLAIM_ATTEMPTS = 10
 _transfer_slots = threading.BoundedSemaphore(MAX_CONCURRENT_TRANSFERS)
 
 
-class FileShareError(RuntimeError):
-	def __init__(self, message: str, status_code: int = 400):
-		super().__init__(message)
-		self.message = message
-		self.status_code = status_code
+class FileShareError(ApiError):
+	pass
 
 
 @dataclass(frozen=True)
@@ -66,6 +65,16 @@ class FileShareRecord:
 	expires_at: str
 	salt_b64: str
 	nonce_b64: str
+
+	def to_json(self) -> dict:
+		# The public fields only; salt, nonce, and MIME type stay server-side.
+		return {
+			'occurrenceIndex': self.occurrence_index,
+			'originalFilename': self.original_filename,
+			'sizeBytes': self.size_bytes,
+			'uploadedAt': self.uploaded_at,
+			'expiresAt': self.expires_at,
+		}
 
 
 def build_label(password: str) -> str:

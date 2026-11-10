@@ -1,43 +1,45 @@
-from __future__ import annotations
-
-import shutil
-import tempfile
-from pathlib import Path
+import threading
 
 import pytest
 
-from app import create_app
+from app import create_app, fileshare
 from app.messageboard import board_rate_limiter, board_store
 
-
-@pytest.fixture
-def temp_instance_dir():
-	"""Create a temporary instance directory for isolated file storage during tests."""
-	temp_dir = tempfile.mkdtemp(prefix='test_instance_')
-	yield Path(temp_dir)
-	shutil.rmtree(temp_dir, ignore_errors=True)
+TEST_SECRET_KEY = 'test-secret-key'
 
 
 @pytest.fixture
-def app(temp_instance_dir):
-	"""Flask test application fixture isolated to temporary instance directory."""
-	test_config = {
-		'TESTING': True,
-		'SECRET_KEY': 'test-secret-key-for-unit-tests',
-	}
-	app = create_app(test_config=test_config, instance_path=str(temp_instance_dir))
-	yield app
+def app(tmp_path):
+	"""App whose file-share storage lives in a per-test temp directory."""
+	return create_app(
+		test_config={'TESTING': True, 'SECRET_KEY': TEST_SECRET_KEY},
+		instance_path=str(tmp_path),
+	)
 
 
 @pytest.fixture
 def client(app):
-	"""Flask test client fixture."""
 	return app.test_client()
+
+
+@pytest.fixture
+def app_ctx(app):
+	"""For calling file-share functions directly; they read config and instance_path from current_app."""
+	with app.app_context():
+		yield app
+
+
+@pytest.fixture(autouse=True)
+def fresh_transfer_slots(monkeypatch):
+	"""Downloads release their slot when the response closes, which the test client never does."""
+	monkeypatch.setattr(
+		fileshare, '_transfer_slots', threading.BoundedSemaphore(fileshare.MAX_CONCURRENT_TRANSFERS)
+	)
 
 
 @pytest.fixture(autouse=True)
 def clean_messageboard():
-	"""Ensure messageboard in-memory store and rate limiter are reset for every test."""
+	"""The board store and rate limiter are module-level singletons, so reset them around every test."""
 	board_store.reset()
 	board_rate_limiter.reset()
 	yield

@@ -12,8 +12,8 @@ from flask import (
 )
 from werkzeug.wsgi import ClosingIterator
 
+from .errors import ApiError
 from .fileshare import (
-	FileShareError,
 	acquire_transfer_slot,
 	decrypt_record_payload,
 	delete_records,
@@ -23,13 +23,15 @@ from .fileshare import (
 	save_upload,
 	transfer_slot,
 )
-from .messageboard import (
-	MessageBoardError,
-	board_rate_limiter,
-	board_store,
-)
+from .messageboard import board_rate_limiter, board_store
 
 views = Blueprint('views', __name__)
+
+
+@views.errorhandler(ApiError)
+def _api_error(exc: ApiError):
+	return jsonify({'error': exc.message}), exc.status_code
+
 
 _JSON_DATA_DIR = Path(__file__).resolve().parent / 'static' / 'json'
 
@@ -138,22 +140,10 @@ def fileshare_upload():
 	if uploaded_file is None:
 		return jsonify({'error': 'A file is required.'}), 400
 
-	try:
-		with transfer_slot():
-			record = save_upload(uploaded_file, password)
-	except FileShareError as exc:
-		return jsonify({'error': exc.message}), exc.status_code
+	with transfer_slot():
+		record = save_upload(uploaded_file, password)
 
-	return jsonify(
-		{
-			'label': record.label,
-			'occurrenceIndex': record.occurrence_index,
-			'originalFilename': record.original_filename,
-			'sizeBytes': record.size_bytes,
-			'uploadedAt': record.uploaded_at,
-			'expiresAt': record.expires_at,
-		}
-	)
+	return jsonify(record.to_json())
 
 
 @views.route('/api/fileshare/delete/', methods=['POST'])
@@ -169,12 +159,7 @@ def fileshare_delete():
 	except ValueError:
 		return jsonify({'error': 'Invalid occurrence index.'}), 400
 
-	try:
-		deleted_count = delete_records(password, occurrence_indices)
-	except FileShareError as exc:
-		return jsonify({'error': exc.message}), exc.status_code
-
-	return jsonify({'deletedCount': deleted_count})
+	return jsonify({'deletedCount': delete_records(password, occurrence_indices)})
 
 
 @views.route('/api/fileshare/access/', methods=['POST'])
@@ -192,10 +177,7 @@ def fileshare_access():
 	if record is None:
 		return jsonify({'error': 'No active file matched that password.'}), 404
 
-	try:
-		release_slot = acquire_transfer_slot()
-	except FileShareError as exc:
-		return jsonify({'error': exc.message}), exc.status_code
+	release_slot = acquire_transfer_slot()
 
 	# The plaintext stays in memory until the server finishes sending it, so the
 	# slot is held until the response closes, not just through decryption.
@@ -210,9 +192,6 @@ def fileshare_access():
 			mimetype='application/octet-stream',
 			max_age=0,
 		)
-	except FileShareError as exc:
-		release_slot()
-		return jsonify({'error': exc.message}), exc.status_code
 	except BaseException:
 		release_slot()
 		raise
@@ -232,20 +211,7 @@ def fileshare_list():
 	if not records:
 		return jsonify({'error': 'No active files matched that access key.'}), 404
 
-	return jsonify(
-		{
-			'files': [
-				{
-					'occurrenceIndex': record.occurrence_index,
-					'originalFilename': record.original_filename,
-					'sizeBytes': record.size_bytes,
-					'uploadedAt': record.uploaded_at,
-					'expiresAt': record.expires_at,
-				}
-				for record in records
-			],
-		}
-	)
+	return jsonify({'files': [record.to_json() for record in records]})
 
 
 @views.route('/api/about-you/request-context/', methods=['GET'])
@@ -306,7 +272,8 @@ def messageboard_post_message():
 	if not board_rate_limiter.check_and_record(raw_ip):
 		return jsonify({'error': 'You are posting too quickly. Please wait a few seconds.'}), 429
 
-	if request.content_length and request.content_length > 16384:
+	# Measure the body itself: a chunked request has no Content-Length to check.
+	if len(request.get_data()) > 16384:
 		return jsonify({'error': 'Payload exceeds maximum allowed size.'}), 413
 
 	data = request.get_json(silent=True)
@@ -315,16 +282,5 @@ def messageboard_post_message():
 
 	text = data.get('text') if hasattr(data, 'get') else None
 
-	try:
-		record = board_store.add_message(text, raw_ip)
-	except MessageBoardError as exc:
-		return jsonify({'error': exc.message}), exc.status_code
-
-	return jsonify(
-		{
-			'id': record.id,
-			'text': record.text,
-			'createdAt': record.created_at,
-			'expiresAt': record.expires_at,
-		}
-	), 201
+	record = board_store.add_message(text, raw_ip)
+	return jsonify(record.to_json()), 201

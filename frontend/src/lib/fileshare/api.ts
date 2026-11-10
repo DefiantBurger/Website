@@ -10,7 +10,6 @@ export interface FileShareStatus {
 }
 
 export interface FileShareUploadResult {
-  label: string;
   occurrenceIndex: number;
   originalFilename: string;
   sizeBytes: number;

@@ -1,97 +1,65 @@
-import os
-import unittest
-from unittest.mock import patch
-
+import pytest
 from flask import request
 
 from app import create_app
 
 
-class TestAppFactory(unittest.TestCase):
-	def test_create_app_without_secret_key_raises_error(self):
-		with patch.dict(os.environ, {}, clear=True):
-			with self.assertRaises(ValueError) as ctx:
-				create_app()
-			self.assertIn('SECRET_KEY environment variable is not set', str(ctx.exception))
-
-	def test_create_app_with_env_secret_key(self):
-		with patch.dict(os.environ, {'SECRET_KEY': 'env-secret-key'}, clear=True):
-			app = create_app()
-			self.assertEqual(app.config['SECRET_KEY'], 'env-secret-key')
-			self.assertFalse(app.config.get('TESTING', False))
-
-	def test_create_app_with_test_config(self):
-		app = create_app(test_config={'SECRET_KEY': 'config-secret-key', 'TESTING': True})
-		self.assertEqual(app.config['SECRET_KEY'], 'config-secret-key')
-		self.assertTrue(app.config['TESTING'])
-
-	def test_create_app_custom_instance_path(self, tmp_path=None):
-		import tempfile
-
-		with tempfile.TemporaryDirectory() as tmp_dir:
-			app = create_app(
-				test_config={'SECRET_KEY': 'dummy-key'},
-				instance_path=tmp_dir,
-			)
-			self.assertEqual(app.instance_path, tmp_dir)
+def test_create_app_without_secret_key_raises_error(monkeypatch):
+	monkeypatch.delenv('SECRET_KEY', raising=False)
+	with pytest.raises(ValueError, match='SECRET_KEY environment variable is not set'):
+		create_app()
 
 
-class TestProxyHeaders(unittest.TestCase):
-	def setUp(self):
-		self.app = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True})
-		self.client = self.app.test_client()
-
-	def test_redirect_uses_forwarded_scheme(self):
-		response = self.client.get(
-			'/api/health',
-			headers={'X-Forwarded-Proto': 'https', 'Host': 'example.com'},
-		)
-		self.assertEqual(response.status_code, 308)
-		self.assertEqual(response.headers['Location'], 'https://example.com/api/health/')
-
-	def test_remote_addr_uses_forwarded_for(self):
-		# ProxyFix runs as WSGI middleware, so check through a real request.
-		captured = {}
-
-		@self.app.get('/_test_remote_addr')
-		def _remote_addr():
-			captured['addr'] = request.remote_addr
-			return ''
-
-		self.client.get('/_test_remote_addr', headers={'X-Forwarded-For': '203.0.113.7'})
-		self.assertEqual(captured['addr'], '203.0.113.7')
+def test_create_app_with_env_secret_key(monkeypatch):
+	monkeypatch.setenv('SECRET_KEY', 'env-secret-key')
+	app = create_app()
+	assert app.config['SECRET_KEY'] == 'env-secret-key'
+	assert not app.config.get('TESTING', False)
 
 
-class TestAppErrorHandlersAndCORS(unittest.TestCase):
-	def setUp(self):
-		self.app = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True})
-		self.client = self.app.test_client()
-
-	def test_404_handler_returns_json(self):
-		res = self.client.get('/nonexistent-route-xyz')
-		self.assertEqual(res.status_code, 404)
-		self.assertTrue(res.is_json)
-		data = res.get_json()
-		self.assertEqual(data, {'error': 'Not Found'})
-
-	def test_no_cors_headers_outside_development(self):
-		with patch.dict(os.environ, {'FLASK_ENV': 'production'}):
-			client = create_app(
-				test_config={'SECRET_KEY': 'test-key', 'TESTING': True}
-			).test_client()
-		res = client.get('/api/messageboard/status/', headers={'Origin': 'https://example.com'})
-		self.assertEqual(res.status_code, 200)
-		self.assertIsNone(res.headers.get('Access-Control-Allow-Origin'))
-
-	def test_cors_headers_in_development(self):
-		with patch.dict(os.environ, {'FLASK_ENV': 'development'}):
-			client = create_app(
-				test_config={'SECRET_KEY': 'test-key', 'TESTING': True}
-			).test_client()
-		res = client.get('/api/messageboard/status/', headers={'Origin': 'https://example.com'})
-		self.assertEqual(res.status_code, 200)
-		self.assertIn(res.headers.get('Access-Control-Allow-Origin'), ['*', 'https://example.com'])
+def test_test_config_secret_key_wins_over_env(monkeypatch):
+	monkeypatch.setenv('SECRET_KEY', 'env-secret-key')
+	app = create_app(test_config={'SECRET_KEY': 'config-secret-key', 'TESTING': True})
+	assert app.config['SECRET_KEY'] == 'config-secret-key'
+	assert app.config['TESTING']
 
 
-if __name__ == '__main__':
-	unittest.main()
+def test_create_app_custom_instance_path(app, tmp_path):
+	assert app.instance_path == str(tmp_path)
+
+
+def test_redirect_uses_forwarded_scheme(client):
+	res = client.get('/api/health', headers={'X-Forwarded-Proto': 'https', 'Host': 'example.com'})
+	assert res.status_code == 308
+	assert res.headers['Location'] == 'https://example.com/api/health/'
+
+
+def test_remote_addr_uses_forwarded_for(app, client):
+	# ProxyFix runs as WSGI middleware, so check through a real request.
+	captured = {}
+
+	@app.get('/_test_remote_addr')
+	def _remote_addr():
+		captured['addr'] = request.remote_addr
+		return ''
+
+	client.get('/_test_remote_addr', headers={'X-Forwarded-For': '203.0.113.7'})
+	assert captured['addr'] == '203.0.113.7'
+
+
+def test_404_handler_returns_json(client):
+	res = client.get('/nonexistent-route-xyz')
+	assert res.status_code == 404
+	assert res.get_json() == {'error': 'Not Found'}
+
+
+@pytest.mark.parametrize(
+	('flask_env', 'allowed_origins'),
+	[('production', [None]), ('development', ['*', 'https://example.com'])],
+)
+def test_cors_only_in_development(monkeypatch, flask_env, allowed_origins):
+	monkeypatch.setenv('FLASK_ENV', flask_env)
+	client = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True}).test_client()
+	res = client.get('/api/messageboard/status/', headers={'Origin': 'https://example.com'})
+	assert res.status_code == 200
+	assert res.headers.get('Access-Control-Allow-Origin') in allowed_origins

@@ -63,7 +63,8 @@ Dependencies (`backend/pyproject.toml`): Flask, Flask-CORS, Waitress, python-dot
 | --- | --- |
 | `main.py` | Loads `.env`, builds the app, logs each request, starts the dev server or Waitress based on `FLASK_ENV`. |
 | `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at 101 MiB, enables CORS in development, registers the `views` blueprint, returns JSON 404s. |
-| `app/views.py` | All routes, client-IP and Cloudflare-header helpers. |
+| `app/views.py` | All routes, client-IP and Cloudflare-header helpers. Turns any `ApiError` into a JSON `{error}` response. |
+| `app/errors.py` | `ApiError(message, status_code)`, the base for `FileShareError` and `MessageBoardError`. |
 | `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
 | `app/messageboard.py` | Message sanitization, in-memory store, rate limiter. |
 

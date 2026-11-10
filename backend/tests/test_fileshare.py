@@ -1,12 +1,13 @@
+import hashlib
 import json
-import shutil
-import tempfile
-import unittest
+import re
+import threading
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from cryptography.exceptions import InvalidTag
 from werkzeug.datastructures import FileStorage
 
@@ -37,354 +38,285 @@ from app.fileshare import (
 )
 
 
-class TestFileShareCrypto(unittest.TestCase):
-	def test_build_label_deterministic(self):
-		with create_app(test_config={'SECRET_KEY': 'test-key'}).app_context():
-			label1 = build_label('secret-pass')
-			label2 = build_label('secret-pass')
-		self.assertEqual(label1, label2)
-		self.assertEqual(len(label1), 64)
-
-	def test_build_label_is_peppered_with_secret_key(self):
-		import hashlib
-
-		with create_app(test_config={'SECRET_KEY': 'key-a'}).app_context():
-			label_a = build_label('secret-pass')
-		with create_app(test_config={'SECRET_KEY': 'key-b'}).app_context():
-			label_b = build_label('secret-pass')
-		self.assertNotEqual(label_a, label_b)
-		self.assertNotEqual(label_a, hashlib.sha256(b'secret-pass').hexdigest())
-
-	def test_b64_encode_decode(self):
-		raw = b'binary-data-\x00\xff\xfe'
-		encoded = _b64encode(raw)
-		self.assertIsInstance(encoded, str)
-		decoded = _b64decode(encoded)
-		self.assertEqual(raw, decoded)
-
-	def test_derive_key_length(self):
-		key = _derive_key('password123', b'0123456789abcdef')
-		self.assertEqual(len(key), 32)
-
-	def test_encrypt_and_decrypt_roundtrip(self):
-		password = 'my-secure-password'
-		data = b'Confidential payload text for testing.'
-		ciphertext, salt_b64, nonce_b64 = _encrypt_bytes(password, data)
-		self.assertNotEqual(ciphertext, data)
-
-		dummy_record = FileShareRecord(
-			label='label',
-			occurrence_index=1,
-			original_filename='test.txt',
-			size_bytes=len(data),
-			mime_type='text/plain',
-			uploaded_at='',
-			expires_at='',
-			salt_b64=salt_b64,
-			nonce_b64=nonce_b64,
-		)
-		plaintext = _decrypt_bytes(password, dummy_record, ciphertext)
-		self.assertEqual(plaintext, data)
-
-	def test_decrypt_with_wrong_password_fails(self):
-		password = 'correct-password'
-		data = b'Secret bytes'
-		ciphertext, salt_b64, nonce_b64 = _encrypt_bytes(password, data)
-
-		dummy_record = FileShareRecord(
-			label='label',
-			occurrence_index=1,
-			original_filename='test.txt',
-			size_bytes=len(data),
-			mime_type='text/plain',
-			uploaded_at='',
-			expires_at='',
-			salt_b64=salt_b64,
-			nonce_b64=nonce_b64,
-		)
-		with self.assertRaises(InvalidTag):
-			_decrypt_bytes('wrong-password', dummy_record, ciphertext)
-
-	def test_decrypt_missing_salt_or_nonce_raises(self):
-		dummy_record = FileShareRecord(
-			label='label',
-			occurrence_index=1,
-			original_filename='test.txt',
-			size_bytes=10,
-			mime_type='text/plain',
-			uploaded_at='',
-			expires_at='',
-			salt_b64='',
-			nonce_b64='',
-		)
-		with self.assertRaises(FileShareError) as ctx:
-			_decrypt_bytes('password', dummy_record, b'some-ciphertext')
-		self.assertEqual(ctx.exception.status_code, 500)
+def _file(filename='sample.txt', content=b'hello', content_type='text/plain') -> FileStorage:
+	return FileStorage(stream=BytesIO(content), filename=filename, content_type=content_type)
 
 
-class TestFileShareSanitizationAndParsing(unittest.TestCase):
-	def test_sanitize_original_filename(self):
-		self.assertEqual(_sanitize_original_filename('test.pdf'), 'test.pdf')
-		self.assertEqual(_sanitize_original_filename('../../etc/passwd'), 'etc_passwd')
-		self.assertEqual(_sanitize_original_filename('   '), 'download')
-		self.assertEqual(_sanitize_original_filename('///'), 'download')
-
-	def test_sanitize_original_filename_non_ascii(self):
-		self.assertEqual(_sanitize_original_filename('café résumé.pdf'), 'cafe_resume.pdf')
-		# Nothing survives ASCII conversion: a stable placeholder keeps the extension.
-		japanese = _sanitize_original_filename('日本語.pdf')
-		self.assertRegex(japanese, r'^file-[0-9a-f]{8}\.pdf$')
-		self.assertEqual(japanese, _sanitize_original_filename('日本語.pdf'))
-		self.assertNotEqual(japanese, _sanitize_original_filename('中文.pdf'))
-		self.assertRegex(_sanitize_original_filename('файл.txt'), r'^file-[0-9a-f]{8}\.txt$')
-		self.assertRegex(_sanitize_original_filename('файл'), r'^file-[0-9a-f]{8}$')
-		# Partly ASCII names keep what survives.
-		self.assertEqual(_sanitize_original_filename('report_日本.pdf'), 'report_.pdf')
-
-	def test_parse_stem(self):
-		self.assertEqual(_parse_stem('abc'), ('abc', 1))
-		self.assertEqual(_parse_stem('abc__12'), ('abc', 12))
-		self.assertIsNone(_parse_stem('abc__x'))
-		self.assertIsNone(_parse_stem('abc__'))
-
-	def test_parse_timestamp(self):
-		# ISO with Z
-		dt = _parse_timestamp('2026-10-01T12:00:00+00:00')
-		self.assertEqual(dt.tzinfo, UTC)
-		# ISO naive assumes UTC
-		dt_naive = _parse_timestamp('2026-10-01T12:00:00')
-		self.assertEqual(dt_naive.tzinfo, UTC)
+def _record(salt_b64='', nonce_b64='', size_bytes=10) -> FileShareRecord:
+	return FileShareRecord(
+		label='label',
+		occurrence_index=1,
+		original_filename='test.txt',
+		size_bytes=size_bytes,
+		mime_type='text/plain',
+		uploaded_at='',
+		expires_at='',
+		salt_b64=salt_b64,
+		nonce_b64=nonce_b64,
+	)
 
 
-class TestFileShareStorageLifecycle(unittest.TestCase):
-	def setUp(self):
-		self.temp_dir = tempfile.mkdtemp(prefix='test_fileshare_')
-		self.app = create_app(
-			test_config={'SECRET_KEY': 'test-key', 'TESTING': True},
-			instance_path=self.temp_dir,
-		)
-		self.app_context = self.app.app_context()
-		self.app_context.push()
-
-	def tearDown(self):
-		self.app_context.pop()
-		shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-	def _create_mock_file(
-		self, filename: str, content: bytes, content_type: str = 'text/plain'
-	) -> FileStorage:
-		return FileStorage(
-			stream=BytesIO(content),
-			filename=filename,
-			content_type=content_type,
-		)
-
-	def test_save_upload_validation(self):
-		file_obj = self._create_mock_file('sample.txt', b'hello')
-
-		# Missing password
-		with self.assertRaises(FileShareError) as ctx:
-			save_upload(file_obj, '   ')
-		self.assertEqual(ctx.exception.message, 'Access key is required.')
-
-		# Missing filename
-		no_name_file = self._create_mock_file('', b'hello')
-		with self.assertRaises(FileShareError) as ctx:
-			save_upload(no_name_file, 'key123')
-		self.assertEqual(ctx.exception.message, 'A file is required.')
-
-	def test_save_upload_and_decrypt_record_success(self):
-		file_obj = self._create_mock_file('sample.txt', b'Secret data content')
-		record = save_upload(file_obj, 'password123')
-
-		self.assertEqual(record.original_filename, 'sample.txt')
-		self.assertEqual(record.size_bytes, len(b'Secret data content'))
-		self.assertEqual(record.occurrence_index, 1)
-
-		# Retrieve record
-		retrieved = get_record_for_password('password123')
-		self.assertIsNotNone(retrieved)
-		self.assertEqual(retrieved.label, record.label)
-
-		# Decrypt payload
-		decrypted = decrypt_record_payload(retrieved, 'password123')
-		self.assertEqual(decrypted, b'Secret data content')
-
-	def test_save_upload_wrong_password_decrypt_fails(self):
-		file_obj = self._create_mock_file('sample.txt', b'Confidential')
-		record = save_upload(file_obj, 'correct-key')
-
-		with self.assertRaises(FileShareError) as ctx:
-			decrypt_record_payload(record, 'wrong-key')
-		self.assertEqual(ctx.exception.status_code, 403)
-
-	def test_save_upload_appends_under_same_key(self):
-		rec1 = save_upload(self._create_mock_file('file1.txt', b'First'), 'shared-key')
-		rec2 = save_upload(self._create_mock_file('file2.txt', b'Second'), 'shared-key')
-		self.assertEqual((rec1.occurrence_index, rec2.occurrence_index), (1, 2))
-		self.assertEqual(len(get_all_records_for_password('shared-key')), 2)
-
-	def test_empty_file_reports_zero_bytes(self):
-		record = save_upload(self._create_mock_file('empty.txt', b''), 'empty-key')
-		self.assertEqual(record.size_bytes, 0)
-
-		(listed,) = get_all_records_for_password('empty-key')
-		self.assertEqual(listed.size_bytes, 0)
-		self.assertEqual(decrypt_record_payload(listed, 'empty-key'), b'')
-
-	def test_save_upload_skips_index_claimed_concurrently(self):
-		save_upload(self._create_mock_file('a.txt', b'A'), 'race-key')
-		rec2 = save_upload(self._create_mock_file('b.txt', b'B'), 'race-key')
-
-		# Simulate a racing upload: the first index scan is stale and misses index 2.
-		real_indices = fileshare._existing_indices
-		stale = iter([[1]])
-		with patch.object(
-			fileshare, '_existing_indices', lambda label: next(stale, None) or real_indices(label)
-		):
-			rec3 = save_upload(self._create_mock_file('c.txt', b'C'), 'race-key')
-
-		self.assertEqual(rec3.occurrence_index, 3)
-		self.assertEqual(decrypt_record_payload(rec2, 'race-key'), b'B')
-		self.assertEqual(decrypt_record_payload(rec3, 'race-key'), b'C')
-
-	def test_records_ordered_by_numeric_index(self):
-		for i in range(11):
-			save_upload(self._create_mock_file(f'{i}.txt', b'x'), 'many-key')
-		indices = [r.occurrence_index for r in get_all_records_for_password('many-key')]
-		self.assertEqual(indices, list(range(1, 12)))
-
-	def test_delete_records_removes_only_given_indices(self):
-		save_upload(self._create_mock_file('old.txt', b'1'), 'del-key')
-		save_upload(self._create_mock_file('new.txt', b'2'), 'del-key')
-		other = save_upload(self._create_mock_file('other.txt', b'3'), 'other-key')
-
-		# Index 5 doesn't exist and is skipped.
-		self.assertEqual(delete_records('del-key', [1, 5]), 1)
-
-		names = [r.original_filename for r in get_all_records_for_password('del-key')]
-		self.assertEqual(names, ['new.txt'])
-		self.assertEqual(get_all_records_for_password('other-key'), [other])
-
-	def test_delete_records_requires_key(self):
-		with self.assertRaises(FileShareError) as ctx:
-			delete_records('  ', [1])
-		self.assertEqual(ctx.exception.status_code, 400)
-
-	def test_cleanup_expired_records(self):
-		now = datetime.now(UTC)
-		file_obj = self._create_mock_file('expire_me.txt', b'Temporary')
-		_ = save_upload(file_obj, 'temp-key')
-
-		# Advance time past expiration (RETENTION_SECONDS is 600s = 10 min)
-		future = now + timedelta(seconds=700)
-		deleted = cleanup_expired_records(now=future)
-		self.assertGreaterEqual(deleted, 1)
-
-		# Should no longer be available
-		self.assertIsNone(get_record_for_password('temp-key'))
-
-	def test_cleanup_corrupted_records(self):
-		# Create an orphaned metadata file with malformed JSON
-		root = Path(self.temp_dir) / 'fileshare'
-		root.mkdir(parents=True, exist_ok=True)
-		corrupt_meta = root / 'corrupt_test.json'
-		corrupt_meta.write_text('invalid json content')
-
-		# Cleanup should remove the corrupt file
-		deleted = cleanup_expired_records()
-		self.assertGreaterEqual(deleted, 1)
-		self.assertFalse(corrupt_meta.exists())
-
-	def test_cleanup_corrupted_record_removes_payload(self):
-		file_obj = self._create_mock_file('doc.txt', b'payload bytes')
-		record = save_upload(file_obj, 'corrupt-key')
-		meta_path, payload_path = _record_paths(record.label, record.occurrence_index)
-		meta_path.write_text('invalid json content')
-
-		cleanup_expired_records()
-		self.assertFalse(meta_path.exists())
-		self.assertFalse(payload_path.exists())
-		self.assertEqual(get_storage_status()['usedBytes'], 0)
-
-	def test_storage_status(self):
-		status = get_storage_status()
-		self.assertEqual(status['activeFileCount'], 0)
-		self.assertEqual(status['usedBytes'], 0)
-
-		f = self._create_mock_file('doc.txt', b'12345')
-		save_upload(f, 'test-status-key')
-
-		status2 = get_storage_status()
-		self.assertEqual(status2['activeFileCount'], 1)
-		self.assertGreater(status2['usedBytes'], 0)
-
-	def test_decrypt_record_payload_file_missing(self):
-		f = self._create_mock_file('doc.txt', b'12345')
-		record = save_upload(f, 'test-key-missing')
-		_, payload_path = _record_paths(record.label, record.occurrence_index)
-		payload_path.unlink()
-
-		with self.assertRaises(FileShareError) as ctx:
-			decrypt_record_payload(record, 'test-key-missing')
-		self.assertEqual(ctx.exception.status_code, 404)
-
-	def test_evict_oldest_records(self):
-		f1 = self._create_mock_file('old.txt', b'old content')
-		_ = save_upload(f1, 'key1')
-		f2 = self._create_mock_file('new.txt', b'new content')
-		_ = save_upload(f2, 'key2')
-
-		# Evict records to free at least 1 byte
-		freed = _evict_oldest_records(_sweep()[0], required_free_bytes=1)
-		self.assertGreater(freed, 0)
-		# Oldest (rec1) should have been removed
-		self.assertIsNone(get_record_for_password('key1'))
-
-	def test_save_upload_oversized_file(self):
-		f = self._create_mock_file('large.txt', b'12345678901234567890')
-		with patch('app.fileshare.MAX_FILE_BYTES', 10):
-			with self.assertRaises(FileShareError) as ctx:
-				save_upload(f, 'key-large')
-			self.assertEqual(ctx.exception.status_code, 413)
-
-	def test_cleanup_invalid_timestamp(self):
-		f = self._create_mock_file('bad_time.txt', b'data')
-		rec = save_upload(f, 'key-bad-time')
-		meta_path, _ = _record_paths(rec.label, rec.occurrence_index)
-
-		# Modify metadata with an invalid expires_at
-		meta = json.loads(meta_path.read_text(encoding='utf-8'))
-		meta['expires_at'] = 'not-a-valid-date'
-		meta_path.write_text(json.dumps(meta), encoding='utf-8')
-
-		deleted = cleanup_expired_records()
-		self.assertGreaterEqual(deleted, 1)
-		self.assertFalse(meta_path.exists())
-
-	def test_save_upload_not_enough_storage_503(self):
-		f = self._create_mock_file('file.txt', b'data')
-		# Set MAX_TOTAL_STORAGE_BYTES very small so it cannot fit
-		with patch('app.fileshare.MAX_TOTAL_STORAGE_BYTES', 5):
-			with self.assertRaises(FileShareError) as ctx:
-				save_upload(f, 'key-no-space')
-			self.assertEqual(ctx.exception.status_code, 503)
+# Crypto and parsing (no app needed unless noted)
 
 
-class TestTransferSlots(unittest.TestCase):
-	def test_release_is_idempotent(self):
-		import threading
-
-		slots = threading.BoundedSemaphore(1)
-		with patch('app.fileshare._transfer_slots', slots):
-			release = acquire_transfer_slot()
-			with self.assertRaises(FileShareError) as ctx:
-				acquire_transfer_slot()
-			self.assertEqual(ctx.exception.status_code, 503)
-			release()
-			release()  # A second call must not over-release the BoundedSemaphore.
-			acquire_transfer_slot()()
+def test_build_label_deterministic(app_ctx):
+	label = build_label('secret-pass')
+	assert label == build_label('secret-pass')
+	assert len(label) == 64
 
 
-if __name__ == '__main__':
-	unittest.main()
+def test_build_label_is_peppered_with_secret_key():
+	with create_app(test_config={'SECRET_KEY': 'key-a'}).app_context():
+		label_a = build_label('secret-pass')
+	with create_app(test_config={'SECRET_KEY': 'key-b'}).app_context():
+		label_b = build_label('secret-pass')
+	assert label_a != label_b
+	assert label_a != hashlib.sha256(b'secret-pass').hexdigest()
+
+
+def test_b64_roundtrip():
+	raw = b'binary-data-\x00\xff\xfe'
+	encoded = _b64encode(raw)
+	assert isinstance(encoded, str)
+	assert _b64decode(encoded) == raw
+
+
+def test_derive_key_length():
+	assert len(_derive_key('password123', b'0123456789abcdef')) == 32
+
+
+def test_encrypt_and_decrypt_roundtrip():
+	data = b'Confidential payload text for testing.'
+	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes('my-secure-password', data)
+	assert ciphertext != data
+	record = _record(salt_b64, nonce_b64, len(data))
+	assert _decrypt_bytes('my-secure-password', record, ciphertext) == data
+
+
+def test_decrypt_with_wrong_password_fails():
+	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes('correct-password', b'Secret bytes')
+	with pytest.raises(InvalidTag):
+		_decrypt_bytes('wrong-password', _record(salt_b64, nonce_b64), ciphertext)
+
+
+def test_decrypt_missing_salt_or_nonce_raises():
+	with pytest.raises(FileShareError) as exc_info:
+		_decrypt_bytes('password', _record(), b'some-ciphertext')
+	assert exc_info.value.status_code == 500
+
+
+@pytest.mark.parametrize(
+	('raw', 'expected'),
+	[
+		('test.pdf', 'test.pdf'),
+		('../../etc/passwd', 'etc_passwd'),
+		('   ', 'download'),
+		('///', 'download'),
+		('café résumé.pdf', 'cafe_resume.pdf'),
+		('report_日本.pdf', 'report_.pdf'),  # Partly ASCII names keep what survives.
+	],
+)
+def test_sanitize_original_filename(raw, expected):
+	assert _sanitize_original_filename(raw) == expected
+
+
+def test_sanitize_original_filename_without_ascii_uses_stable_placeholder():
+	japanese = _sanitize_original_filename('日本語.pdf')
+	assert re.fullmatch(r'file-[0-9a-f]{8}\.pdf', japanese)
+	assert japanese == _sanitize_original_filename('日本語.pdf')
+	assert japanese != _sanitize_original_filename('中文.pdf')
+	assert re.fullmatch(r'file-[0-9a-f]{8}\.txt', _sanitize_original_filename('файл.txt'))
+	assert re.fullmatch(r'file-[0-9a-f]{8}', _sanitize_original_filename('файл'))
+
+
+def test_parse_stem():
+	assert _parse_stem('abc') == ('abc', 1)
+	assert _parse_stem('abc__12') == ('abc', 12)
+	assert _parse_stem('abc__x') is None
+	assert _parse_stem('abc__') is None
+
+
+@pytest.mark.parametrize('value', ['2026-10-01T12:00:00+00:00', '2026-10-01T12:00:00'])
+def test_parse_timestamp_is_utc(value):
+	# Naive timestamps are assumed to be UTC.
+	assert _parse_timestamp(value).tzinfo == UTC
+
+
+# Storage lifecycle
+
+
+def test_save_upload_validation(app_ctx):
+	with pytest.raises(FileShareError, match='Access key is required.'):
+		save_upload(_file(), '   ')
+	with pytest.raises(FileShareError, match='A file is required.'):
+		save_upload(_file(''), 'key123')
+
+
+def test_save_upload_and_decrypt_record_success(app_ctx):
+	record = save_upload(_file(content=b'Secret data content'), 'password123')
+	assert record.original_filename == 'sample.txt'
+	assert record.size_bytes == len(b'Secret data content')
+	assert record.occurrence_index == 1
+
+	retrieved = get_record_for_password('password123')
+	assert retrieved is not None
+	assert retrieved.label == record.label
+	assert decrypt_record_payload(retrieved, 'password123') == b'Secret data content'
+
+
+def test_save_upload_wrong_password_decrypt_fails(app_ctx):
+	record = save_upload(_file(content=b'Confidential'), 'correct-key')
+	with pytest.raises(FileShareError) as exc_info:
+		decrypt_record_payload(record, 'wrong-key')
+	assert exc_info.value.status_code == 403
+
+
+def test_save_upload_appends_under_same_key(app_ctx):
+	rec1 = save_upload(_file('file1.txt', b'First'), 'shared-key')
+	rec2 = save_upload(_file('file2.txt', b'Second'), 'shared-key')
+	assert (rec1.occurrence_index, rec2.occurrence_index) == (1, 2)
+	assert len(get_all_records_for_password('shared-key')) == 2
+
+
+def test_empty_file_reports_zero_bytes(app_ctx):
+	record = save_upload(_file('empty.txt', b''), 'empty-key')
+	assert record.size_bytes == 0
+
+	(listed,) = get_all_records_for_password('empty-key')
+	assert listed.size_bytes == 0
+	assert decrypt_record_payload(listed, 'empty-key') == b''
+
+
+def test_save_upload_skips_index_claimed_concurrently(app_ctx):
+	save_upload(_file('a.txt', b'A'), 'race-key')
+	rec2 = save_upload(_file('b.txt', b'B'), 'race-key')
+
+	# Simulate a racing upload: the first index scan is stale and misses index 2.
+	real_indices = fileshare._existing_indices
+	stale = iter([[1]])
+	with patch.object(
+		fileshare, '_existing_indices', lambda label: next(stale, None) or real_indices(label)
+	):
+		rec3 = save_upload(_file('c.txt', b'C'), 'race-key')
+
+	assert rec3.occurrence_index == 3
+	assert decrypt_record_payload(rec2, 'race-key') == b'B'
+	assert decrypt_record_payload(rec3, 'race-key') == b'C'
+
+
+def test_records_ordered_by_numeric_index(app_ctx):
+	for i in range(11):
+		save_upload(_file(f'{i}.txt', b'x'), 'many-key')
+	indices = [r.occurrence_index for r in get_all_records_for_password('many-key')]
+	assert indices == list(range(1, 12))
+
+
+def test_delete_records_removes_only_given_indices(app_ctx):
+	save_upload(_file('old.txt', b'1'), 'del-key')
+	save_upload(_file('new.txt', b'2'), 'del-key')
+	other = save_upload(_file('other.txt', b'3'), 'other-key')
+
+	assert delete_records('del-key', [1, 5]) == 1  # Index 5 doesn't exist and is skipped.
+	assert [r.original_filename for r in get_all_records_for_password('del-key')] == ['new.txt']
+	assert get_all_records_for_password('other-key') == [other]
+
+
+def test_delete_records_requires_key(app_ctx):
+	with pytest.raises(FileShareError) as exc_info:
+		delete_records('  ', [1])
+	assert exc_info.value.status_code == 400
+
+
+def test_cleanup_expired_records(app_ctx):
+	save_upload(_file('expire_me.txt', b'Temporary'), 'temp-key')
+	future = datetime.now(UTC) + timedelta(seconds=700)  # Retention is 600 s.
+	assert cleanup_expired_records(now=future) == 1
+	assert get_record_for_password('temp-key') is None
+
+
+def test_cleanup_corrupted_records(app_ctx):
+	root = Path(app_ctx.instance_path) / 'fileshare'
+	root.mkdir(parents=True, exist_ok=True)
+	corrupt_meta = root / 'corrupt_test.json'
+	corrupt_meta.write_text('invalid json content')
+
+	assert cleanup_expired_records() == 1
+	assert not corrupt_meta.exists()
+
+
+def test_cleanup_corrupted_record_removes_payload(app_ctx):
+	record = save_upload(_file('doc.txt', b'payload bytes'), 'corrupt-key')
+	meta_path, payload_path = _record_paths(record.label, record.occurrence_index)
+	meta_path.write_text('invalid json content')
+
+	cleanup_expired_records()
+	assert not meta_path.exists()
+	assert not payload_path.exists()
+	assert get_storage_status()['usedBytes'] == 0
+
+
+def test_cleanup_invalid_timestamp(app_ctx):
+	record = save_upload(_file('bad_time.txt', b'data'), 'key-bad-time')
+	meta_path, _ = _record_paths(record.label, record.occurrence_index)
+	meta = json.loads(meta_path.read_text(encoding='utf-8'))
+	meta['expires_at'] = 'not-a-valid-date'
+	meta_path.write_text(json.dumps(meta), encoding='utf-8')
+
+	assert cleanup_expired_records() == 1
+	assert not meta_path.exists()
+
+
+def test_storage_status(app_ctx):
+	status = get_storage_status()
+	assert (status['activeFileCount'], status['usedBytes']) == (0, 0)
+
+	save_upload(_file('doc.txt', b'12345'), 'test-status-key')
+	status = get_storage_status()
+	assert status['activeFileCount'] == 1
+	assert status['usedBytes'] > 0
+
+
+def test_decrypt_record_payload_file_missing(app_ctx):
+	record = save_upload(_file('doc.txt', b'12345'), 'test-key-missing')
+	_, payload_path = _record_paths(record.label, record.occurrence_index)
+	payload_path.unlink()
+
+	with pytest.raises(FileShareError) as exc_info:
+		decrypt_record_payload(record, 'test-key-missing')
+	assert exc_info.value.status_code == 404
+
+
+def test_evict_oldest_records(app_ctx):
+	save_upload(_file('old.txt', b'old content'), 'key1')
+	save_upload(_file('new.txt', b'new content'), 'key2')
+
+	assert _evict_oldest_records(_sweep()[0], required_free_bytes=1) > 0
+	assert get_record_for_password('key1') is None
+	assert get_record_for_password('key2') is not None
+
+
+def test_save_upload_oversized_file(app_ctx):
+	with patch('app.fileshare.MAX_FILE_BYTES', 10), pytest.raises(FileShareError) as exc_info:
+		save_upload(_file('large.txt', b'12345678901234567890'), 'key-large')
+	assert exc_info.value.status_code == 413
+
+
+def test_save_upload_not_enough_storage_503(app_ctx):
+	with (
+		patch('app.fileshare.MAX_TOTAL_STORAGE_BYTES', 5),
+		pytest.raises(FileShareError) as exc_info,
+	):
+		save_upload(_file('file.txt', b'data'), 'key-no-space')
+	assert exc_info.value.status_code == 503
+
+
+def test_transfer_slot_release_is_idempotent():
+	slots = threading.BoundedSemaphore(1)
+	with patch('app.fileshare._transfer_slots', slots):
+		release = acquire_transfer_slot()
+		with pytest.raises(FileShareError) as exc_info:
+			acquire_transfer_slot()
+		assert exc_info.value.status_code == 503
+		release()
+		release()  # A second call must not over-release the BoundedSemaphore.
+		acquire_transfer_slot()()

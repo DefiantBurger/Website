@@ -44,7 +44,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ### Message Board
 
 1. Sanitizing silently removes characters: `don't` becomes `dont`, and `café ñ 你好 🎉` becomes `caf`. The UI calls the allowlist "URL-safe", yet it strips `&`, `#`, `%`, `+`, and `@`.
-2. **Minor:** the 16 KB payload check reads `request.content_length`, so a chunked request (no `Content-Length`) is read in full by `get_json` before any size check. In production Nginx caps `/api/` bodies at 1 MB, so this only matters in development. Checking `len(request.get_data())` would hold everywhere.
 
 ## Duplication and Refactoring
 
@@ -79,17 +78,6 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
    - Dashed, tinted boxes (`--color-primary-opacity-30` border on `--color-primary-opacity-10`) appear in File Share `.stats div` and `.file-list`, Scheduler `.semester-column`, and Message Board `.pill`.
    - Each form page re-declares the stacked `label` layout.
 3. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.
-
-### Backend
-
-1. `FileShareError` and `MessageBoardError` are identical classes, and `views.py` turns them into JSON with the same `try/except` → `jsonify({'error': ...}), status` four times. One base error class plus a blueprint `errorhandler` would replace both.
-2. Each record type is serialized to camelCase JSON by hand in two places: `FileShareRecord` in `fileshare_upload` and `fileshare_list`, and `BoardMessageRecord` in `messageboard_post_message` and `MessageBoardStore.get_active_messages`. A `to_json()` method on each dataclass would keep each field list in one place.
-3. **Minor:** in `messageboard.py`, the expired-message filter is written four times (`cleanup`, `add_message`, `get_active_messages`, `get_status`) and `now if now is not None else time.time()` five times. A `_purge_locked(now)` helper would replace them.
-4. **Minor:** `create_app` has two `Flask(...)` calls that differ only by `instance_path` (Flask accepts `None`). It also reads `SECRET_KEY` out of `test_config` and then applies all of `test_config` again.
-
-### Tests
-
-1. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI
 

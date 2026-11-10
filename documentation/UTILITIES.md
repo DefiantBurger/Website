@@ -91,7 +91,7 @@ All `POST` bodies are `multipart/form-data`. `password` is the access key.
   "maxTotalBytes": 1000000000, "retentionSeconds": 600 }
 
 // upload
-{ "label": "<hex HMAC>", "occurrenceIndex": 1, "originalFilename": "report.pdf", "sizeBytes": 123456,
+{ "occurrenceIndex": 1, "originalFilename": "report.pdf", "sizeBytes": 123456,
   "uploadedAt": "2026-05-01T12:00:00+00:00", "expiresAt": "2026-05-01T12:10:00+00:00" }
 ```
 
@@ -145,5 +145,5 @@ The page loads messages on mount, after posting, and on "Reload Board" (no polli
 1. Add the path to `frontend/src/lib/routeDefinitions.ts` and the page to `frontend/src/lib/routes.ts`. The 404 suggestions and the sitemap pick it up automatically. For the wider layout, export `const layout: PageLayout = { wide: true }` from the page's `<script module>`.
 2. Add the page in `frontend/src/pages/` and its logic/API client in `frontend/src/lib/<name>/`, using the helpers in `lib/api.ts`.
 3. Add a card to the `utilities` list in `Utilities.svelte`.
-4. Add backend routes under `/api/<name>/` in `backend/app/views.py` (logic in its own module) with tests in `backend/tests/`.
+4. Add backend routes under `/api/<name>/` in `backend/app/views.py` (logic in its own module; raise an `ApiError` subclass for client errors) with tests in `backend/tests/`.
 5. Document it here, and list any gaps in [Issues](./ISSUES.md#utilities).
