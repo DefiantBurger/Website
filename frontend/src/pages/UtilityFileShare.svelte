@@ -20,8 +20,6 @@
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
-  const MAX_FILE_BYTES = 80 * 1_000_000;
-
   let status = $state<FileShareStatus | null>(null);
   let statusError = $state<string | null>(null);
 
@@ -39,15 +37,36 @@
   let accessFiles = $state<FileShareListItem[]>([]);
   let selectedFileIndex = $state(1);
 
-  const stats = $derived([
-    ['Active files', String(status?.activeFileCount ?? 0)],
-    ['Retention', formatSeconds(status?.retentionSeconds ?? 600)],
-    ['Per-file cap', formatBytes(MAX_FILE_BYTES)],
-    [
-      'Storage used',
-      `${formatBytes(status?.usedBytes ?? 0)} / ${formatBytes(status?.maxTotalBytes ?? 1_073_741_824)}`,
-    ],
-  ]);
+  // Limits come from the backend, so the page can't drift from it; '—' until loaded.
+  const stats = $derived(
+    status
+      ? [
+          ['Active files', String(status.activeFileCount)],
+          ['Retention', formatSeconds(status.retentionSeconds)],
+          ['Per-file cap', formatBytes(status.maxFileBytes)],
+          [
+            'Storage used',
+            `${formatBytes(status.usedBytes)} / ${formatBytes(status.maxTotalBytes)}`,
+          ],
+        ]
+      : ['Active files', 'Retention', 'Per-file cap', 'Storage used'].map((label) => [label, '—']),
+  );
+
+  const limitsIntro = $derived(
+    status
+      ? `Limit: ${formatLimit(status.maxFileBytes)} per file. Files expire after ${formatMinutes(status.retentionSeconds)}. When active storage approaches the ${formatLimit(status.maxTotalBytes)} cap,`
+      : 'When active storage is nearly full,',
+  );
+
+  // Prose reads better as "80 MB" than formatBytes' fixed-precision "80.0 MB".
+  function formatLimit(bytes: number): string {
+    return formatBytes(bytes).replace(/\.0+ /, ' ');
+  }
+
+  function formatMinutes(seconds: number): string {
+    const minutes = Math.round(seconds / 60);
+    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+  }
 
   function formatSeconds(seconds: number): string {
     const minutes = Math.floor(seconds / 60);
@@ -79,9 +98,11 @@
       return;
     }
 
-    const oversizedCount = uploadFiles.filter((f) => f.size > MAX_FILE_BYTES).length;
+    // Without the status yet, skip the early check; the server still rejects with a 413.
+    const maxFileBytes = status?.maxFileBytes ?? Infinity;
+    const oversizedCount = uploadFiles.filter((f) => f.size > maxFileBytes).length;
     if (oversizedCount > 0) {
-      uploadError = `Files must be ${formatBytes(MAX_FILE_BYTES)} or smaller. ${oversizedCount} file(s) exceeded the limit.`;
+      uploadError = `Files must be ${formatLimit(maxFileBytes)} or smaller. ${oversizedCount} file(s) exceeded the limit.`;
       return;
     }
 
@@ -263,10 +284,9 @@
   <form class="terminal-box panel" onsubmit={handleUploadSubmit}>
     <h2 class="prompt">Upload Files</h2>
     <p>
-      Limit: 80 MB per file. Files expire after 10 minutes. When active storage approaches the 1 GB
-      cap, the backend evicts oldest files to free space before accepting new uploads. Uploading
-      with an existing access key will replace all previous files for that key, and the new files
-      will be encrypted before they are written to disk.
+      {limitsIntro} the backend evicts oldest files to free space before accepting new uploads. Uploading
+      with an existing access key will replace all previous files for that key, and the new files will
+      be encrypted before they are written to disk.
     </p>
 
     <label>

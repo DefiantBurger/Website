@@ -1,8 +1,5 @@
 import { apiJson } from '../api';
 
-// How long messages stay on the board. Must match MESSAGE_TTL_SECONDS in backend/app/messageboard.py.
-export const MESSAGE_TTL_SECONDS = 60;
-
 export interface BoardMessage {
   id: string;
   text: string;

@@ -7,16 +7,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import {
-    MESSAGE_TTL_SECONDS,
     fetchActiveMessages,
+    fetchMessageBoardStatus,
     postBoardMessage,
     type BoardMessage,
+    type MessageBoardStatus,
   } from '../lib/messageboard/api';
   import { errorMessage } from '../lib/api';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
-  const MAX_LENGTH = 280;
+  // TTL and length limit come from the backend; null until loaded (the server enforces both).
+  let limits = $state<MessageBoardStatus | null>(null);
+  const ttl = $derived(limits ? `~${limits.retentionSeconds}s` : null);
+  const maxLength = $derived(limits?.maxMessageLength);
 
   let messages = $state<BoardMessage[]>([]);
   let loading = $state(true);
@@ -50,8 +54,8 @@
       return;
     }
 
-    if (trimmed.length > MAX_LENGTH) {
-      postError = `Message exceeds ${MAX_LENGTH} characters.`;
+    if (maxLength !== undefined && trimmed.length > maxLength) {
+      postError = `Message exceeds ${maxLength} characters.`;
       return;
     }
 
@@ -59,7 +63,9 @@
     try {
       await postBoardMessage(trimmed);
       messageText = '';
-      postSuccess = `Message posted! It will remain active on the server for ~${MESSAGE_TTL_SECONDS}s.`;
+      postSuccess = ttl
+        ? `Message posted! It will remain active on the server for ${ttl}.`
+        : 'Message posted!';
       await loadMessages();
     } catch (err) {
       postError = errorMessage(err, 'Failed to post message.');
@@ -76,8 +82,17 @@
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
+  async function loadLimits(): Promise<void> {
+    try {
+      limits = await fetchMessageBoardStatus();
+    } catch {
+      // Non-fatal: the page just omits the TTL and length hints.
+    }
+  }
+
   onMount(() => {
     void loadMessages();
+    void loadLimits();
   });
 </script>
 
@@ -85,13 +100,13 @@
   <title>Message Board · JosephCicalese.com</title>
   <meta
     name="description"
-    content="Ephemeral anonymous message board where notes vanish after around {MESSAGE_TTL_SECONDS} seconds."
+    content="Ephemeral anonymous message board where notes vanish shortly after posting."
   />
 </svelte:head>
 
 <PageHeader
   title="Utilities / Message Board"
-  description="Post short anonymous notes to the public board. All messages are ephemeral and automatically expire after ~{MESSAGE_TTL_SECONDS} seconds on the server. Reload anytime to refresh active notes."
+  description="Post short anonymous notes to the public board. All messages are ephemeral and automatically expire on the server shortly after posting. Reload anytime to refresh active notes."
 >
   {#snippet actions()}
     <button type="button" class="reload-btn" onclick={loadMessages} disabled={loading || isPosting}>
@@ -104,7 +119,9 @@
   <section class="feed-column">
     <div class="feed-header">
       <h2 class="prompt">Active Broadcasts ({messages.length})</h2>
-      <span class="pill">[ ~{MESSAGE_TTL_SECONDS}s TTL ]</span>
+      {#if ttl}
+        <span class="pill">[ {ttl} TTL ]</span>
+      {/if}
     </div>
 
     {#if loading && messages.length === 0}
@@ -141,26 +158,31 @@
     <form class="terminal-box compose-card" onsubmit={handlePost}>
       <div class="compose-header">
         <h3 class="prompt">Post Note</h3>
-        <span class="pill small">{MESSAGE_TTL_SECONDS}s TTL</span>
+        {#if ttl}
+          <span class="pill small">{ttl} TTL</span>
+        {/if}
       </div>
 
       <p class="compose-hint">
-        Broadcasts self-destruct after ~{MESSAGE_TTL_SECONDS}s. Only URL-safe characters are
-        permitted.
+        Broadcasts self-destruct {ttl ? `after ${ttl}` : 'shortly after posting'}. Only URL-safe
+        characters are permitted.
       </p>
 
       <label for="board-message-input" class="sr-only">Message content</label>
       <textarea
         id="board-message-input"
         bind:value={messageText}
-        placeholder="Type a note (vanishes in ~{MESSAGE_TTL_SECONDS}s)..."
-        maxlength={MAX_LENGTH}
+        placeholder={ttl ? `Type a note (vanishes in ${ttl})...` : 'Type a note...'}
+        maxlength={maxLength}
         rows="4"
         disabled={isPosting}></textarea>
 
       <div class="compose-meta">
-        <span class="char-count" class:near-limit={messageText.length > MAX_LENGTH - 30}>
-          {messageText.length}/{MAX_LENGTH}
+        <span
+          class="char-count"
+          class:near-limit={maxLength !== undefined && messageText.length > maxLength - 30}
+        >
+          {messageText.length}{maxLength !== undefined ? `/${maxLength}` : ''}
         </span>
         <button type="submit" class="submit-btn" disabled={isPosting || !messageText.trim()}>
           {isPosting ? 'Posting...' : 'Post Note'}
@@ -195,6 +217,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.75rem;
     border-bottom: 1px solid var(--color-text-primary);
     padding-bottom: 0.5rem;
     margin-bottom: 1.25rem;
@@ -212,6 +235,7 @@
     border: 1px solid var(--color-text-primary);
     border-radius: 2px;
     background: var(--color-primary-opacity-10);
+    white-space: nowrap;
   }
 
   .pill.small {
