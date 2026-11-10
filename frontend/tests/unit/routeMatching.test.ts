@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import { routeDefinitions } from '../../src/lib/routeDefinitions.ts';
+import {
+  pathFor,
+  routeDefinitions,
+  routePatterns,
+  staticRoutePaths,
+} from '../../src/lib/routeDefinitions.ts';
 import { matchPattern, normalizePath } from '../../src/lib/routeMatching.ts';
 
 describe('normalizePath', () => {
@@ -40,10 +45,7 @@ describe('matchPattern', () => {
 
 describe('routeDefinitions', () => {
   test('no two routes share a path or alias', () => {
-    const patterns = Object.values(routeDefinitions).flatMap((definition) => [
-      definition.path,
-      ...(('aliases' in definition ? definition.aliases : undefined) ?? []),
-    ]);
+    const patterns = Object.values(routeDefinitions).flatMap(routePatterns);
     assert.deepEqual(patterns.length, new Set(patterns).size);
   });
 
@@ -53,5 +55,41 @@ describe('routeDefinitions', () => {
     for (const definition of Object.values(routeDefinitions)) {
       assert.equal(normalizePath(definition.path), definition.path);
     }
+  });
+});
+
+describe('pathFor', () => {
+  test('returns static paths as-is', () => {
+    assert.equal(pathFor('home'), '/');
+    assert.equal(pathFor('messageBoard'), '/utilities/message-board');
+  });
+
+  test('fills and encodes params so the router decodes them back', () => {
+    const path = pathFor('projectDetail', { slug: 'my site/v2' });
+    assert.equal(path, '/projects/my%20site%2Fv2');
+    assert.deepEqual(matchPattern(routeDefinitions.projectDetail.path, path), {
+      slug: 'my site/v2',
+    });
+  });
+
+  test('throws on a missing param', () => {
+    // @ts-expect-error -- the type also requires the param
+    assert.throws(() => pathFor('projectDetail'), /missing param 'slug'/);
+  });
+});
+
+describe('route lists', () => {
+  test('routePatterns puts the main path before aliases', () => {
+    assert.deepEqual(routePatterns(routeDefinitions.messageBoard), [
+      '/utilities/message-board',
+      '/utilities/messageboard',
+    ]);
+  });
+
+  test('staticRoutePaths skips param routes and aliases', () => {
+    const paths = staticRoutePaths();
+    assert.ok(paths.includes('/about'));
+    assert.ok(!paths.some((path) => path.includes(':')));
+    assert.ok(!paths.includes('/utilities/messageboard'));
   });
 });

@@ -11,6 +11,7 @@
   import { AsyncTask } from '../lib/asyncTask.svelte';
   import { saveBlob } from '../lib/download';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import { pathFor, routeDefinitions } from '../lib/routeDefinitions';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
   import { buildSchedule, exportSchedule, parseScheduleFile } from '../lib/scheduler/catalog';
   import AddCourseForm from '../lib/scheduler/components/AddCourseForm.svelte';
@@ -282,19 +283,11 @@
 
 <svelte:window onkeydown={handleKeydown} onhashchange={handleHashChange} />
 
-<svelte:head>
-  <title>Scheduler · JosephCicalese.com</title>
-  <meta
-    name="description"
-    content="Interactive course scheduler with prerequisite validation and dependency visualization."
-  />
-</svelte:head>
-
-<PageHeader title="Utilities / Class Scheduler">
+<PageHeader title="Utilities / {routeDefinitions.scheduler.meta.title}">
   <p>
     Drag courses between semesters and inspect prerequisite health in real time. The default
     schedule is my own. Course data may not be fully accurate; please report any issues <a
-      href="/contact">here</a
+      href={pathFor('contact')}>here</a
     >.
   </p>
 </PageHeader>

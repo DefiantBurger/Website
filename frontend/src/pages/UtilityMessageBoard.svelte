@@ -17,6 +17,7 @@
   import { formatTime } from '../lib/format';
   import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import { routeDefinitions } from '../lib/routeDefinitions';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
   // TTL and length limit come from the backend; null until loaded (the server enforces both).
@@ -76,16 +77,8 @@
   });
 </script>
 
-<svelte:head>
-  <title>Message Board · JosephCicalese.com</title>
-  <meta
-    name="description"
-    content="Ephemeral anonymous message board where notes vanish shortly after posting."
-  />
-</svelte:head>
-
 <PageHeader
-  title="Utilities / Message Board"
+  title="Utilities / {routeDefinitions.messageBoard.meta.title}"
   description="Post short anonymous notes to the public board. All messages are ephemeral and automatically expire on the server shortly after posting. Reload anytime to refresh active notes."
 >
   {#snippet actions()}

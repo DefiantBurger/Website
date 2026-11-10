@@ -48,14 +48,11 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Frontend components
 
-1. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>` and description, `index.html` repeats the site name three more times, and `ProjectDetail.svelte` repeats its fallback description. A shared `<PageMeta title description>` component would own the suffix.
-2. **Minor:** the utility metadata is split up. Each utility's card name and description live in `Utilities.svelte`, the `Utilities / <Name>` header title is hard-coded in each utility page, and the `<title>` is written again. Each page could export `{ name, description }` from `<script module>` (like its `layout`), and `Utilities.svelte` could read them from `routes`.
-3. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
+1. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
 
 ### Frontend logic
 
-1. **Minor:** route paths are repeated outside `routeDefinitions.ts`: in `Nav.svelte`, in `Home.svelte` (`sectionLinks`, plus `quickLinks`, which link to three of the same pages again on the same page), in `Utilities.svelte`, and in the `<noscript>` list in `index.html`. `/projects/${slug}` is built in `Home.svelte`, `Projects.svelte`, and twice in `vite.config.ts`. A changed path breaks these links silently. Nav labels in `routeDefinitions` plus a `pathFor(key, params)` helper would make a path change one edit.
-2. **Minor:** paths are listed by three separate functions: `staticPaths()` in `router.svelte.ts` (used by `NotFound.svelte`), `staticRoutePaths()` in `routeDefinitions.ts`, and `servedPaths()` in `vite.config.ts`. `servedPaths()` also expands aliases the same way `applyRoute` does.
+1. **Minor:** `index.html` can't read `routeDefinitions.ts`, so its `<noscript>` link list repeats the route paths and its title and Open Graph tags repeat the site name. Generating them at build time would fit with per-route HTML (SEO #1).
 
 ### Styles
 

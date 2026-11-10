@@ -4,7 +4,7 @@
 import type { Component } from 'svelte';
 
 import { recordRouteVisit } from './aboutYou/interactionStore';
-import type { RouteDefinition } from './routeDefinitions';
+import { routePatterns, type RouteDefinition } from './routeDefinitions';
 import { matchPattern, normalizePath } from './routeMatching';
 
 /** Layout options a page declares with `export const layout` in `<script module>`. */
@@ -38,7 +38,7 @@ function applyRoute(pathname: string) {
   let params: Record<string, string> = {};
 
   for (const candidate of routes) {
-    const match = [candidate.path, ...(candidate.aliases ?? [])]
+    const match = routePatterns(candidate)
       .map((pattern) => matchPattern(pattern, pathname))
       .find((result) => result !== null);
     if (match && (candidate.accepts?.(match) ?? true)) {
@@ -105,11 +105,6 @@ function handleLinkClick(event: MouseEvent) {
 
   event.preventDefault();
   navigate(`${url.pathname}${url.search}${url.hash}`);
-}
-
-/** Paths without params, e.g. for suggesting where a broken link meant to go. */
-export function staticPaths(): string[] {
-  return routes.map((route) => route.path).filter((path) => !path.includes(':'));
 }
 
 let isInitialized = false;

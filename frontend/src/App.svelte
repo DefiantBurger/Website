@@ -2,6 +2,7 @@
   import { tick } from 'svelte';
 
   import Nav from './lib/components/Nav.svelte';
+  import PageMeta from './lib/components/PageMeta.svelte';
   import { initRouter, router } from './lib/router.svelte';
   import { notFoundRoute, routes } from './lib/routes';
 
@@ -39,6 +40,11 @@
     <link rel="canonical" href="{window.location.origin}{canonicalPath}" />
   {/if}
 </svelte:head>
+
+<!-- Routes without meta (e.g. project pages) render their own PageMeta. -->
+{#if router.route?.meta}
+  <PageMeta {...router.route.meta} />
+{/if}
 
 <a class="skip-link" href="#main">Skip to content</a>
 <Nav />

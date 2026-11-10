@@ -1,14 +1,16 @@
 <script lang="ts">
+  import { pathFor, routeDefinitions, SITE_NAME } from '../routeDefinitions';
   import { router } from '../router.svelte';
   import { theme } from '../theme.svelte';
   import ExternalLink from './ExternalLink.svelte';
 
+  // Home's tab title is just the site name, so its label is written out here.
   const links = [
-    { label: 'Home', path: '/' },
-    { label: 'Projects', path: '/projects' },
-    { label: 'Utilities', path: '/utilities' },
-    { label: 'About', path: '/about' },
-    { label: 'Contact', path: '/contact' },
+    { label: 'Home', path: pathFor('home') },
+    ...(['projects', 'utilities', 'about', 'contact'] as const).map((key) => ({
+      label: routeDefinitions[key].meta.title,
+      path: pathFor(key),
+    })),
   ];
 
   // A section link stays active on its subpages (e.g. Projects on /projects/foo).
@@ -34,7 +36,7 @@
 <nav class="nav" aria-label="Main" bind:offsetHeight={navHeight}>
   <div class="nav-container">
     <div class="nav-brand">
-      <a href="/" class="prompt">JosephCicalese.com</a>
+      <a href={pathFor('home')} class="prompt">{SITE_NAME}</a>
     </div>
     <ul class="nav-links">
       {#each links as link (link.path)}

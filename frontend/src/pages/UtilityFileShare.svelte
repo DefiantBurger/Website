@@ -20,6 +20,7 @@
   import { saveBlob } from '../lib/download';
   import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import { routeDefinitions } from '../lib/routeDefinitions';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
   let status = $state<FileShareStatus | null>(null);
@@ -209,14 +210,6 @@
   });
 </script>
 
-<svelte:head>
-  <title>File Share · JosephCicalese.com</title>
-  <meta
-    name="description"
-    content="Upload files, protect them with an access key-derived label, and retrieve them through the same access key."
-  />
-</svelte:head>
-
 {#snippet accessKeyInput(getValue: () => string, setValue: (value: string) => void)}
   <label>
     <span>Access Key</span>
@@ -231,7 +224,7 @@
 {/snippet}
 
 <PageHeader
-  title="Utilities / File Share"
+  title="Utilities / {routeDefinitions.fileShare.meta.title}"
   description="Upload one or more files with an access key. The access key is hashed into the file label, and the stored file contents are encrypted at rest with a key derived from that same access key. Anyone with the same access key can retrieve all files until they expire."
 />
 

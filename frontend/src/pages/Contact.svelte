@@ -14,11 +14,6 @@
   ];
 </script>
 
-<svelte:head>
-  <title>Contact · JosephCicalese.com</title>
-  <meta name="description" content="Get in touch with me." />
-</svelte:head>
-
 <PageHeader title="Contact" />
 
 <div class="terminal-box">

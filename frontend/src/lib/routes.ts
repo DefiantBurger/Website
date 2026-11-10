@@ -49,4 +49,8 @@ export const routes: Route[] = (Object.keys(routeDefinitions) as RouteKey[]).map
   accepts: accepts[key],
 }));
 
-export const notFoundRoute: Route = { path: '/404', page: NotFound };
+export const notFoundRoute: Route = {
+  path: '/404',
+  page: NotFound,
+  meta: { title: '404 - Not Found', description: 'The page you requested could not be found.' },
+};

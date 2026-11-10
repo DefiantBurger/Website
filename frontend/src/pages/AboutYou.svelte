@@ -111,14 +111,6 @@
 
 <svelte:window ononline={refreshLocalSnapshot} onoffline={refreshLocalSnapshot} />
 
-<svelte:head>
-  <title>About You · JosephCicalese.com</title>
-  <meta
-    name="description"
-    content="See what your browser and requests reveal during your visit. Read-only, no analytics profile created."
-  />
-</svelte:head>
-
 <PageHeader
   title="About You"
   description="Everything below is what this site can learn about you just from your visit. Nothing here is stored, and no analytics profile is created."

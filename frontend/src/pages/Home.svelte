@@ -1,13 +1,12 @@
 <script lang="ts">
   import LinkCard from '../lib/components/LinkCard.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import { pathFor, routeDefinitions } from '../lib/routeDefinitions';
 
-  const sectionLinks = [
-    { label: 'About', href: '/about' },
-    { label: 'Projects', href: '/projects' },
-    { label: 'Utilities', href: '/utilities' },
-    { label: 'Contact', href: '/contact' },
-  ];
+  const sectionLinks = (['about', 'projects', 'utilities', 'contact'] as const).map((key) => ({
+    label: routeDefinitions[key].meta.title,
+    href: pathFor(key),
+  }));
 
   const featuredProjects: { title: string; description: string; slug?: string }[] = [
     {
@@ -26,23 +25,18 @@
     {
       title: 'About Me',
       text: 'Learn more about who I am and what I do.',
-      href: '/about',
+      href: pathFor('about'),
       cta: 'Read',
     },
     {
       title: 'Utilities',
       text: 'Interactive tools including the class scheduler utility.',
-      href: '/utilities',
+      href: pathFor('utilities'),
       cta: 'Open',
     },
-    { title: 'Contact', text: 'Get in touch with me.', href: '/contact', cta: 'Reach Out' },
+    { title: 'Contact', text: 'Get in touch with me.', href: pathFor('contact'), cta: 'Reach Out' },
   ];
 </script>
-
-<svelte:head>
-  <title>JosephCicalese.com</title>
-  <meta name="description" content="Personal portfolio and projects by me." />
-</svelte:head>
 
 <PageHeader title="Welcome" description="I'm a developer. This is my website.">
   <p class="section-links">
@@ -61,7 +55,7 @@
       <LinkCard
         title={project.title}
         headingLevel={3}
-        href={project.slug ? `/projects/${project.slug}` : '/projects'}
+        href={project.slug ? pathFor('projectDetail', { slug: project.slug }) : pathFor('projects')}
         cta={project.slug ? 'View Project' : 'View More'}
       >
         <p>{project.description}</p>

@@ -46,7 +46,7 @@ Ideas for later: `whoami` (pulls from About You), `grep <term>` across project w
 
 **Implementation notes**
 
-- Build the virtual filesystem from `routeDefinitions` and the published project list, not a hand-written copy, so new pages show up automatically. This depends on fixing the duplicated route paths (Issues, Frontend logic #1); `pathFor(key, params)` is what the shell needs anyway.
+- Build the virtual filesystem from `routeDefinitions` and the published project list, not a hand-written copy, so new pages show up automatically. `pathFor(key, params)` and each route's `meta` cover what the shell needs.
 - Navigate through the existing router, not `location.href`.
 - Tab completion on commands and paths; up/down arrows for history (session only).
 - Keep the parser and filesystem in plain `.ts` modules so they can be unit tested with `node:test`.

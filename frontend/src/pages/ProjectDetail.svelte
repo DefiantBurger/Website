@@ -6,6 +6,8 @@
   import StatusMessage from '../lib/components/StatusMessage.svelte';
   import ExternalLink from '../lib/components/ExternalLink.svelte';
   import TagList from '../lib/components/TagList.svelte';
+  import PageMeta from '../lib/components/PageMeta.svelte';
+  import { pathFor } from '../lib/routeDefinitions';
 
   // App remounts this page on every path change, so the slug is fixed per instance.
   const slug = router.params.slug;
@@ -17,6 +19,7 @@
   }
 
   const pagePromise = loadPage();
+  const fallbackDescription = 'Explore this project in detail.';
 
   // Runs are chained so two never touch the same nodes at once; a run queued
   // behind a newer theme toggle is skipped.
@@ -84,20 +87,15 @@
   }
 </script>
 
-<svelte:head>
-  {#await pagePromise}
-    <title>Project Details · JosephCicalese.com</title>
-    <meta name="description" content="Explore this project in detail." />
-  {:then project}
-    <title>{project.title} · JosephCicalese.com</title>
-    <meta name="description" content={project.summary || 'Explore this project in detail.'} />
-  {:catch}
-    <title>Project Failed to Load · JosephCicalese.com</title>
-    <meta name="description" content="Explore this project in detail." />
-  {/await}
-</svelte:head>
+{#await pagePromise}
+  <PageMeta title="Project Details" description={fallbackDescription} />
+{:then project}
+  <PageMeta title={project.title} description={project.summary || fallbackDescription} />
+{:catch}
+  <PageMeta title="Project Failed to Load" description={fallbackDescription} />
+{/await}
 
-<a class="button back-button" href="/projects">&lt; Back to Projects</a>
+<a class="button back-button" href={pathFor('projects')}>&lt; Back to Projects</a>
 
 {#await pagePromise}
   <StatusMessage kind="loading" message="Loading project..." />

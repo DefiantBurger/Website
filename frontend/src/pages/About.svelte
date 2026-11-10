@@ -1,11 +1,7 @@
 <script lang="ts">
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import { pathFor } from '../lib/routeDefinitions';
 </script>
-
-<svelte:head>
-  <title>About · JosephCicalese.com</title>
-  <meta name="description" content="Learn more about the developer behind this website." />
-</svelte:head>
 
 <PageHeader title="About Me" />
 
@@ -19,7 +15,9 @@
 </div>
 
 <div class="about-you-cta">
-  <a href="/about-you" class="prompt">About You: see what this site can learn from your visit</a>
+  <a href={pathFor('aboutYou')} class="prompt"
+    >About You: see what this site can learn from your visit</a
+  >
 </div>
 
 <style>
