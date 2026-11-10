@@ -63,7 +63,7 @@ server {
 	location /api/fileshare/upload/ {
 		include api_proxy_params.conf;
 		limit_req zone=limit burst=10 nodelay;
-		client_max_body_size 100M;
+		client_max_body_size 81M;
 	}
 
 	# Vite content-hashes these filenames, so cache them forever. A missing asset

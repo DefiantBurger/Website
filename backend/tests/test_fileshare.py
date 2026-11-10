@@ -24,6 +24,7 @@ from app.fileshare import (
 	_parse_timestamp,
 	_record_paths,
 	_sanitize_original_filename,
+	acquire_transfer_slot,
 	build_label,
 	cleanup_expired_records,
 	decrypt_record_payload,
@@ -342,6 +343,21 @@ class TestFileShareStorageLifecycle(unittest.TestCase):
 			with self.assertRaises(FileShareError) as ctx:
 				save_upload(f, 'key-no-space')
 			self.assertEqual(ctx.exception.status_code, 503)
+
+
+class TestTransferSlots(unittest.TestCase):
+	def test_release_is_idempotent(self):
+		import threading
+
+		slots = threading.BoundedSemaphore(1)
+		with patch('app.fileshare._transfer_slots', slots):
+			release = acquire_transfer_slot()
+			with self.assertRaises(FileShareError) as ctx:
+				acquire_transfer_slot()
+			self.assertEqual(ctx.exception.status_code, 503)
+			release()
+			release()  # A second call must not over-release the BoundedSemaphore.
+			acquire_transfer_slot()()
 
 
 if __name__ == '__main__':

@@ -10,9 +10,11 @@ from flask import (
 	send_file,
 	send_from_directory,
 )
+from werkzeug.wsgi import ClosingIterator
 
 from .fileshare import (
 	FileShareError,
+	acquire_transfer_slot,
 	cleanup_expired_records,
 	decrypt_record_payload,
 	delete_records,
@@ -193,21 +195,34 @@ def fileshare_access():
 		return jsonify({'error': 'No active file matched that password.'}), 404
 
 	try:
-		with transfer_slot():
-			plaintext = decrypt_record_payload(record, password)
+		release_slot = acquire_transfer_slot()
 	except FileShareError as exc:
 		return jsonify({'error': exc.message}), exc.status_code
 
-	# Never echo the uploader-supplied MIME type: serving e.g. text/html from this
-	# origin would let an uploaded file run scripts if a browser rendered it.
-	response = send_file(
-		BytesIO(plaintext),
-		as_attachment=True,
-		download_name=record.original_filename,
-		mimetype='application/octet-stream',
-		max_age=0,
-	)
+	# The plaintext stays in memory until the server finishes sending it, so the
+	# slot is held until the response closes, not just through decryption.
+	try:
+		plaintext = decrypt_record_payload(record, password)
+		# Never echo the uploader-supplied MIME type: serving e.g. text/html from this
+		# origin would let an uploaded file run scripts if a browser rendered it.
+		response = send_file(
+			BytesIO(plaintext),
+			as_attachment=True,
+			download_name=record.original_filename,
+			mimetype='application/octet-stream',
+			max_age=0,
+		)
+	except FileShareError as exc:
+		release_slot()
+		return jsonify({'error': exc.message}), exc.status_code
+	except BaseException:
+		release_slot()
+		raise
+
 	response.headers['X-Content-Type-Options'] = 'nosniff'
+	# send_file sets direct_passthrough, so the server gets the body iterable as-is and
+	# never calls response.close(); call_on_close would never fire. Wrap the body instead.
+	response.response = ClosingIterator(response.response, release_slot)
 	return response
 
 

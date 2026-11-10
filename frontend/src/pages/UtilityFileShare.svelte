@@ -20,7 +20,7 @@
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
-  const MAX_FILE_BYTES = 100 * 1_000_000;
+  const MAX_FILE_BYTES = 80 * 1_000_000;
 
   let status = $state<FileShareStatus | null>(null);
   let statusError = $state<string | null>(null);
@@ -263,7 +263,7 @@
   <form class="terminal-box panel" onsubmit={handleUploadSubmit}>
     <h2 class="prompt">Upload Files</h2>
     <p>
-      Limit: 100 MB per file. Files expire after 10 minutes. When active storage approaches the 1 GB
+      Limit: 80 MB per file. Files expire after 10 minutes. When active storage approaches the 1 GB
       cap, the backend evicts oldest files to free space before accepting new uploads. Uploading
       with an existing access key will replace all previous files for that key, and the new files
       will be encrypted before they are written to disk.

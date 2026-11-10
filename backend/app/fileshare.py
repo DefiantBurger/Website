@@ -15,7 +15,7 @@ import json
 import os
 import threading
 import unicodedata
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -27,7 +27,8 @@ from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
-MAX_FILE_BYTES = 100 * 1_000_000
+# Below Cloudflare's 100 MB request limit with room for multipart overhead.
+MAX_FILE_BYTES = 80 * 1_000_000
 MAX_TOTAL_STORAGE_BYTES = 1_000_000_000
 RETENTION_SECONDS = 10 * 60
 STORAGE_DIR_NAME = 'fileshare'
@@ -40,7 +41,7 @@ KDF_N = 2**14
 KDF_R = 8
 KDF_P = 1
 # Each transfer holds roughly 3x the file size in memory (plaintext + ciphertext +
-# buffers), so this keeps two 100 MB transfers within the VM's 1 GB of RAM.
+# buffers), so this keeps two 80 MB transfers within the VM's 1 GB of RAM.
 MAX_CONCURRENT_TRANSFERS = 2
 
 _transfer_slots = threading.BoundedSemaphore(MAX_CONCURRENT_TRANSFERS)
@@ -74,15 +75,34 @@ def build_label(password: str) -> str:
 	return hmac.new(pepper, password.encode('utf-8'), hashlib.sha256).hexdigest()
 
 
-@contextmanager
-def transfer_slot() -> Iterator[None]:
-	"""Hold one of MAX_CONCURRENT_TRANSFERS slots, or raise a 503 immediately if none is free."""
+def acquire_transfer_slot() -> Callable[[], None]:
+	"""Take one of MAX_CONCURRENT_TRANSFERS slots, or raise a 503 immediately if none is free.
+
+	Returns a release function that is safe to call more than once.
+	"""
 	if not _transfer_slots.acquire(blocking=False):
 		raise FileShareError('The file share is busy right now; try again in a moment.', 503)
+	lock = threading.Lock()
+	released = False
+
+	def release() -> None:
+		nonlocal released
+		with lock:
+			if released:
+				return
+			released = True
+		_transfer_slots.release()
+
+	return release
+
+
+@contextmanager
+def transfer_slot() -> Iterator[None]:
+	release = acquire_transfer_slot()
 	try:
 		yield
 	finally:
-		_transfer_slots.release()
+		release()
 
 
 def _now_utc() -> datetime:
@@ -391,7 +411,7 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 	if plaintext is None:
 		plaintext = b''
 	if len(plaintext) > MAX_FILE_BYTES:
-		raise FileShareError('File exceeds the 100 MB limit.', 413)
+		raise FileShareError(f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.', 413)
 
 	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes(password, plaintext)
 	current_status = get_storage_status()

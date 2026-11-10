@@ -95,7 +95,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit and Nginx templates 
   - Compression: gzip for HTML, JSON, CSS, JS, and SVG, including proxied API responses (the course catalog is ~3 MB uncompressed).
   - Redirects plain-HTTP visitors (detected from `CF-Visitor`) to HTTPS.
   - Rate limit: 10 req/s per `CF-Connecting-IP`, burst 10 (no delay on `/api/fileshare/`).
-  - Body limit: 1 MB, except 100 MB on `/api/fileshare/upload/`.
+  - Body limit: 1 MB, except 81 MiB on `/api/fileshare/upload/`.
   - Headers: HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce the CSP, browse each page with the console open, fix or allow anything it reports, then rename `Content-Security-Policy-Report-Only` to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
 - **`flaskapp`** (systemd, user `flaskapp`, `FLASK_ENV=production`) runs `current/backend/main.py` under Waitress on `127.0.0.1:5000`. It is sandboxed with `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, and `NoNewPrivileges`, and can write only `/var/lib/personalwebsite`.
 - **File-share data** lives in `/var/lib/personalwebsite/fileshare/` (`PERSONALWEBSITE_INSTANCE_PATH`). It survives reboots and deploys, and files still expire after 10 minutes.

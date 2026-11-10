@@ -49,10 +49,8 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 The items below come from code review and function-level tests, not live uploads.
 
-3. **Likely:** the transfer slot is released before the response is sent, so more than two decrypted files can be in memory at once. The VM has 1 GB of RAM, and the Terraform config sets up no swap or `MemoryMax`.
-4. On Cloudflare plans with a 100 MB upload limit, a file right at the 100 MB cap may be rejected once form overhead is added. The zone's plan hasn't been checked. Lowering the cap to 80 MB may be the safe fix.
-5. An empty file is listed as 16 bytes. `_load_record` chains `size_bytes or stored_size_bytes or stat()`, and a real 0 is falsy, so it falls through to the ciphertext size (the AES-GCM tag). The upload response says 0, `/api/fileshare/list/` says 16. Use an explicit `is None` check. No test uploads an empty file.
-6. **Possible:** two clients uploading under the same key at once can clobber each other. `save_upload` computes the next occurrence index, then writes, with no lock between, so both get the same index and the second `write_bytes` overwrites the first. The two transfer slots allow exactly this pairing. A per-label lock, or opening the payload with `'x'` and retrying on `FileExistsError`, would close it.
+3. An empty file is listed as 16 bytes. `_load_record` chains `size_bytes or stored_size_bytes or stat()`, and a real 0 is falsy, so it falls through to the ciphertext size (the AES-GCM tag). The upload response says 0, `/api/fileshare/list/` says 16. Use an explicit `is None` check. No test uploads an empty file.
+4. **Possible:** two clients uploading under the same key at once can clobber each other. `save_upload` computes the next occurrence index, then writes, with no lock between, so both get the same index and the second `write_bytes` overwrites the first. The two transfer slots allow exactly this pairing. A per-label lock, or opening the payload with `'x'` and retrying on `FileExistsError`, would close it.
 
 ### Message Board
 
@@ -66,8 +64,8 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 ### Shared limits
 
 1. Limits are copied between the backend and the frontend instead of read from the API, and the copies have already drifted.
-   - File Share: `RETENTION_SECONDS`, `MAX_FILE_BYTES`, and `MAX_TOTAL_STORAGE_BYTES` (`backend/app/fileshare.py`) appear as text ("10 minutes", "100 MB", "1 GB") in `UtilityFileShare.svelte` (twice) and `Utilities.svelte`. The page also defines its own `MAX_FILE_BYTES`, even though `/api/fileshare/status/` returns `maxFileBytes`. Its storage fallback (`1_073_741_824`) doesn't match the backend's `1_000_000_000`, so the page shows "1.07 GB" until the status loads.
-   - The 100 MB upload cap is set in three units in three places: Nginx `100M` (MiB), Flask `MAX_CONTENT_LENGTH` (101 MiB), and `MAX_FILE_BYTES` (decimal MB). `save_upload`'s error message hard-codes "100 MB".
+   - File Share: `RETENTION_SECONDS`, `MAX_FILE_BYTES`, and `MAX_TOTAL_STORAGE_BYTES` (`backend/app/fileshare.py`) appear as text ("10 minutes", "80 MB", "1 GB") in `UtilityFileShare.svelte` (twice) and `Utilities.svelte`. The page also defines its own `MAX_FILE_BYTES`, even though `/api/fileshare/status/` returns `maxFileBytes`. Its storage fallback (`1_073_741_824`) doesn't match the backend's `1_000_000_000`, so the page shows "1.07 GB" until the status loads.
+   - The 80 MB upload cap is set twice, in different units: Nginx `81M` (MiB) and `MAX_FILE_BYTES` (decimal MB, which Flask's `MAX_CONTENT_LENGTH` derives from).
    - Message Board: `MESSAGE_TTL_SECONDS` (`messageboard/api.ts`, with a "must match" comment) and `MAX_LENGTH = 280` (`UtilityMessageBoard.svelte`) copy backend constants. `/api/messageboard/status/` already returns both, but `fetchMessageBoardStatus()` is never called.
 
 ### Frontend components
@@ -112,7 +110,7 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Tests
 
-1. A gap that would have caught an item above: no backend test uploads an empty file (File Share #5).
+1. A gap that would have caught an item above: no backend test uploads an empty file (File Share #3).
 2. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI
@@ -137,5 +135,5 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 
 ### File Share
 
-- Uploads need no login, so anyone can upload, and ten 100 MB uploads evict everyone's files. The service is for quick, casual sharing, not permanent storage. Files become inaccessible after 10 minutes, which makes hosting malware on it unrealistic.
+- Uploads need no login, so anyone can upload, and about a dozen 80 MB uploads evict everyone's files. The service is for quick, casual sharing, not permanent storage. Files become inaccessible after 10 minutes, which makes hosting malware on it unrealistic.
 - Access keys have no minimum length, and `/api/fileshare/list/` does only a fast HMAC before returning filenames, so Nginx's per-IP rate limit is the only limit on guessing. A correct guess also lets someone replace those files. A file is only as secure as the password its owner chooses.

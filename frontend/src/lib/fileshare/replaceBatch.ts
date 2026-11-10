@@ -1,5 +1,5 @@
 // Replaces a key's files without a batch endpoint: each upload is its own request
-// (100 MB per-request cap), so the old files are deleted only once every new one is stored.
+// (80 MB per-request cap), so the old files are deleted only once every new one is stored.
 
 export interface ReplaceBatchOps<F, R> {
   /** Occurrence indices the key holds before the upload. */

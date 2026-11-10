@@ -214,6 +214,55 @@ class TestViewsAPI(unittest.TestCase):
 		self.assertEqual(res.status_code, 503)
 		self.assertIn('busy', res.get_json()['error'])
 
+	def test_fileshare_download_holds_slot_until_response_closes(self):
+		import threading
+
+		self.client.post(
+			'/api/fileshare/upload/',
+			data={'file': (BytesIO(b'abc'), 'file.txt'), 'password': 'pass'},
+			content_type='multipart/form-data',
+		)
+		slots = threading.BoundedSemaphore(1)
+		with patch('app.fileshare._transfer_slots', slots):
+			# buffered=False leaves the response open, like a client still downloading.
+			res = self.client.post(
+				'/api/fileshare/access/',
+				data={'password': 'pass', 'occurrenceIndex': '1'},
+				buffered=False,
+			)
+			self.assertEqual(res.status_code, 200)
+			self.assertFalse(slots.acquire(blocking=False))
+
+			self.assertEqual(b''.join(res.response), b'abc')
+			res.close()
+			self.assertTrue(slots.acquire(blocking=False))
+			slots.release()
+
+	def test_fileshare_download_error_releases_slot(self):
+		import threading
+
+		from app.fileshare import FileShareError
+
+		self.client.post(
+			'/api/fileshare/upload/',
+			data={'file': (BytesIO(b'abc'), 'file.txt'), 'password': 'pass'},
+			content_type='multipart/form-data',
+		)
+		slots = threading.BoundedSemaphore(1)
+		with (
+			patch('app.fileshare._transfer_slots', slots),
+			patch(
+				'app.views.decrypt_record_payload',
+				side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
+			),
+		):
+			res = self.client.post(
+				'/api/fileshare/access/', data={'password': 'pass', 'occurrenceIndex': '1'}
+			)
+			self.assertEqual(res.status_code, 403)
+			self.assertTrue(slots.acquire(blocking=False))
+			slots.release()
+
 
 if __name__ == '__main__':
 	unittest.main()

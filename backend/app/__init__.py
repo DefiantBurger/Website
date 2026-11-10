@@ -4,6 +4,8 @@ from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from .fileshare import MAX_FILE_BYTES
+
 
 def create_app(test_config: dict | None = None, instance_path: str | None = None):
 	"""Build the app. `test_config` overrides config (including SECRET_KEY); `instance_path` relocates file-share storage."""
@@ -30,8 +32,9 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 	# Nginx is the only hop in front of the app and sets X-Forwarded-For (the
 	# visitor's IP) and X-Forwarded-Proto, so redirects and remote_addr are correct.
 	app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-	# Matches nginx's 100M upload limit, plus headroom for multipart form overhead.
-	app.config['MAX_CONTENT_LENGTH'] = 101 * 1024 * 1024
+	# The file cap plus headroom for multipart overhead. Kept below nginx's 81M so
+	# oversized uploads get this app's JSON 413, not nginx's HTML one.
+	app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_BYTES + 1024 * 1024
 
 	if test_config:
 		app.config.update(test_config)
