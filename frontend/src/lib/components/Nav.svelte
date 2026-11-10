@@ -22,9 +22,15 @@
     }
     return isActive(path) ? 'true' : undefined;
   }
+
+  // The nav is sticky, so anchor targets must stop below it; its height varies as links wrap.
+  let navHeight = $state(0);
+  $effect(() => {
+    document.documentElement.style.scrollPaddingTop = `${navHeight}px`;
+  });
 </script>
 
-<nav class="nav" aria-label="Main">
+<nav class="nav" aria-label="Main" bind:offsetHeight={navHeight}>
   <div class="nav-container">
     <div class="nav-brand">
       <a href="/" class="prompt">JosephCicalese.com</a>

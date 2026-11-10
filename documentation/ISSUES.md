@@ -4,13 +4,10 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ## Frontend
 
-1. **Minor:** links to a section don't scroll on page load, because the content renders after the browser tries to scroll.
-2. **Likely:** back navigation loses the scroll position.
-3. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
-4. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
-5. **Minor:** a `hashchange` also fires `popstate`, so pasting a new `#plan=` link on the scheduler or clicking a heading anchor re-runs `applyRoute`. That increments the About You visit count and replaces `router.params` with a new object, re-evaluating anything derived from it. Compare the old and new pathname before re-applying.
-6. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
-7. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
+1. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
+2. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
+3. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
+4. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
 
 ### SEO
 
@@ -112,6 +109,7 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 
 - `Home.svelte` hard-codes "Featured Projects" instead of using the project content (`lib/projects/content.ts`), so the owner chooses which projects to display.
 - A dark system preference is ignored, and first-time visitors always get the light theme, because the site looks better in light mode.
+- The router doesn't manage scroll position: Back/Forward don't restore it, and a link to a `#section` may not scroll there once the page renders. Restoring it was tried (2026-11) and dropped. Content renders asynchronously (project Markdown, then Mermaid), so the position had to be held while the layout settled, which felt jittery and drifted on pages whose diagrams resize after load.
 - The About You map requests tiles from `tile.openstreetmap.org`, which shows a third party the visitor's approximate location, while the page says "Nothing here is stored". The page exists to show that this is possible, so the lack of a disclosure or privacy policy isn't treated as an issue.
 
 ### Class Scheduler

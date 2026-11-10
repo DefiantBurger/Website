@@ -64,6 +64,14 @@ function routeToCurrentLocation() {
   applyRoute(canonicalPath);
 }
 
+/** Back/Forward. Hash-only changes (heading anchors, #plan= links) also fire it; those keep the page. */
+function handlePopState() {
+  if (window.location.pathname === router.path) {
+    return;
+  }
+  routeToCurrentLocation();
+}
+
 /** Route left-clicks on same-origin links through `navigate` instead of reloading. */
 function handleLinkClick(event: MouseEvent) {
   if (
@@ -114,7 +122,7 @@ export function initRouter(routeTable: Route[], notFound: Route) {
   routes = routeTable;
   notFoundRoute = notFound;
   routeToCurrentLocation();
-  window.addEventListener('popstate', routeToCurrentLocation);
+  window.addEventListener('popstate', handlePopState);
   document.addEventListener('click', handleLinkClick);
   isInitialized = true;
 }
