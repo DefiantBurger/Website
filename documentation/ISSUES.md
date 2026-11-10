@@ -101,9 +101,8 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Infrastructure and CI
 
-1. **Minor:** `test.yaml` and the `package` job in `deploy.yaml` repeat the same pinned setup steps (checkout, setup-uv, pnpm, setup-node with cache), so bumping an action takes two edits. A local composite action (`.github/actions/setup`) could hold them.
-2. **Minor:** some values are hard-coded where Terraform could pass them as template variables. `/var/lib/personalwebsite` appears four times across `startup.sh.tftpl` and `flaskapp.service.tftpl` (`app_path` is already a variable), and port 5000 is in `nginx_api_proxy_params.conf.tftpl`, `deploy.sh.tftpl`, and `main.py`'s default. The three `/api/` locations in `nginx.conf.tftpl` also repeat the same `include` and `limit_req` lines.
-3. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `index.html` (Open Graph), `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
+1. **Minor:** some values are hard-coded where Terraform could pass them as template variables. `/var/lib/personalwebsite` appears four times across `startup.sh.tftpl` and `flaskapp.service.tftpl` (`app_path` is already a variable), and port 5000 is in `nginx_api_proxy_params.conf.tftpl`, `deploy.sh.tftpl`, and `main.py`'s default. The three `/api/` locations in `nginx.conf.tftpl` also repeat the same `include` and `limit_req` lines.
+2. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `index.html` (Open Graph), `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
 
 ## Appendix: Non-Issues
 

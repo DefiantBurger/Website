@@ -142,6 +142,8 @@ The pipeline:
 1. **test-backend:** `uv sync --frozen` and `uv run pytest --cov=app`.
 2. **test-frontend:** `pnpm install --frozen-lockfile`, `pnpm check`, and `pnpm test`. The pnpm version comes from `packageManager` in `frontend/package.json`.
 
+Both workflows install uv, pnpm, and Node through the local composite action `.github/actions/setup`, which holds the pinned action versions.
+
 *Deploy* (`deploy.yaml`, manual, `main` only):
 
 1. **package:**
