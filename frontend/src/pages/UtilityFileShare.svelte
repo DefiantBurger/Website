@@ -257,7 +257,7 @@
 
 <section class="auto-grid" style:--grid-min="25rem">
   <form class="terminal-box panel" onsubmit={handleUploadSubmit}>
-    <h2 class="prompt">Upload Files</h2>
+    <h2 class="prompt section-title">Upload Files</h2>
     <p>
       {limitsIntro} the backend evicts oldest files to free space before accepting new uploads. Uploading
       with an existing access key will replace all previous files for that key, and the new files will
@@ -297,7 +297,7 @@
   </form>
 
   <form class="terminal-box panel" onsubmit={handleListSubmit}>
-    <h2 class="prompt">Access Files</h2>
+    <h2 class="prompt section-title">Access Files</h2>
     <p>
       Enter the access key used for upload. The backend hashes it to locate all matching active
       files.
@@ -340,7 +340,7 @@
 </section>
 
 <section class="terminal-box info-panel">
-  <h2 class="prompt">Storage Info</h2>
+  <h2 class="prompt section-title">Storage Info</h2>
   <dl class="stats">
     {#each stats as [label, value] (label)}
       <div>

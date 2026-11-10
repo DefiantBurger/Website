@@ -206,7 +206,6 @@
 
   .add-column h2 {
     font-size: 1rem;
-    border: 0;
     margin: 0;
     text-transform: uppercase;
   }

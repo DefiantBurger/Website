@@ -1,5 +1,6 @@
 <script lang="ts">
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import ExternalLink from '../lib/components/ExternalLink.svelte';
 
   const contacts = [
     { label: 'email', text: 'joseph.cicalese@gmail.com', href: 'mailto:joseph.cicalese@gmail.com' },
@@ -26,7 +27,7 @@
       <li>
         <span class="label">{contact.label}:</span>
         {#if contact.href?.startsWith('http')}
-          <a href={contact.href} target="_blank" rel="noreferrer">{contact.text}</a>
+          <ExternalLink href={contact.href}>{contact.text}</ExternalLink>
         {:else if contact.href}
           <a href={contact.href}>{contact.text}</a>
         {:else}
@@ -55,7 +56,7 @@
     font-weight: 700;
   }
 
-  a {
+  .contact-list :global(a) {
     color: inherit;
   }
 </style>

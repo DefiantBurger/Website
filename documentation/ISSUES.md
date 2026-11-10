@@ -17,8 +17,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 `pnpm a11y` (axe-core) reports no violations. It can't judge screen-reader flow or drag-and-drop.
 
-1. **Minor:** links that open a new tab (Status, Contact, project repo/demo, OpenStreetMap) don't say so to screen readers.
-
 ## Infrastructure
 
 1. Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking. It contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. GCS). Low priority while there's only one developer.
@@ -54,11 +52,9 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Frontend components
 
-1. Card links are built four separate times: featured projects and quick links in `Home.svelte`, then `Projects.svelte` and `Utilities.svelte`. Each writes `terminal-box hover-lift clickable-card` + title + text + `stretched-link` with its own heading reset and spacing, and `Projects.svelte` overrides the shared hover lift (`-4px` instead of `-2px`). A `<LinkCard title href cta>` component with a `children` snippet (for `TagList`) would replace all four.
-2. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>` and description, `index.html` repeats the site name three more times, and `ProjectDetail.svelte` repeats its fallback description. A shared `<PageMeta title description>` component would own the suffix.
-3. **Minor:** the utility metadata is split up. Each utility's card name and description live in `Utilities.svelte`, the `Utilities / <Name>` header title is hard-coded in each utility page, and the `<title>` is written again. Each page could export `{ name, description }` from `<script module>` (like its `layout`), and `Utilities.svelte` could read them from `routes`.
-4. **Minor:** new-tab links are written by hand with two different `rel` values: `rel="noopener noreferrer"` in `Nav.svelte` and `LocationMap.svelte`, `rel="noreferrer"` in `Contact.svelte` and `ProjectDetail.svelte` (twice). An `<ExternalLink>` component would make them consistent and is the natural fix for Accessibility item 1.
-5. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `AboutYou.svelte` has six identical groups (`h2.prompt`, `p.source`, `FactList`) that could be one `{#each}` over `{ title, source, facts }`. `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
+1. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>` and description, `index.html` repeats the site name three more times, and `ProjectDetail.svelte` repeats its fallback description. A shared `<PageMeta title description>` component would own the suffix.
+2. **Minor:** the utility metadata is split up. Each utility's card name and description live in `Utilities.svelte`, the `Utilities / <Name>` header title is hard-coded in each utility page, and the `<title>` is written again. Each page could export `{ name, description }` from `<script module>` (like its `layout`), and `Utilities.svelte` could read them from `routes`.
+3. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `AboutYou.svelte` has six identical groups (`h2.prompt`, `p.source`, `FactList`) that could be one `{#each}` over `{ title, source, facts }`. `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
 
 ### Frontend logic
 
@@ -69,12 +65,11 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Styles
 
-1. **Minor:** the global `h2` in `app.css` has a bottom border that four components undo: `.project-item h2` (Projects), `.utility-card h2` (Utilities), `.feed-header h2` (Message Board), and `.semester-header h2` (Scheduler). Either move the border onto a section-heading class or add a `.card-title` utility.
-2. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
+1. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
    - `StatusMessage.svelte` draws an error box (error color, border, `--color-error-opacity-05`), but `AboutYou.svelte` styles its own `.error` text.
    - Dashed, tinted boxes (`--color-primary-opacity-30` border on `--color-primary-opacity-10`) appear in File Share `.stats div` and `.file-list`, Scheduler `.semester-column`, and Message Board `.pill`.
    - Each form page re-declares the stacked `label` layout.
-3. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.
+2. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.
 
 ### Infrastructure and CI
 

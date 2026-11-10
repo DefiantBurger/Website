@@ -335,7 +335,7 @@
 
 <div class="groups">
   <section class="terminal-box group">
-    <h2 class="prompt">What the Server Sees</h2>
+    <h2 class="prompt section-title">What the Server Sees</h2>
     <p class="source">From your request to this site's API</p>
     {#if serverSnapshot.busy}
       <p>Loading request context...</p>
@@ -347,31 +347,31 @@
   </section>
 
   <section class="terminal-box group">
-    <h2 class="prompt">Your Device</h2>
+    <h2 class="prompt section-title">Your Device</h2>
     <p class="source">Read by JavaScript in this tab</p>
     <FactList facts={deviceFacts} />
   </section>
 
   <section class="terminal-box group">
-    <h2 class="prompt">Your Browser</h2>
+    <h2 class="prompt section-title">Your Browser</h2>
     <p class="source">Read by JavaScript in this tab</p>
     <FactList facts={browserFacts} />
   </section>
 
   <section class="terminal-box group">
-    <h2 class="prompt">Your Preferences</h2>
+    <h2 class="prompt section-title">Your Preferences</h2>
     <p class="source">Settings your browser shares with every site</p>
     <FactList facts={preferenceFacts} />
   </section>
 
   <section class="terminal-box group">
-    <h2 class="prompt">This Visit</h2>
+    <h2 class="prompt section-title">This Visit</h2>
     <p class="source">In memory only; gone when you close the tab</p>
     <FactList facts={visitFacts} />
   </section>
 
   <section class="terminal-box group">
-    <h2 class="prompt">Not Collected</h2>
+    <h2 class="prompt section-title">Not Collected</h2>
     <p class="source">Possible, but deliberately skipped</p>
     <FactList facts={NOT_COLLECTED} />
   </section>

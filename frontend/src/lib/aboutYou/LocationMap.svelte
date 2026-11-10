@@ -1,6 +1,8 @@
 <script lang="ts">
   // Static slippy-map view built from OpenStreetMap tile images, centered on
   // a coordinate. No map library or iframe, so it fits the site CSP.
+  import ExternalLink from '../components/ExternalLink.svelte';
+
   const TILE_SIZE = 256;
   const TILE_URL = 'https://tile.openstreetmap.org';
 
@@ -93,10 +95,8 @@
   <figcaption>
     <span>{latitude.toFixed(4)}, {longitude.toFixed(4)}</span>
     <span>
-      &copy; <a
-        href="https://www.openstreetmap.org/copyright"
-        target="_blank"
-        rel="noopener noreferrer">OpenStreetMap</a
+      &copy; <ExternalLink href="https://www.openstreetmap.org/copyright"
+        >OpenStreetMap</ExternalLink
       > contributors
     </span>
   </figcaption>

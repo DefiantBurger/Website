@@ -212,7 +212,6 @@
 
   .feed-header h2 {
     margin: 0;
-    border: 0;
     font-size: 1.4rem;
   }
 

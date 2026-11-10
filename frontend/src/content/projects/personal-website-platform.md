@@ -111,7 +111,7 @@ I replaced page.js with this router to drop a dependency and keep routing behavi
 A recent refactor consolidated duplicated logic across pages and removed roughly 1,500 lines net:
 
 - `lib/api.ts`: `apiFetch`/`apiJson` helpers that surface the backend's `{ error }` messages and reject unexpected non-JSON responses. Every feature's API client builds on them.
-- `PageHeader`, `StatusMessage`, and `TagList` components for consistent page structure and loading/error display.
+- `PageHeader`, `LinkCard`, `ExternalLink`, `StatusMessage`, and `TagList` components for consistent page structure and loading/error display.
 - A theme store that persists the light/dark choice and lets project pages re-render Mermaid diagrams when it changes.
 - A scheduler catalog module shared by the initial load and JSON import, so both paths validate schedules the same way.
 

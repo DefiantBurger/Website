@@ -1,6 +1,7 @@
 <script lang="ts">
   import { router } from '../router.svelte';
   import { theme } from '../theme.svelte';
+  import ExternalLink from './ExternalLink.svelte';
 
   const links = [
     { label: 'Home', path: '/' },
@@ -48,14 +49,9 @@
     </ul>
 
     <div class="nav-actions">
-      <a
-        class="status-link"
-        href="https://status.josephcicalese.com/"
-        target="_blank"
-        rel="noopener noreferrer"
+      <ExternalLink class="status-link" href="https://status.josephcicalese.com/"
+        >Status</ExternalLink
       >
-        Status
-      </a>
       <button type="button" class="theme-toggle" onclick={() => theme.toggle()}>
         {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>
@@ -113,12 +109,12 @@
     flex-shrink: 0;
   }
 
-  .status-link {
+  .nav-actions :global(.status-link) {
     font-size: 0.8rem;
     border-bottom: 1px solid transparent;
   }
 
-  .status-link:hover {
+  .nav-actions :global(.status-link:hover) {
     border-bottom: 1px solid var(--color-text-primary);
   }
 

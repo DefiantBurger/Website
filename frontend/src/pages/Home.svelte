@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LinkCard from '../lib/components/LinkCard.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
 
   const sectionLinks = [
@@ -53,44 +54,30 @@
 </PageHeader>
 
 <section>
-  <h2 class="prompt">Featured Projects</h2>
+  <h2 class="prompt section-title">Featured Projects</h2>
 
   <div class="auto-grid card-grid" style:--grid-min="300px">
     {#each featuredProjects as project (project.title)}
-      <div class="terminal-box hover-lift clickable-card">
-        <h3>{project.title}</h3>
+      <LinkCard
+        title={project.title}
+        headingLevel={3}
+        href={project.slug ? `/projects/${project.slug}` : '/projects'}
+        cta={project.slug ? 'View Project' : 'View More'}
+      >
         <p>{project.description}</p>
-        {#if project.slug}
-          <a
-            href="/projects/{project.slug}"
-            class="card-link stretched-link prompt"
-            aria-label="View project: {project.title}">View Project</a
-          >
-        {:else}
-          <a
-            href="/projects"
-            class="card-link stretched-link prompt"
-            aria-label="View more projects">View More</a
-          >
-        {/if}
-      </div>
+      </LinkCard>
     {/each}
   </div>
 </section>
 
 <section>
-  <h2 class="prompt">Quick Links</h2>
+  <h2 class="prompt section-title">Quick Links</h2>
 
   <div class="auto-grid card-grid" style:--grid-min="250px">
     {#each quickLinks as link (link.href)}
-      <div class="terminal-box hover-lift clickable-card quick-link">
-        <strong class="prompt">{link.title}</strong>
+      <LinkCard title={link.title} headingLevel={3} href={link.href} cta={link.cta}>
         <p>{link.text}</p>
-        <!-- The label names the destination, since the visible CTAs are generic. -->
-        <a href={link.href} class="stretched-link" aria-label="{link.cta}: {link.title}"
-          >{link.cta} →</a
-        >
-      </div>
+      </LinkCard>
     {/each}
   </div>
 </section>
@@ -106,24 +93,5 @@
 
   .card-grid {
     margin-top: 1.5rem;
-  }
-
-  h3 {
-    margin-bottom: 0.5rem;
-  }
-
-  .card-link {
-    display: inline-block;
-    margin-top: 1rem;
-  }
-
-  .quick-link strong {
-    display: block;
-    margin-bottom: 0.5rem;
-  }
-
-  .quick-link p {
-    margin-bottom: 1rem;
-    font-size: 0.95rem;
   }
 </style>

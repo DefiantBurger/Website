@@ -67,13 +67,15 @@ On client-side navigation, `App.svelte` moves focus to `<main id="main">` and an
 - Secondary text uses `--color-text-muted`, not `opacity`, so it keeps 4.5:1 contrast in both themes.
 - For the terminal `> ` prompt, add `class="prompt"` instead of typing `>`, so screen readers don't read "greater than".
 - Keep the `:focus-visible` dashed outline.
-- Links that navigate stay `<a>` (styled with `.button` if needed); `<button>` is for actions. Repeated link text (e.g. "View Project") gets an `aria-label` starting with the visible text.
+- Links that navigate stay `<a>` (styled with `.button` if needed); `<button>` is for actions. Repeated link text (e.g. "View Project") gets an `aria-label` starting with the visible text. In `app.css`, `h2` has no underline; add `.section-title` for section headings that want one.
 
 ### Shared Code
 
 - `lib/components/Nav.svelte`: navigation, the status page link, and the theme toggle.
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`).
 - `lib/components/PageHeader.svelte`: page title, optional description, and an `actions` snippet.
+- `lib/components/LinkCard.svelte`: a card whose whole area links somewhere (Home, Projects, Utilities). Body content goes in its `children` snippet.
+- `lib/components/ExternalLink.svelte`: a link that opens in a new tab with a consistent `rel` and a screen-reader "(opens in new tab)" note. Use it for every `target="_blank"` link.
 - `lib/components/StatusMessage.svelte`: loading/error/success messages. It's a live region that fills in ~100 ms after mounting, because screen readers ignore content a live region is inserted with. `FormMessages.svelte` shows a form's error and success messages together.
 - `lib/asyncTask.svelte.ts`: `AsyncTask`, the `busy`/`error`/`success` state for one async action. `run(fn)` clears messages, ignores calls while running, and turns a throw into `error`. Pass `{ busy: true }` for pages that load on mount.
 

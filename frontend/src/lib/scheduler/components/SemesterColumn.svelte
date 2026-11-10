@@ -178,7 +178,6 @@
 
   h2 {
     font-size: 1.1rem;
-    border: 0;
     margin: 0;
     text-transform: uppercase;
   }

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import LinkCard from '../lib/components/LinkCard.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
 
   const utilities = [
@@ -35,34 +36,8 @@
   <PageHeader title="Utilities" description="A few of my small tools and experiments." />
 
   {#each utilities as utility (utility.path)}
-    <section class="terminal-box hover-lift clickable-card utility-card">
-      <h2>{utility.name}</h2>
+    <LinkCard title={utility.name} href={utility.path} cta="Open {utility.name}" button>
       <p>{utility.description}</p>
-      <a href={utility.path} class="button stretched-link">Open {utility.name}</a>
-    </section>
+    </LinkCard>
   {/each}
 </div>
-
-<style>
-  .utility-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .utility-card h2 {
-    margin: 0;
-    border: 0;
-    font-size: 1.35rem;
-  }
-
-  /* Takes the card's spare height so buttons line up across a row. */
-  .utility-card p {
-    flex-grow: 1;
-  }
-
-  .utility-card .button {
-    margin-top: 0.5rem;
-    width: 100%;
-  }
-</style>

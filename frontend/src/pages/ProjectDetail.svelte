@@ -4,6 +4,7 @@
   import { loadProject } from '../lib/projects/content';
   import { recordProjectView } from '../lib/aboutYou/interactionStore';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
+  import ExternalLink from '../lib/components/ExternalLink.svelte';
   import TagList from '../lib/components/TagList.svelte';
 
   // App remounts this page on every path change, so the slug is fixed per instance.
@@ -107,10 +108,10 @@
 
     <div class="project-links">
       {#if project.repo}
-        <a href={project.repo} target="_blank" rel="noreferrer">Repository</a>
+        <ExternalLink href={project.repo}>Repository</ExternalLink>
       {/if}
       {#if project.demo}
-        <a href={project.demo} target="_blank" rel="noreferrer">Live Site</a>
+        <ExternalLink href={project.demo}>Live Site</ExternalLink>
       {/if}
     </div>
   </header>
@@ -139,6 +140,11 @@
   .project-content :global(h2),
   .project-content :global(h3) {
     margin-top: 1.4rem;
+  }
+
+  .project-content :global(h2) {
+    border-bottom: 1px solid var(--color-text-primary);
+    padding-bottom: 0.4rem;
   }
 
   .project-content :global(pre) {
