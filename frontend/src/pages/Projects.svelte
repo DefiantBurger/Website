@@ -11,7 +11,7 @@
 
 <PageHeader title="Projects" description="A collection of work I'm proud of" />
 
-<div class="projects-grid">
+<div class="auto-grid" style:--grid-min="350px" style:--grid-repeat="auto-fill">
   {#each projects as project (project.slug)}
     <div class="project-item terminal-box hover-lift clickable-card">
       <h2>{project.title}</h2>
@@ -27,12 +27,6 @@
 </div>
 
 <style>
-  .projects-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 1.5rem;
-  }
-
   .project-item {
     display: flex;
     flex-direction: column;
@@ -62,11 +56,5 @@
 
   .project-link {
     align-self: flex-start;
-  }
-
-  @media (max-width: 768px) {
-    .projects-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

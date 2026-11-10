@@ -421,7 +421,8 @@
 
   @media (max-width: 1200px) {
     .scheduler-layout {
-      grid-template-columns: 1fr;
+      /* minmax(0, …): a bare 1fr can't shrink below its content's min width. */
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 

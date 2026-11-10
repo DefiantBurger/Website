@@ -20,7 +20,7 @@
 
 <PageHeader title="Contact" />
 
-<div class="content terminal-box">
+<div class="terminal-box">
   <ul class="contact-list">
     {#each contacts as contact (contact.label)}
       <li>
@@ -38,13 +38,10 @@
 </div>
 
 <style>
-  .content {
-    padding: 2rem;
-  }
-
   .contact-list {
     list-style: none;
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 0.75rem;
   }
 

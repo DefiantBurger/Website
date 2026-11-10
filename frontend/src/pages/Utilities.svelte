@@ -31,7 +31,7 @@
   />
 </svelte:head>
 
-<div class="page">
+<div class="auto-grid" style:--grid-min="350px">
   <PageHeader title="Utilities" description="A few of my small tools and experiments." />
 
   {#each utilities as utility (utility.path)}
@@ -44,12 +44,6 @@
 </div>
 
 <style>
-  .page {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 1.5rem;
-  }
-
   .utility-card {
     display: flex;
     flex-direction: column;

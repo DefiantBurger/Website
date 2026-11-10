@@ -55,7 +55,7 @@
 <section>
   <h2 class="prompt">Featured Projects</h2>
 
-  <div class="card-grid projects-grid">
+  <div class="auto-grid card-grid" style:--grid-min="300px">
     {#each featuredProjects as project (project.title)}
       <div class="terminal-box hover-lift clickable-card">
         <h3>{project.title}</h3>
@@ -81,7 +81,7 @@
 <section>
   <h2 class="prompt">Quick Links</h2>
 
-  <div class="card-grid links-grid">
+  <div class="auto-grid card-grid" style:--grid-min="250px">
     {#each quickLinks as link (link.href)}
       <div class="terminal-box hover-lift clickable-card quick-link">
         <strong class="prompt">{link.title}</strong>
@@ -105,17 +105,7 @@
   }
 
   .card-grid {
-    display: grid;
-    gap: 1.5rem;
     margin-top: 1.5rem;
-  }
-
-  .projects-grid {
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  }
-
-  .links-grid {
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   }
 
   h3 {
@@ -135,11 +125,5 @@
   .quick-link p {
     margin-bottom: 1rem;
     font-size: 0.95rem;
-  }
-
-  @media (max-width: 768px) {
-    .card-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

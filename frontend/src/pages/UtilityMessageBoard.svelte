@@ -122,7 +122,7 @@
         </p>
       </div>
     {:else}
-      <div class="message-grid">
+      <div class="auto-grid message-grid" style:--grid-min="320px" style:--grid-repeat="auto-fill">
         {#each messages as msg (msg.id)}
           <article class="terminal-box hover-lift message-card">
             <header class="card-meta">
@@ -220,8 +220,6 @@
   }
 
   .message-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1.25rem;
   }
 

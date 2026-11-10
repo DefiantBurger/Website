@@ -81,6 +81,12 @@
     padding-right: 1.2rem;
   }
 
+  @media (max-width: 768px) {
+    .container {
+      padding: 1.5rem 1rem;
+    }
+  }
+
   .page-frame {
     animation: fadeIn 0.5s ease-in;
   }

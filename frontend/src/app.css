@@ -74,7 +74,7 @@ body {
   font-size: 16px;
   line-height: 1.6;
   letter-spacing: 0.05em;
-  overflow-x: hidden;
+  overflow-wrap: break-word;
 }
 
 #app {
@@ -153,6 +153,20 @@ code {
   border-radius: 4px;
   font-size: 15px;
   line-height: 135%;
+  /* Long paths have no break points and would push the page wider than a phone. */
+  overflow-wrap: anywhere;
+}
+
+/* Responsive card grid. Set --grid-min (column width) and optionally --grid-repeat
+   (auto-fill keeps empty tracks, so few items don't stretch); min() lets a single
+   column shrink below --grid-min on phones instead of overflowing. */
+.auto-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    var(--grid-repeat, auto-fit),
+    minmax(min(var(--grid-min, 20rem), 100%), 1fr)
+  );
+  gap: 1.5rem;
 }
 
 /* Terminal Border Effect */
@@ -163,6 +177,13 @@ code {
   margin: 1rem 0;
   background-color: var(--color-bg-surface);
   box-shadow: 0 0 8px var(--color-primary-opacity-15);
+}
+
+/* Phones: the page gutter already separates boxes from the edge, so keep text width. */
+@media (max-width: 768px) {
+  .terminal-box {
+    padding: 1rem;
+  }
 }
 
 /* Cards that lift on hover. */

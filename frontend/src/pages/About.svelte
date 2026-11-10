@@ -9,7 +9,7 @@
 
 <PageHeader title="About Me" />
 
-<div class="content terminal-box">
+<div class="terminal-box">
   <p>
     Computer Engineering and Physics student at UW–Madison with experience spanning robotics
     hardware design, quantum simulation research, and full-stack web development. Electrical Team
@@ -23,10 +23,6 @@
 </div>
 
 <style>
-  .content {
-    padding: 2rem;
-  }
-
   .about-you-cta {
     margin-top: 1.5rem;
     padding-top: 1rem;

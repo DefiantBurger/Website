@@ -5,14 +5,13 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ## Frontend
 
 1. **Minor:** links to a section don't scroll on page load, because the content renders after the browser tries to scroll.
-2. Content is clipped on phones and can't be reached, because `body` sets `overflow-x: hidden`. At 375px, `/utilities/fileshare` is 429px wide (the file input stretches a `1fr` grid column), `/utilities` reaches 382px, and code blocks in project write-ups reach 403px.
-3. **Likely:** back navigation loses the scroll position.
-4. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
-5. `/projects/<unknown slug>` renders "Project not found." under the placeholder title "Project Details", because the `{#await}` in `ProjectDetail.svelte`'s `<svelte:head>` has no `:catch` and the route matched. The smoke test only loads `/test-missing-page`, so it can't catch this. Render `NotFound` from the catch branch, or route unknown slugs to the not-found route.
-6. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
-7. **Minor:** a `hashchange` also fires `popstate`, so pasting a new `#plan=` link on the scheduler or clicking a heading anchor re-runs `applyRoute`. That increments the About You visit count and replaces `router.params` with a new object, re-evaluating anything derived from it. Compare the old and new pathname before re-applying.
-8. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
-9. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
+2. **Likely:** back navigation loses the scroll position.
+3. **Minor:** on phones, Mermaid diagrams in project write-ups shrink to fit the content width, so wide ones (e.g. the request-flow diagram in `personal-website-platform`) become too small to read at ~400px. A horizontal-scroll container with a minimum diagram width, or tap-to-expand, would fix it.
+4. `/projects/<unknown slug>` renders "Project not found." under the placeholder title "Project Details", because the `{#await}` in `ProjectDetail.svelte`'s `<svelte:head>` has no `:catch` and the route matched. The smoke test only loads `/test-missing-page`, so it can't catch this. Render `NotFound` from the catch branch, or route unknown slugs to the not-found route.
+5. **Minor:** visitors who chose dark see a flash of the light theme on every load, since `index.html` hard-codes `data-theme="light"` and the theme is applied once the bundle runs. The CSP (report-only) blocks inline scripts, so the fix is a tiny external script in `<head>` that reads `localStorage` and sets the attribute. The prerendering idea in [Ideas](./IDEAS.md#prerendering) needs this too.
+6. **Minor:** a `hashchange` also fires `popstate`, so pasting a new `#plan=` link on the scheduler or clicking a heading anchor re-runs `applyRoute`. That increments the About You visit count and replaces `router.params` with a new object, re-evaluating anything derived from it. Compare the old and new pathname before re-applying.
+7. **Possible:** rapid theme toggles on a project page race Mermaid. Each toggle starts an async `runMermaid` that resets the node text and re-renders, and two in flight can make the second read the first's SVG as diagram source and fail. A generation counter that drops stale runs would fix it.
+8. **Minor:** `apiFetch` has no timeout or `AbortSignal`, so a hung backend leaves pages at "Loading..." forever.
 
 ### SEO
 
@@ -93,14 +92,13 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Styles
 
-1. Responsive card grids are written five times (twice in `Home.svelte`, plus `Projects.svelte`, `Utilities.svelte`, and `UtilityMessageBoard.svelte`) as `repeat(auto-fit|auto-fill, minmax(Npx, 1fr))`, each with its own phone breakpoint. `Utilities.svelte` has no breakpoint at all, which is what widens `/utilities` to 382px (Frontend item 2). A shared `.auto-grid` class using `minmax(min(var(--min), 100%), 1fr)` would need no breakpoints.
-2. **Minor:** the global `h2` in `app.css` has a bottom border that four components undo: `.project-item h2` (Projects), `.utility-card h2` (Utilities), `.feed-header h2` (Message Board), and `.semester-header h2` (Scheduler). Either move the border onto a section-heading class or add a `.card-title` utility.
-3. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
+1. **Minor:** the global `h2` in `app.css` has a bottom border that four components undo: `.project-item h2` (Projects), `.utility-card h2` (Utilities), `.feed-header h2` (Message Board), and `.semester-header h2` (Scheduler). Either move the border onto a section-heading class or add a `.card-title` utility.
+2. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
    - The error box (error color, border, `--color-error-opacity-05`) appears in `StatusMessage.svelte` and in `.debug-error` (`ProjectDetail.svelte`), and `AboutYou.svelte` styles its own `.error` text.
    - `pre` styling appears twice in `ProjectDetail.svelte` (`.project-content pre` and `.debug-panel pre`).
    - Dashed, tinted boxes (`--color-primary-opacity-30` border on `--color-primary-opacity-10`) appear in File Share `.stats div` and `.file-list`, Scheduler `.semester-column`, and Message Board `.pill`.
-   - `.content { padding: 2rem }` is in both `About.svelte` and `Contact.svelte`, and each form page re-declares the stacked `label` layout.
-4. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.
+   - Each form page re-declares the stacked `label` layout.
+3. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.
 
 ### Backend
 
@@ -116,7 +114,7 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Tests
 
-1. Gaps that would have caught items above: a unit test for same-column drops in `moveCourse` (Class Scheduler #2), a smoke-test route for an unknown project slug (Frontend #5), and a backend test uploading an empty file (File Share #5).
+1. Gaps that would have caught items above: a unit test for same-column drops in `moveCourse` (Class Scheduler #2), a smoke-test route for an unknown project slug (Frontend #4), and a backend test uploading an empty file (File Share #5).
 2. `backend/tests/conftest.py` defines `app`, `client`, and `temp_instance_dir` fixtures that no test uses. Instead, the `unittest` classes each build their own `create_app(...)` and temp directory in `setUp` (or inline). `TestMessageBoardAPI` also sets `os.environ['SECRET_KEY']` without restoring it and repeats the autouse store reset. Plain pytest functions using the fixtures would remove this boilerplate.
 
 ### Infrastructure and CI

@@ -129,7 +129,7 @@
     {/each}
   </svg>
 
-  <div class="columns">
+  <div class="auto-grid columns" style:--grid-min="190px">
     {#each store.columns as semester (semester)}
       <SemesterColumn {store} {semester} track={trackCourseElement} />
     {/each}
@@ -191,8 +191,6 @@
   }
 
   .columns {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 0.85rem;
   }
 

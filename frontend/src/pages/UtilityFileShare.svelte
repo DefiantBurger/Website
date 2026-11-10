@@ -259,7 +259,7 @@
   <StatusMessage kind="error" message={statusError} />
 {/if}
 
-<section class="grid">
+<section class="auto-grid" style:--grid-min="25rem">
   <form class="terminal-box panel" onsubmit={handleUploadSubmit}>
     <h2 class="prompt">Upload Files</h2>
     <p>
@@ -360,12 +360,6 @@
 </section>
 
 <style>
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-  }
-
   .panel {
     display: flex;
     flex-direction: column;
@@ -471,11 +465,5 @@
     margin: 0;
     font-size: 0.9rem;
     opacity: 0.85;
-  }
-
-  @media (max-width: 900px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>

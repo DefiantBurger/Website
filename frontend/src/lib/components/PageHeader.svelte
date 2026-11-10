@@ -45,7 +45,8 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    align-items: flex-start;
+    /* Lines the actions up with the title text, whatever the h1's margin or size. */
+    align-items: baseline;
     gap: 1.5rem;
   }
 
@@ -54,8 +55,10 @@
     border-bottom: 1px dashed var(--color-text-primary);
   }
 
+  /* A real basis (not flex: 1's 0%) so the actions wrap below on narrow screens
+     instead of squeezing the title into a thin column. */
   .main {
-    flex: 1;
+    flex: 1 1 20rem;
     min-width: 0;
   }
 
