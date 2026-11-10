@@ -93,7 +93,7 @@ Requests go through `fetchWithTimeout` (`lib/fetchTimeout.ts`), which gives up i
 
 ### About You
 
-`AboutYou.svelte` shows what the site can observe about a visit: request context from `/api/about-you/request-context/` (IP, Cloudflare location headers, request headers), browser properties, and in-session navigation history (`lib/aboutYou/interactionStore.ts`, memory only, never sent to the server).
+`AboutYou.svelte` shows what the site can observe about a visit: request context from `/api/about-you/request-context/` (IP, Cloudflare location headers, request headers), browser properties, and in-session navigation history (`lib/aboutYou/interactionStore.ts`, memory only, never sent to the server). Browser detection and the fact lists are in `lib/aboutYou/facts.ts` (no DOM access, so unit-tested); shared display formatting (bytes, durations, times) is in `lib/format.ts`.
 
 ## API Reference
 

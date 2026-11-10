@@ -37,24 +37,6 @@ function postForm(fields: Record<string, string | Blob>): RequestInit {
   return { method: 'POST', body };
 }
 
-export function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) {
-    return '0 B';
-  }
-
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let value = bytes;
-  let unitIndex = 0;
-
-  while (value >= 1000 && unitIndex < units.length - 1) {
-    value /= 1000;
-    unitIndex += 1;
-  }
-
-  const precision = unitIndex === 0 ? 0 : value >= 10 ? 1 : 2;
-  return `${value.toFixed(precision)} ${units[unitIndex]}`;
-}
-
 export function fetchFileShareStatus(): Promise<FileShareStatus> {
   return apiJson<FileShareStatus>('/api/fileshare/status/');
 }

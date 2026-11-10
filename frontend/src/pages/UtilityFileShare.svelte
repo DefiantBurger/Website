@@ -8,7 +8,6 @@
   import { onMount } from 'svelte';
   import {
     fetchFileShareStatus,
-    formatBytes,
     downloadFileShare,
     uploadFileShare,
     listFileShareFiles,
@@ -16,6 +15,7 @@
     type FileShareListItem,
   } from '../lib/fileshare/api';
   import { errorMessage } from '../lib/api';
+  import { formatBytes, formatDuration, formatMinutes } from '../lib/format';
   import { AsyncTask } from '../lib/asyncTask.svelte';
   import { saveBlob } from '../lib/download';
   import FormMessages from '../lib/components/FormMessages.svelte';
@@ -41,7 +41,7 @@
     status
       ? [
           ['Active files', String(status.activeFileCount)],
-          ['Retention', formatSeconds(status.retentionSeconds)],
+          ['Retention', formatDuration(status.retentionSeconds)],
           ['Per-file cap', formatBytes(status.maxFileBytes)],
           [
             'Storage used',
@@ -53,25 +53,9 @@
 
   const limitsIntro = $derived(
     status
-      ? `Limit: ${formatLimit(status.maxFileBytes)} per file. Files expire after ${formatMinutes(status.retentionSeconds)}. When active storage approaches the ${formatLimit(status.maxTotalBytes)} cap,`
+      ? `Limit: ${formatBytes(status.maxFileBytes, { trim: true })} per file. Files expire after ${formatMinutes(status.retentionSeconds)}. When active storage approaches the ${formatBytes(status.maxTotalBytes, { trim: true })} cap,`
       : 'When active storage is nearly full,',
   );
-
-  // Prose reads better as "80 MB" than formatBytes' fixed-precision "80.0 MB".
-  function formatLimit(bytes: number): string {
-    return formatBytes(bytes).replace(/\.0+ /, ' ');
-  }
-
-  function formatMinutes(seconds: number): string {
-    const minutes = Math.round(seconds / 60);
-    return `${minutes} minute${minutes === 1 ? '' : 's'}`;
-  }
-
-  function formatSeconds(seconds: number): string {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}m ${remainingSeconds.toString().padStart(2, '0')}s`;
-  }
 
   async function loadStatus(): Promise<void> {
     await statusTask.run(async () => {
@@ -97,7 +81,7 @@
     const oversizedCount = uploadFiles.filter((f) => f.size > maxFileBytes).length;
     if (oversizedCount > 0) {
       upload.fail(
-        `Files must be ${formatLimit(maxFileBytes)} or smaller. ${oversizedCount} file(s) exceeded the limit.`,
+        `Files must be ${formatBytes(maxFileBytes, { trim: true })} or smaller. ${oversizedCount} file(s) exceeded the limit.`,
       );
       return;
     }

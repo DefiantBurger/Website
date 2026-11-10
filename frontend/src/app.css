@@ -309,6 +309,13 @@ textarea {
   border-width: 0;
 }
 
+/* Terminal-style on/off blink; use with steps(1). --blink-opacity sets the "off" state. */
+@keyframes blink {
+  50% {
+    opacity: var(--blink-opacity, 0);
+  }
+}
+
 /* Honor reduced-motion everywhere: loading blink, page fade, hover lifts. */
 @media (prefers-reduced-motion: reduce) {
   *,

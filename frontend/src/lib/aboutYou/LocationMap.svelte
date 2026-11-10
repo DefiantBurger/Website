@@ -169,12 +169,6 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .marker {
-      animation: none;
-    }
-  }
-
   figcaption {
     display: flex;
     flex-wrap: wrap;

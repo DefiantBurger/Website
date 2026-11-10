@@ -14,6 +14,7 @@
     type MessageBoardStatus,
   } from '../lib/messageboard/api';
   import { AsyncTask } from '../lib/asyncTask.svelte';
+  import { formatTime } from '../lib/format';
   import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
@@ -59,14 +60,6 @@
     if (posted) {
       await loadMessages();
     }
-  }
-
-  function formatTimestamp(isoString: string): string {
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) {
-      return isoString;
-    }
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
   async function loadLimits(): Promise<void> {
@@ -137,7 +130,7 @@
             <header class="card-meta">
               <span class="prompt-icon" aria-hidden="true">></span>
               <span class="card-id">#{msg.id.slice(0, 6)}</span>
-              <span class="card-time">{formatTimestamp(msg.createdAt)}</span>
+              <span class="card-time">{formatTime(msg.createdAt)}</span>
             </header>
             <p class="message-text">{msg.text}</p>
           </article>

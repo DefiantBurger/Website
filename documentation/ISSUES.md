@@ -54,22 +54,18 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 1. **Minor:** all 11 pages write out the full `<title>… · JosephCicalese.com</title>` and description, `index.html` repeats the site name three more times, and `ProjectDetail.svelte` repeats its fallback description. A shared `<PageMeta title description>` component would own the suffix.
 2. **Minor:** the utility metadata is split up. Each utility's card name and description live in `Utilities.svelte`, the `Utilities / <Name>` header title is hard-coded in each utility page, and the `<title>` is written again. Each page could export `{ name, description }` from `<script module>` (like its `layout`), and `Utilities.svelte` could read them from `routes`.
-3. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `AboutYou.svelte` has six identical groups (`h2.prompt`, `p.source`, `FactList`) that could be one `{#each}` over `{ title, source, facts }`. `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
+3. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
 
 ### Frontend logic
 
 1. **Minor:** route paths are repeated outside `routeDefinitions.ts`: in `Nav.svelte`, in `Home.svelte` (`sectionLinks`, plus `quickLinks`, which link to three of the same pages again on the same page), in `Utilities.svelte`, and in the `<noscript>` list in `index.html`. `/projects/${slug}` is built in `Home.svelte`, `Projects.svelte`, and twice in `vite.config.ts`. A changed path breaks these links silently. Nav labels in `routeDefinitions` plus a `pathFor(key, params)` helper would make a path change one edit.
 2. **Minor:** paths are listed by three separate functions: `staticPaths()` in `router.svelte.ts` (used by `NotFound.svelte`), `staticRoutePaths()` in `routeDefinitions.ts`, and `servedPaths()` in `vite.config.ts`. `servedPaths()` also expands aliases the same way `applyRoute` does.
-3. **Minor:** formatting helpers are scattered: `formatBytes` (in `fileshare/api.ts`), `formatSeconds` (`UtilityFileShare.svelte`), `formatTimestamp` (`UtilityMessageBoard.svelte`), and `toDisplayValue`, `formatCounts`, and the clock format (`AboutYou.svelte`). The two `toLocaleTimeString` calls use different hour formats. A shared `lib/format.ts` would be unit-testable.
-4. **Minor:** `AboutYou.svelte` holds its browser detection (`describeBrowser`, `readBrowser`, `UA_BROWSERS`) and fact building in the component, out of reach of unit tests; a plain `.ts` module would fix that. `getInteractionSnapshot()` in `interactionStore.ts` re-lists every state field to copy it, where `structuredClone(state)` wouldn't need updating when a field is added.
 
 ### Styles
 
 1. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
-   - `StatusMessage.svelte` draws an error box (error color, border, `--color-error-opacity-05`), but `AboutYou.svelte` styles its own `.error` text.
    - Dashed, tinted boxes (`--color-primary-opacity-30` border on `--color-primary-opacity-10`) appear in File Share `.stats div` and `.file-list`, Scheduler `.semester-column`, and Message Board `.pill`.
    - Each form page re-declares the stacked `label` layout.
-2. **Minor:** there are two `blink` keyframes with different timing (`StatusMessage.svelte`, `AboutYou.svelte`). `AboutYou.svelte` and `LocationMap.svelte` also add their own `prefers-reduced-motion` blocks, which the global rule in `app.css` already covers.
 
 ### Infrastructure and CI
 

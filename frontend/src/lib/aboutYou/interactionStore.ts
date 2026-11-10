@@ -1,6 +1,6 @@
 // In-memory navigation history for the About You page. Lives only for this tab
 // and is never sent to the server.
-type InteractionState = {
+export type InteractionState = {
   sessionStartedAt: string;
   previousRoute: string | null;
   currentRoute: string | null;
@@ -31,12 +31,6 @@ export function recordProjectView(slug: string): void {
   state.projectViews[slug] = (state.projectViews[slug] ?? 0) + 1;
 }
 
-export function getInteractionSnapshot() {
-  return {
-    sessionStartedAt: state.sessionStartedAt,
-    previousRoute: state.previousRoute,
-    currentRoute: state.currentRoute,
-    routeVisitCounts: { ...state.routeVisitCounts },
-    projectViews: { ...state.projectViews },
-  };
+export function getInteractionSnapshot(): InteractionState {
+  return structuredClone(state);
 }

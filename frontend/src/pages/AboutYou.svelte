@@ -2,43 +2,33 @@
   import { onMount } from 'svelte';
 
   import { loadRequestContextSnapshot, type RequestContextSnapshot } from '../lib/aboutYou/api';
+  import {
+    browserFacts,
+    countryName,
+    deviceFacts,
+    hasCoordinates,
+    NOT_COLLECTED,
+    preferenceFacts,
+    serverFacts,
+    visitFacts,
+    type Fact,
+  } from '../lib/aboutYou/facts';
+  import { readBrowser } from '../lib/aboutYou/browser';
   import { getInteractionSnapshot } from '../lib/aboutYou/interactionStore';
   import { AsyncTask } from '../lib/asyncTask.svelte';
+  import { formatTime } from '../lib/format';
   import PageHeader from '../lib/components/PageHeader.svelte';
-  import FactList, { type Fact } from '../lib/aboutYou/FactList.svelte';
+  import StatusMessage from '../lib/components/StatusMessage.svelte';
+  import FactList from '../lib/aboutYou/FactList.svelte';
   import LocationMap from '../lib/aboutYou/LocationMap.svelte';
 
-  type NavigatorExtras = Navigator & {
-    deviceMemory?: number;
-    connection?: { effectiveType?: string };
-    userAgentData?: {
-      brands?: Array<{ brand: string; version: string }>;
-      platform?: string;
-    };
+  type Group = {
+    title: string;
+    source: string;
+    facts: Fact[];
+    busy?: boolean;
+    error?: string | null;
   };
-
-  const NOT_COLLECTED: Fact[] = [
-    {
-      label: 'Persistent ID',
-      value: 'No user ID or tracking cookie is created for this page.',
-    },
-    {
-      label: 'Analytics Profile',
-      value: 'No external analytics tracker is loaded here.',
-    },
-    {
-      label: 'Fingerprint',
-      value: 'No multi-signal browser fingerprint is generated.',
-    },
-  ];
-
-  // Checked in order; the first match names the browser.
-  const UA_BROWSERS: [name: string, pattern: RegExp][] = [
-    ['Edge', /Edg\/(\d+)/],
-    ['Firefox', /Firefox\/(\d+)/],
-    ['Chrome', /Chrome\/(\d+)/],
-    ['Safari', /Version\/(\d+).*Safari/],
-  ];
 
   let browser = $state(readBrowser());
   let interactionSnapshot = $state(getInteractionSnapshot());
@@ -49,176 +39,45 @@
   const serverSnapshot = new AsyncTask('Failed to fetch request context.', { busy: true });
 
   const geo = $derived(requestContext?.geolocation.available ? requestContext.geolocation : null);
-  const hasCoordinates = $derived(
-    typeof geo?.latitude === 'number' && typeof geo?.longitude === 'number',
-  );
   const placeName = $derived(
     [geo?.city, geo?.region].filter(Boolean).join(', ') || countryName(geo?.country),
   );
-  const localTime = $derived(
-    now.toLocaleTimeString([], {
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-    }),
-  );
+  const localTime = $derived(formatTime(now));
 
-  function toDisplayValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') {
-      return 'Unavailable';
-    }
-
-    if (Array.isArray(value)) {
-      return value.length > 0 ? value.join(', ') : 'Unavailable';
-    }
-
-    return String(value);
-  }
-
-  function fact(label: string, value: unknown, note?: string): Fact {
-    const display = toDisplayValue(value);
-    return { label, value: display, note, muted: display === 'Unavailable' };
-  }
-
-  function countryName(code: string | undefined): string {
-    if (!code) {
-      return '';
-    }
-    try {
-      return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
-    } catch {
-      return code;
-    }
-  }
-
-  function describeBrowser(nav: NavigatorExtras): string {
-    const brands = (nav.userAgentData?.brands ?? []).filter(
-      (brand) => !/not.?a.?brand/i.test(brand.brand),
-    );
-    const brand = brands.find((b) => b.brand !== 'Chromium') ?? brands[0] ?? null;
-    if (brand) {
-      return `${brand.brand} ${brand.version}`;
-    }
-
-    for (const [name, pattern] of UA_BROWSERS) {
-      const match = nav.userAgent.match(pattern);
-      if (match) {
-        return `${name} ${match[1]}`;
-      }
-    }
-    return 'an unrecognized browser';
-  }
-
-  function readBrowser() {
-    const nav = navigator as NavigatorExtras;
-    const win = window as Window & { doNotTrack?: string };
-
-    return {
-      name: describeBrowser(nav),
-      os: nav.userAgentData?.platform || nav.platform,
-      userAgent: nav.userAgent,
-      brands: nav.userAgentData?.brands?.map((brand) => `${brand.brand} ${brand.version}`) ?? [],
-      platform: nav.platform || nav.userAgentData?.platform,
-      languages: nav.languages,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      screen: `${window.screen.width} × ${window.screen.height}`,
-      viewport: `${window.innerWidth} × ${window.innerHeight}`,
-      pixelRatio: window.devicePixelRatio,
-      touchPoints: nav.maxTouchPoints,
-      cpuCores: nav.hardwareConcurrency,
-      deviceMemory: nav.deviceMemory,
-      connectionType: nav.connection?.effectiveType,
-      online: navigator.onLine,
-      doNotTrack: nav.doNotTrack || win.doNotTrack || 'Not set',
-      cookiesEnabled: nav.cookieEnabled,
-      prefersDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
-      prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      referrer: document.referrer,
-    };
-  }
-
-  function formatCounts(counts: Record<string, number>): string {
-    const entries = Object.entries(counts);
-    if (entries.length === 0) {
-      return 'None yet';
-    }
-    return entries.map(([key, count]) => `${key} ×${count}`).join(', ');
-  }
-
-  const deviceFacts = $derived<Fact[]>([
-    fact('Platform', browser.platform),
-    fact('Screen', browser.screen),
-    fact('Window', browser.viewport),
-    fact('Pixel Ratio', browser.pixelRatio),
-    fact('Touch Points', browser.touchPoints),
-    fact('CPU Cores', browser.cpuCores, 'Reported by the browser as a hint.'),
-    fact(
-      'Memory',
-      browser.deviceMemory && `~${browser.deviceMemory} GB`,
-      'Rounded hint; only some browsers expose it.',
-    ),
+  const groups = $derived<Group[]>([
+    {
+      title: 'What the Server Sees',
+      source: "From your request to this site's API",
+      facts: requestContext ? serverFacts(requestContext) : [],
+      busy: serverSnapshot.busy,
+      error: serverSnapshot.error,
+    },
+    {
+      title: 'Your Device',
+      source: 'Read by JavaScript in this tab',
+      facts: deviceFacts(browser),
+    },
+    {
+      title: 'Your Browser',
+      source: 'Read by JavaScript in this tab',
+      facts: browserFacts(browser),
+    },
+    {
+      title: 'Your Preferences',
+      source: 'Settings your browser shares with every site',
+      facts: preferenceFacts(browser),
+    },
+    {
+      title: 'This Visit',
+      source: 'In memory only; gone when you close the tab',
+      facts: visitFacts(browser, interactionSnapshot),
+    },
+    {
+      title: 'Not Collected',
+      source: 'Possible, but deliberately skipped',
+      facts: NOT_COLLECTED,
+    },
   ]);
-
-  const browserFacts = $derived<Fact[]>([
-    fact('Browser', browser.name),
-    fact('User Agent', browser.userAgent, 'Raw browser user-agent string.'),
-    fact(
-      'Client Hint Brands',
-      browser.brands,
-      'Only available in some browsers; often privacy-limited.',
-    ),
-    fact('Cookies', browser.cookiesEnabled ? 'Enabled' : 'Disabled'),
-    fact('Do Not Track', browser.doNotTrack),
-    fact('Connection', browser.connectionType, 'Estimated, not measured.'),
-    fact('Online', browser.online ? 'Yes' : 'No'),
-  ]);
-
-  const preferenceFacts = $derived<Fact[]>([
-    fact('Languages', browser.languages),
-    fact('Timezone', browser.timezone),
-    fact('Color Scheme', browser.prefersDark ? 'Dark' : 'Light'),
-    fact('Reduced Motion', browser.prefersReducedMotion ? 'Reduce' : 'No preference'),
-  ]);
-
-  const visitFacts = $derived<Fact[]>([
-    fact('Tab Opened', new Date(interactionSnapshot.sessionStartedAt).toLocaleString()),
-    fact('Arrived From', browser.referrer || 'Direct visit or no referrer'),
-    fact('Previous Page', interactionSnapshot.previousRoute ?? 'None'),
-    fact('Pages Viewed', formatCounts(interactionSnapshot.routeVisitCounts)),
-    fact('Projects Viewed', formatCounts(interactionSnapshot.projectViews)),
-  ]);
-
-  const serverFacts = $derived.by<Fact[]>(() => {
-    if (!requestContext) {
-      return [];
-    }
-    const { request, network, headers, geolocation } = requestContext;
-    const coordinates = hasCoordinates ? `${geolocation.latitude}, ${geolocation.longitude}` : null;
-
-    return [
-      fact('IP Address', network.clientIp, `Source: ${network.ipSource}`),
-      fact('Via Proxy', network.hasForwardedHeaders ? 'Yes (forwarded headers)' : 'No'),
-      ...(geolocation.available
-        ? [
-            fact('Country', countryName(geolocation.country)),
-            fact('Region', geolocation.region),
-            fact('City', geolocation.city),
-            fact('Postal Code', geolocation.postal),
-            fact('Timezone', geolocation.timezone),
-            fact(
-              'Coordinates',
-              coordinates,
-              `Approximate, looked up by ${geolocation.provider ?? 'the edge network'}.`,
-            ),
-          ]
-        : [fact('Geolocation', null, geolocation.reason || 'Lookup not available.')]),
-      fact('Request', `${request.method} ${request.path}`, requestContext.timestamp),
-      fact('User-Agent Header', headers.userAgent),
-      fact('Accept-Language', headers.acceptLanguage),
-      fact('Referer Header', headers.referer),
-      fact('DNT Header', headers.doNotTrack),
-    ];
-  });
 
   async function refreshServerSnapshot(): Promise<void> {
     await serverSnapshot.run(async () => {
@@ -278,7 +137,7 @@
       <p class="place">Locating you<span class="cursor">_</span></p>
     {:else if serverSnapshot.error}
       <p class="place">Somewhere</p>
-      <p class="place-sub error">{serverSnapshot.error}</p>
+      <p class="place-sub">{serverSnapshot.error}</p>
     {:else if geo && placeName}
       <p class="place">{placeName}</p>
       <p class="place-sub">
@@ -319,7 +178,7 @@
   </div>
 
   <div class="map-column">
-    {#if geo && hasCoordinates}
+    {#if geo && hasCoordinates(geo)}
       <LocationMap
         latitude={geo.latitude as number}
         longitude={geo.longitude as number}
@@ -334,47 +193,19 @@
 </section>
 
 <div class="groups">
-  <section class="terminal-box group">
-    <h2 class="prompt section-title">What the Server Sees</h2>
-    <p class="source">From your request to this site's API</p>
-    {#if serverSnapshot.busy}
-      <p>Loading request context...</p>
-    {:else if serverSnapshot.error}
-      <p class="error">{serverSnapshot.error}</p>
-    {:else}
-      <FactList facts={serverFacts} />
-    {/if}
-  </section>
-
-  <section class="terminal-box group">
-    <h2 class="prompt section-title">Your Device</h2>
-    <p class="source">Read by JavaScript in this tab</p>
-    <FactList facts={deviceFacts} />
-  </section>
-
-  <section class="terminal-box group">
-    <h2 class="prompt section-title">Your Browser</h2>
-    <p class="source">Read by JavaScript in this tab</p>
-    <FactList facts={browserFacts} />
-  </section>
-
-  <section class="terminal-box group">
-    <h2 class="prompt section-title">Your Preferences</h2>
-    <p class="source">Settings your browser shares with every site</p>
-    <FactList facts={preferenceFacts} />
-  </section>
-
-  <section class="terminal-box group">
-    <h2 class="prompt section-title">This Visit</h2>
-    <p class="source">In memory only; gone when you close the tab</p>
-    <FactList facts={visitFacts} />
-  </section>
-
-  <section class="terminal-box group">
-    <h2 class="prompt section-title">Not Collected</h2>
-    <p class="source">Possible, but deliberately skipped</p>
-    <FactList facts={NOT_COLLECTED} />
-  </section>
+  {#each groups as group (group.title)}
+    <section class="terminal-box group">
+      <h2 class="prompt section-title">{group.title}</h2>
+      <p class="source">{group.source}</p>
+      {#if group.busy}
+        <p>Loading request context...</p>
+      {:else if group.error}
+        <StatusMessage kind="error" message={group.error} compact />
+      {:else}
+        <FactList facts={group.facts} />
+      {/if}
+    </section>
+  {/each}
 </div>
 
 <style>
@@ -424,12 +255,6 @@
 
   .cursor {
     animation: blink 1s steps(1) infinite;
-  }
-
-  @keyframes blink {
-    50% {
-      opacity: 0;
-    }
   }
 
   .dossier-lines {
@@ -490,10 +315,6 @@
     color: var(--color-text-muted);
   }
 
-  .error {
-    color: var(--color-error);
-  }
-
   @media (max-width: 768px) {
     .hero {
       grid-template-columns: 1fr;
@@ -502,12 +323,6 @@
     .hero,
     .group {
       padding: 1rem;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .cursor {
-      animation: none;
     }
   }
 </style>

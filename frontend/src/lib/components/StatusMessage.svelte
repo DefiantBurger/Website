@@ -40,7 +40,8 @@
 
   .status-message--loading {
     color: var(--color-text-muted);
-    animation: blink 1s infinite;
+    --blink-opacity: 0.3;
+    animation: blink 1s steps(1) infinite;
     font-size: 1.1rem;
   }
 
@@ -66,17 +67,5 @@
     padding: 0.45rem 0.55rem;
     font-size: 0.82rem;
     line-height: 1.4;
-  }
-
-  @keyframes blink {
-    0%,
-    49% {
-      opacity: 1;
-    }
-
-    50%,
-    100% {
-      opacity: 0.3;
-    }
   }
 </style>

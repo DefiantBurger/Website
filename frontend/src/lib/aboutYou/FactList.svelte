@@ -1,14 +1,6 @@
-<script module lang="ts">
-  export type Fact = {
-    label: string;
-    value: string;
-    note?: string;
-    // Dims the value, e.g. for unavailable or deliberately uncollected data.
-    muted?: boolean;
-  };
-</script>
-
 <script lang="ts">
+  import type { Fact } from './facts';
+
   let { facts }: { facts: Fact[] } = $props();
 </script>
 
