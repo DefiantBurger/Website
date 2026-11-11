@@ -90,8 +90,28 @@ EOF
 
 	printf "%s" "${cloudflared_service}" | base64 --decode > /etc/systemd/system/cloudflared.service
 
+	# The cloudflared package never restarts the service, so an upgrade would otherwise wait for a reboot.
+	cat > /etc/systemd/system/cloudflared-restart.path <<'EOF'
+[Unit]
+Description=Watch the cloudflared binary for upgrades
+
+[Path]
+PathChanged=/usr/bin/cloudflared
+
+[Install]
+WantedBy=multi-user.target
+EOF
+	cat > /etc/systemd/system/cloudflared-restart.service <<'EOF'
+[Unit]
+Description=Restart cloudflared after an upgrade
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl try-restart cloudflared.service
+EOF
+
 	systemctl daemon-reload
-	systemctl enable flaskapp nginx cloudflared
+	systemctl enable flaskapp nginx cloudflared cloudflared-restart.path
 else
 	echo "Already provisioned; refreshing secrets only."
 fi

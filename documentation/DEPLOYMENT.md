@@ -54,7 +54,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
 
 ## Runtime on the VM
 
-- **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; updated by `unattended-upgrades` instead) holds the tunnel and forwards to Nginx.
+- **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; updated by `unattended-upgrades` instead, and `cloudflared-restart.path` restarts it when the binary changes) holds the tunnel and forwards to Nginx.
 - **Nginx** listens only on `127.0.0.1:80` (Cloudflare terminates TLS; no origin certificate). It serves `current/frontend/dist` and proxies `/api/` to `127.0.0.1:5000` (`backend_port`).
   - Trailing-slash paths get a `301` to the path without the slash.
   - No SPA fallback: the build writes `<route>/index.html` for every route, so other paths return a real `404` whose body is the SPA shell, and the app renders its not-found page.
