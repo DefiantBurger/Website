@@ -84,6 +84,7 @@ resource "google_compute_instance" "default" {
     secret_name_flask                   = var.secret_name_flask
     secret_version_flask                = var.secret_version_flask
     secret_name_cloudflare_tunnel_token = var.secret_name_cloudflare_tunnel_token
+    release_bucket                      = google_storage_bucket.releases.name
   })
 
 

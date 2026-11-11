@@ -203,6 +203,8 @@ flowchart LR
 
 The newest five releases stay on disk, so rolling back is one command. Actions are pinned to commit SHAs.
 
+After a passing smoke test, the workflow also copies the release to a private Cloud Storage bucket. A replaced VM installs it on first boot through the same deploy script, so infrastructure changes don't need a follow-up deploy. One small object in the VM's region stays inside the free tier.
+
 #### Hardening
 
 - Releases are root-owned and read-only to the app user.

@@ -8,8 +8,8 @@ set -euo pipefail
 echo "===== Startup Script Begin ====="
 
 # Provisioning runs on the first boot only. Releases are deployed by GitHub
-# Actions (deploy.sh.tftpl); later boots just refresh secrets, and the enabled
-# units start on their own.
+# Actions (deploy.sh.tftpl); every boot refreshes secrets, and a boot without a
+# release installs the last one Actions published (bootstrap_release).
 PROVISIONED_MARKER=${data_path}/.provisioned
 
 if [[ ! -f "$PROVISIONED_MARKER" ]]; then
@@ -157,6 +157,42 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	systemctl restart nginx
 	systemctl start cloudflared
 	touch "$PROVISIONED_MARKER"
+fi
+
+# Install the last release Deploy published (deploy.yaml), so a replaced VM
+# serves the site without a manual deploy. Returns 0 if none is published yet.
+bootstrap_release() {
+	local object_url="https://storage.googleapis.com/storage/v1/b/${release_bucket}/o/latest.tar.gz"
+	local auth="Authorization: Bearer $ACCESS_TOKEN"
+	local info status fields sha checksum generation
+	info="$(mktemp)"
+	status="$(curl -sS -o "$info" -w '%%{http_code}' -H "$auth" "$object_url")"
+	if [[ "$status" == 404 ]]; then
+		echo "No release published to gs://${release_bucket} yet."
+		rm -f "$info"
+		return 0
+	elif [[ "$status" != 200 ]]; then
+		echo "Release lookup failed (HTTP $status): $(cat "$info")"
+		rm -f "$info"
+		return 1
+	fi
+	fields="$(python3 -c 'import json,sys; o=json.load(sys.stdin); m=o["metadata"]; print(m["git-sha"], m["sha256"], o["generation"])' < "$info")" || {
+		rm -f "$info"
+		return 1
+	}
+	rm -f "$info"
+	read -r sha checksum generation <<< "$fields"
+
+	# Pinned to the generation just read, so a concurrent deploy can't pair this
+	# metadata with another release's bytes. The deploy script checks the checksum.
+	echo "Installing published release $sha..."
+	curl -fsS -H "$auth" "$object_url?alt=media&generation=$generation" \
+		| /usr/local/sbin/personalwebsite-deploy "$sha" "$checksum"
+}
+
+# Any boot without a release, so a failed bootstrap retries on the next reboot.
+if [[ ! -e ${app_path}/current ]]; then
+	bootstrap_release || echo "Release bootstrap failed; run Deploy, or reboot to retry."
 fi
 
 echo "===== Startup Script Complete ====="

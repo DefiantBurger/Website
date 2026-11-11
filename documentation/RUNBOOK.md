@@ -39,7 +39,7 @@ ls -t /opt/personalwebsite/releases                      # newest first; the las
 sudo personalwebsite-deploy --rollback <commit sha>
 ```
 
-It stays rolled back until the next manual deploy, so revert or fix the bad commit before deploying again.
+It stays rolled back until the next manual deploy, so revert or fix the bad commit before deploying again. A rollback doesn't change the release bucket, so a VM replaced in the meantime comes back on the bad release; deploy the fix first.
 
 ## Update the Nginx Config in Place
 
@@ -90,4 +90,4 @@ The key is wrong, the files expired (10 minutes), the VM was replaced, or someon
 
 ### Site shows Cloudflare error 1033
 
-`cloudflared` isn't connected. Check `systemctl status cloudflared` and its journal. Right after a VM replacement, the startup script may still be running (`/var/log/startup-script.log`). A replaced VM also serves 502 until a release is deployed.
+`cloudflared` isn't connected. Check `systemctl status cloudflared` and its journal. Right after a VM replacement, the startup script may still be running (`/var/log/startup-script.log`). A replaced VM also serves 502 until its startup script installs the last published release (`Now serving` in the log), or until a deploy if that failed.

@@ -4,7 +4,7 @@ Provisioning and releases are separate. **Terraform** (`deployment/`) provisions
 
 Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudflare API token first ([Secrets](#secrets)). Inputs and their defaults are in `variables.tf`; versions are in `versions.tf`.
 
-> **After any apply that creates or replaces `flask-vm`, run *Deploy* on `main`.** A new VM has no release, so the site shows a 404, Cloudflare 1033, or 502 until a deploy lands. Wait a few minutes for the startup script to finish first, or the deploy fails (just rerun it).
+> **A replaced `flask-vm` deploys itself.** On first boot it installs the last release *Deploy* published to the release bucket, so no manual deploy is needed. The site is down for a few minutes while it provisions. Check `/var/log/startup-script.log` for `Now serving <sha>`. If the bucket is empty (first-time setup) or the bootstrap failed, run *Deploy*.
 
 ## Resources
 
@@ -49,7 +49,7 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 4. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
 5. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
 
-On every boot it refreshes secrets from Secret Manager. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
+On every boot it refreshes secrets from Secret Manager. Then, on any boot where no release is active (`current` is missing), it installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
 
 Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates changes the startup script metadata, which forces Terraform to **replace the VM**.
 
@@ -77,7 +77,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
     └── frontend/dist/
 ```
 
-`personalwebsite-deploy <sha> <sha256> < release.tar.gz` verifies the checksum, extracts the release, installs hash-pinned wheels (`pip install --require-hashes --only-binary :all:`), swaps `current` atomically, restarts `flaskapp`, and polls `/api/health/` and Nginx for ~30 s. If the check fails, it switches back to the previous release and exits 1. A release already on the VM is reactivated without rebuilding.
+`personalwebsite-deploy <sha> <sha256> < release.tar.gz` verifies the checksum, extracts the release, installs hash-pinned wheels (`pip install --require-hashes --only-binary :all:`), swaps `current` atomically, restarts `flaskapp`, and polls `/api/health/` and Nginx for ~30 s. If the check fails, it switches back to the previous release and exits 1. A release already on the VM is reactivated without rebuilding. Runs hold a lock, so a workflow deploy during the startup script's bootstrap waits for it.
 
 ## Deploying Changes
 
@@ -87,8 +87,8 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 | --- | --- |
 | App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
-| Terraform config | `./tf.sh plan`, then `./tf.sh apply`. If `flask-vm` is replaced, deploy afterwards. |
-| VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM; deploy afterwards. |
+| Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A replaced `flask-vm` reinstalls the last published release by itself. |
+| VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM, which then reinstalls the last published release. |
 | Nginx config without downtime | Edit `nginx.conf.tftpl`, then [update it in place](./RUNBOOK.md#update-the-nginx-config-in-place). |
 | Roll back | [Runbook](./RUNBOOK.md#roll-back-a-release). |
 
@@ -107,4 +107,4 @@ Both workflows set up uv, pnpm, and Node through `.github/actions/setup`, and al
 1. `./tf.sh apply`.
 2. In GitHub → Settings → Environments, create `production` (no required reviewers).
 3. In GitHub → Settings → Variables → Actions, set `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA` from the Terraform outputs.
-4. Run *Deploy* on `main`.
+4. Run *Deploy* on `main`. The release bucket is empty until then, so this first deploy is manual.

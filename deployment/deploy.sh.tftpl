@@ -76,6 +76,9 @@ prune() {
 }
 
 [[ "$(id -u)" -eq 0 ]] || die "must run as root"
+# The startup script's release bootstrap and a workflow deploy can overlap; take turns.
+exec 9> /run/personalwebsite-deploy.lock
+flock 9
 mkdir -p "$RELEASES"
 
 if [[ "$${1:-}" == "--rollback" ]]; then
