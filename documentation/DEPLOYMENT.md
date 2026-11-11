@@ -16,6 +16,7 @@ Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudf
 | Cloudflare | Tunnel `personal-website` routing `${domain}` to `http://localhost:80`; proxied `@` CNAME to the tunnel; "Add visitor location headers" Managed Transform (used by About You) |
 | DNS | DNSSEC; CAA allowing only `pki.goog`, `letsencrypt.org`, `ssl.com`; `status` CNAME to Better Stack (must stay **DNS only**); Google site-verification TXT; `_dmarc` TXT (`p=reject`, reports to Cloudflare DMARC Management) |
 | Secret Manager | `cloudflare-tunnel-token`; VM accessor IAM on it and on `flask-secret` |
+| Release bucket (`releases.tf`) | `${project_id}-releases` in `us-central1` (single region, so it stays in the free tier), private, no versioning. Holds only `latest.tar.gz`, the last release that passed its smoke test. VM service account can read; `github-deployer` can write. |
 | GitHub deploys (`github_deploy.tf`) | Workload Identity pool + provider (accepts only `${github_repository}`, `refs/heads/main`, environment `production`); service account `github-deployer` with IAP tunnel access, non-admin OS Login on the VM, `serviceAccountUser` on `flask-vm-runtime`, and project `compute.viewer` |
 
 Outputs `github_wif_provider` and `github_deployer_email` are the values for the GitHub repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA`.
@@ -99,6 +100,7 @@ Both workflows set up uv, pnpm, and Node through `.github/actions/setup`, and al
 - ***Deploy*** (`deploy.yaml`, manual, `main` only; doesn't rerun tests):
   1. **package:** build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`, export hash-pinned requirements (`uv export --frozen --no-dev`), and upload the tarball as artifact `release-<sha>`.
   2. **deploy** (environment `production`, serialized): authenticate through WIF, stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`, then `curl` the public `/api/health/`, the home page, and its entry script.
+  3. **publish** (same job, only if the smoke test passed): copy the tarball to `gs://<release bucket>/latest.tar.gz` with the commit SHA and checksum as object metadata (`git-sha`, `sha256`). `GCS_RELEASE_BUCKET` in `deploy.yaml` must match the `release_bucket` Terraform output.
 
 ### First-time setup
 

@@ -14,6 +14,8 @@ env:
   DOMAIN: josephcicalese.com
   GCE_INSTANCE: flask-vm
   GCE_ZONE: us-central1-a
+  # The `release_bucket` Terraform output.
+  GCS_RELEASE_BUCKET: personal-website-453120-releases
 
 jobs:
   package:
@@ -112,3 +114,12 @@ jobs:
           script=$(grep -o '/assets/[^"]*\.js' <<< "$html" | head -1)
           [ -n "$script" ] || { echo "::error::No entry script in index.html"; exit 1; }
           curl -fsS -o /dev/null "https://$DOMAIN$script"
+
+      # Only after the smoke test, so a new VM never bootstraps a release that
+      # failed. The VM's startup script reads both values from the metadata.
+      - name: Publish release for VM bootstrap
+        env:
+          RELEASE_SHA256: ${{ needs.package.outputs.sha256 }}
+        run: |
+          gcloud storage cp release.tar.gz "gs://$GCS_RELEASE_BUCKET/latest.tar.gz" \
+            --custom-metadata="git-sha=$GITHUB_SHA,sha256=$RELEASE_SHA256"

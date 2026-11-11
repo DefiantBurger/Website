@@ -26,7 +26,7 @@ flowchart LR
 | --- | --- |
 | Frontend | Svelte 5, TypeScript, Vite, custom History API router, unified/remark/rehype Markdown pipeline (build time), Mermaid |
 | Backend | Flask app factory + one blueprint, Waitress in production, Flask-CORS (development only), `cryptography` for file-share encryption |
-| Infrastructure | Terraform, GCE e2-micro (Debian 12), Nginx, systemd, Cloudflare DNS + Tunnel + Managed Transforms, Google Secret Manager |
+| Infrastructure | Terraform, GCE e2-micro (Debian 12), Nginx, systemd, Cloudflare DNS + Tunnel + Managed Transforms, Google Secret Manager, Cloud Storage (release bucket) |
 | CI/CD | GitHub Actions (test; manual package + deploy over IAP SSH with Workload Identity Federation) |
 
 ## Repository Layout
@@ -50,7 +50,7 @@ flowchart LR
 3. **CORS** is enabled only when `FLASK_ENV=development`; production is same-origin.
 4. **Untrusted content.** Project Markdown is sanitized at build time; message-board text has control and invisible characters stripped and is rendered as plain text; file-share downloads are always `application/octet-stream`.
 5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output.
-6. **Deploys.** Only GitHub Actions jobs on `main` in the `production` environment can get credentials, through Workload Identity Federation (no stored keys). The deployer reaches the VM only over IAP SSH as a non-admin OS Login user; its one root action is the deploy script, which checks the release checksum and installs only hash-pinned wheels.
+6. **Deploys.** Only GitHub Actions jobs on `main` in the `production` environment can get credentials, through Workload Identity Federation (no stored keys). The deployer reaches the VM only over IAP SSH as a non-admin OS Login user; its one root action is the deploy script, which checks the release checksum and installs only hash-pinned wheels. After a passing smoke test it also writes the release to a private Cloud Storage bucket that only it can write and only the VM can read.
 7. **Least privilege on the VM.** Releases are root-owned and read-only to `flaskapp`, which runs under systemd sandboxing and can write only `/var/lib/personalwebsite`.
 
 ## Tradeoffs
