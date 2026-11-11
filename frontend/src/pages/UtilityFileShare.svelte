@@ -20,6 +20,7 @@
   import { saveBlob } from '../lib/download';
   import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import Panel from '../lib/components/Panel.svelte';
   import { routeDefinitions } from '../lib/routeDefinitions';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
@@ -233,8 +234,7 @@
 {/if}
 
 <section class="auto-grid" style:--grid-min="25rem">
-  <form class="terminal-box panel" onsubmit={handleUploadSubmit}>
-    <h2 class="prompt section-title">Upload Files</h2>
+  <Panel element="form" title="Upload Files" onsubmit={handleUploadSubmit}>
     <p>
       {limitsIntro} the backend evicts oldest files to free space before accepting new uploads. Uploading
       with an existing access key will replace all previous files for that key, and the new files will
@@ -271,10 +271,9 @@
     </div>
 
     <FormMessages error={upload.error} success={upload.success} />
-  </form>
+  </Panel>
 
-  <form class="terminal-box panel" onsubmit={handleListSubmit}>
-    <h2 class="prompt section-title">Access Files</h2>
+  <Panel element="form" title="Access Files" onsubmit={handleListSubmit}>
     <p>
       Enter the access key used for upload. The backend hashes it to locate all matching active
       files.
@@ -313,11 +312,10 @@
     {/if}
 
     <FormMessages error={access.error} success={access.success} />
-  </form>
+  </Panel>
 </section>
 
-<section class="terminal-box info-panel">
-  <h2 class="prompt section-title">Storage Info</h2>
+<Panel title="Storage Info" class="info-panel">
   <dl class="stats">
     {#each stats as [label, value] (label)}
       <div>
@@ -330,15 +328,9 @@
     Uploading under an existing key replaces its files. Files stay encrypted on disk with a key
     derived from your access key.
   </p>
-</section>
+</Panel>
 
 <style>
-  .panel {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
   label {
     display: flex;
     flex-direction: column;
@@ -375,7 +367,7 @@
   }
 
   .file-list li:not(:last-child) {
-    border-bottom: 1px dashed var(--color-primary-opacity-30);
+    border-bottom: var(--divider);
     margin-bottom: 0.4rem;
   }
 
@@ -388,10 +380,10 @@
     flex-direction: column;
     gap: 0.75rem;
     padding-top: 0.75rem;
-    border-top: 1px dashed var(--color-primary-opacity-30);
+    border-top: var(--divider);
   }
 
-  .info-panel {
+  :global(.info-panel) {
     margin-top: 1.5rem;
     container-type: inline-size;
   }
@@ -402,7 +394,7 @@
     display: grid;
     grid-template-columns: 1fr;
     column-gap: 2rem;
-    margin: 0 0 1rem;
+    margin: 0;
   }
 
   @container (min-width: 40rem) {
@@ -423,7 +415,7 @@
     justify-content: space-between;
     gap: 0 1rem;
     padding: 0.4rem 0;
-    border-bottom: 1px dashed var(--color-primary-opacity-30);
+    border-bottom: var(--divider);
   }
 
   .stats dt {

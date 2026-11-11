@@ -43,7 +43,7 @@
 
   .contact-list li {
     padding: 0.5rem 0;
-    border-bottom: 1px dashed var(--color-primary-opacity-30);
+    border-bottom: var(--divider);
   }
 
   .label {

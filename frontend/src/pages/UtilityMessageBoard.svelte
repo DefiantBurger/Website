@@ -235,7 +235,7 @@
     gap: 0.5rem;
     font-size: 0.85rem;
     color: var(--color-text-muted);
-    border-bottom: 1px dashed var(--color-primary-opacity-30);
+    border-bottom: var(--divider);
     padding-bottom: 0.35rem;
   }
 

@@ -1,13 +1,13 @@
 <script lang="ts">
   import { formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
-  import Panel from './Panel.svelte';
+  import Panel from '../../components/Panel.svelte';
   import RequirementText from './RequirementText.svelte';
 
   let { store }: { store: SchedulerStore } = $props();
 </script>
 
-<Panel title="Problems ({store.problems.length})">
+<Panel compact title="Problems ({store.problems.length})">
   {#if store.problems.length === 0}
     <p class="ok">No prerequisite problems.</p>
   {:else}

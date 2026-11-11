@@ -28,6 +28,8 @@
   --color-success-opacity-05: rgba(81, 207, 102, 0.05);
 
   --font-mono: 'Courier New', 'Courier', monospace;
+  /* Faint row/section separator; resolves per theme through the color variable. */
+  --divider: 1px dashed var(--color-primary-opacity-30);
 }
 
 :root[data-theme='light'] {

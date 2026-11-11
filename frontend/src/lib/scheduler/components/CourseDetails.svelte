@@ -4,7 +4,7 @@
   import { PRECOLLEGE_SEMESTER, formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
   import type { RequirementCheck } from '../types';
-  import Panel from './Panel.svelte';
+  import Panel from '../../components/Panel.svelte';
   import RequirementText from './RequirementText.svelte';
 
   let { store }: { store: SchedulerStore } = $props();
@@ -48,7 +48,7 @@
   }
 </script>
 
-<Panel title="Selected Course">
+<Panel compact title="Selected Course">
   {#if course}
     <p><strong>{course.name}</strong></p>
     <p>{course.title}</p>

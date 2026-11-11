@@ -37,19 +37,9 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 Found in a full read of the codebase (2026-11-06). Each item says where the copies are and suggests one shared place for them.
 
-### Frontend components
-
-1. **Minor:** titled panels repeat the same shape (`terminal-box` + heading + body). `UtilityFileShare.svelte` has its `.panel` forms and Storage Info box. The scheduler's `lib/scheduler/components/Panel.svelte` (title + `children` snippet) could move to `lib/components/` and cover them.
-
 ### Frontend logic
 
 1. **Minor:** `index.html` can't read `routeDefinitions.ts`, so its `<noscript>` link list repeats the route paths and its title and Open Graph tags repeat the site name. Generating them at build time would fit with per-route HTML (SEO #1).
-
-### Styles
-
-1. **Minor:** smaller styles are repeated that could become classes or variables in `app.css`:
-   - Dashed, tinted boxes (`--color-primary-opacity-30` border on `--color-primary-opacity-10`) appear in File Share `.stats div` and `.file-list`, Scheduler `.semester-column`, and Message Board `.pill`.
-   - Each form page re-declares the stacked `label` layout.
 
 ### Infrastructure and CI
 

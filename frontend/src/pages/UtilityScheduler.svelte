@@ -16,7 +16,7 @@
   import { buildSchedule, exportSchedule, parseScheduleFile } from '../lib/scheduler/catalog';
   import AddCourseForm from '../lib/scheduler/components/AddCourseForm.svelte';
   import CourseDetails from '../lib/scheduler/components/CourseDetails.svelte';
-  import Panel from '../lib/scheduler/components/Panel.svelte';
+  import Panel from '../lib/components/Panel.svelte';
   import ProblemSummary from '../lib/scheduler/components/ProblemSummary.svelte';
   import SchedulerBoard from '../lib/scheduler/components/SchedulerBoard.svelte';
   import { loadSchedulerData } from '../lib/scheduler/data';
@@ -331,7 +331,7 @@
         <button type="button" class="danger" onclick={handleClear}>Clear All</button>
       </div>
 
-      <Panel title="Save / Share">
+      <Panel compact title="Save / Share">
         <p>The page URL holds your plan and updates as you edit. Bookmark it or share it.</p>
         <button
           type="button"

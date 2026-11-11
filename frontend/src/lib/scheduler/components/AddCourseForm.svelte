@@ -3,7 +3,7 @@
   import { addCourse } from '../schedule';
   import { formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
-  import Panel from './Panel.svelte';
+  import Panel from '../../components/Panel.svelte';
 
   let { store }: { store: SchedulerStore } = $props();
 
@@ -46,7 +46,7 @@
   }
 </script>
 
-<Panel title="Add Class">
+<Panel compact title="Add Class">
   <input
     type="text"
     aria-label="Course to add"

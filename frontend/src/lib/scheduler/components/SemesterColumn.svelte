@@ -165,7 +165,7 @@
     flex-direction: column;
     gap: 0.3rem;
     margin-bottom: 0.75rem;
-    border-bottom: 1px dashed var(--color-primary-opacity-30);
+    border-bottom: var(--divider);
     padding-bottom: 0.45rem;
   }
 

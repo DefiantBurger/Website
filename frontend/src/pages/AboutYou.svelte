@@ -18,6 +18,7 @@
   import { AsyncTask } from '../lib/asyncTask.svelte';
   import { formatTime } from '../lib/format';
   import PageHeader from '../lib/components/PageHeader.svelte';
+  import Panel from '../lib/components/Panel.svelte';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
   import FactList from '../lib/aboutYou/FactList.svelte';
   import LocationMap from '../lib/aboutYou/LocationMap.svelte';
@@ -186,8 +187,7 @@
 
 <div class="groups">
   {#each groups as group (group.title)}
-    <section class="terminal-box group">
-      <h2 class="prompt section-title">{group.title}</h2>
+    <Panel title={group.title} class="group">
       <p class="source">{group.source}</p>
       {#if group.busy}
         <p>Loading request context...</p>
@@ -196,7 +196,7 @@
       {:else}
         <FactList facts={group.facts} />
       {/if}
-    </section>
+    </Panel>
   {/each}
 </div>
 
@@ -296,9 +296,10 @@
     column-gap: 1.25rem;
   }
 
-  .group {
+  .groups :global(.group) {
     break-inside: avoid;
     margin: 0 0 1.25rem;
+    gap: 0; /* spacing comes from the heading and .source margins */
   }
 
   .source {
@@ -312,8 +313,7 @@
       grid-template-columns: 1fr;
     }
 
-    .hero,
-    .group {
+    .hero {
       padding: 1rem;
     }
   }
