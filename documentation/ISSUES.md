@@ -6,8 +6,8 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### SEO
 
-1. No structured data, and Open Graph tags are static (the same for every page) because the HTML is never rendered per route. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the client-side canonical tag points crawlers at the main path.
-2. The served HTML has only a site-wide description, Open Graph tags, and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
+1. No structured data. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the canonical tag points crawlers at the main path.
+2. The served HTML has only each page's head tags and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
 3. The full name appears in page titles and the `<noscript>` content, but nowhere in the rendered page text except the domain and email.
 4. `/apple-touch-icon.png` returns 404. `index.html` declares `/favicon.png` for it, so browsers that honor the tag are fine, and a 128px icon is small for Apple touch icons and link-preview images.
 
@@ -37,14 +37,10 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 Found in a full read of the codebase (2026-11-06). Each item says where the copies are and suggests one shared place for them.
 
-### Frontend logic
-
-1. **Minor:** `index.html` can't read `routeDefinitions.ts`, so its `<noscript>` link list repeats the route paths and its title and Open Graph tags repeat the site name. Generating them at build time would fit with per-route HTML (SEO #1).
-
 ### Infrastructure and CI
 
 1. **Minor:** some values are hard-coded where Terraform could pass them as template variables. `/var/lib/personalwebsite` appears four times across `startup.sh.tftpl` and `flaskapp.service.tftpl` (`app_path` is already a variable), and port 5000 is in `nginx_api_proxy_params.conf.tftpl`, `deploy.sh.tftpl`, and `main.py`'s default. The three `/api/` locations in `nginx.conf.tftpl` also repeat the same `include` and `limit_req` lines.
-2. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `index.html` (Open Graph), `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
+2. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
 
 ## Appendix: Non-Issues
 

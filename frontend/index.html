@@ -5,34 +5,16 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JosephCicalese.com</title>
-    <!-- For clients that don't run JavaScript (link previews, simple crawlers).
-         main.ts removes the description once pages set their own. -->
-    <meta
-      name="description"
-      content="Joseph Cicalese's personal website: projects, write-ups, and interactive utilities."
-      data-static-meta
-    />
-    <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="JosephCicalese.com" />
-    <meta property="og:title" content="JosephCicalese.com" />
-    <meta
-      property="og:description"
-      content="Projects, write-ups, and interactive utilities by Joseph Cicalese."
-    />
-    <meta property="og:url" content="https://josephcicalese.com/" />
-    <meta property="og:image" content="https://josephcicalese.com/favicon.png" />
-    <meta name="twitter:card" content="summary" />
+    <!-- Title, description, canonical, and Open Graph tags, filled in per route by
+         plugins/routeHtml.ts. -->
+    <!-- route-head -->
   </head>
   <body>
     <noscript>
       <h1>Joseph Cicalese</h1>
       <p>This site needs JavaScript to display its content.</p>
       <ul>
-        <li><a href="/projects">Projects</a></li>
-        <li><a href="/about">About</a></li>
-        <li><a href="/contact">Contact</a></li>
-        <li><a href="/utilities">Utilities</a></li>
+        <!-- noscript-links -->
       </ul>
     </noscript>
     <div id="app"></div>

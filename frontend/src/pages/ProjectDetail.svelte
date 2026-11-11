@@ -7,7 +7,7 @@
   import ExternalLink from '../lib/components/ExternalLink.svelte';
   import TagList from '../lib/components/TagList.svelte';
   import PageMeta from '../lib/components/PageMeta.svelte';
-  import { pathFor } from '../lib/routeDefinitions';
+  import { pathFor, PROJECT_FALLBACK_DESCRIPTION } from '../lib/routeDefinitions';
 
   // App remounts this page on every path change, so the slug is fixed per instance.
   const slug = router.params.slug;
@@ -19,7 +19,6 @@
   }
 
   const pagePromise = loadPage();
-  const fallbackDescription = 'Explore this project in detail.';
 
   // Runs are chained so two never touch the same nodes at once; a run queued
   // behind a newer theme toggle is skipped.
@@ -88,11 +87,11 @@
 </script>
 
 {#await pagePromise}
-  <PageMeta title="Project Details" description={fallbackDescription} />
+  <PageMeta title="Project Details" description={PROJECT_FALLBACK_DESCRIPTION} />
 {:then project}
-  <PageMeta title={project.title} description={project.summary || fallbackDescription} />
+  <PageMeta title={project.title} description={project.summary || PROJECT_FALLBACK_DESCRIPTION} />
 {:catch}
-  <PageMeta title="Project Failed to Load" description={fallbackDescription} />
+  <PageMeta title="Project Failed to Load" description={PROJECT_FALLBACK_DESCRIPTION} />
 {/await}
 
 <a class="button back-button" href={pathFor('projects')}>&lt; Back to Projects</a>

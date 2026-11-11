@@ -4,6 +4,9 @@
 
 export const SITE_NAME = 'JosephCicalese.com';
 
+/** Tab title: the page's title with the site-name suffix, or just the site name. */
+export const pageTitle = (title?: string) => (title ? `${title} · ${SITE_NAME}` : SITE_NAME);
+
 /** Tab title (shown before the site-name suffix; omitted means just the site name) and meta description. */
 export type RouteMeta = {
   title?: string;
@@ -22,7 +25,10 @@ export type RouteDefinition = {
 export const routeDefinitions = {
   home: {
     path: '/',
-    meta: { description: 'Personal portfolio and projects by me.' },
+    meta: {
+      description:
+        "Joseph Cicalese's personal website: projects, write-ups, and interactive utilities.",
+    },
   },
   projects: {
     path: '/projects',
@@ -81,6 +87,14 @@ export const routeDefinitions = {
 } as const satisfies Record<string, RouteDefinition>;
 
 export type RouteKey = keyof typeof routeDefinitions;
+
+export const NOT_FOUND_META: RouteMeta = {
+  title: '404 - Not Found',
+  description: 'The page you requested could not be found.',
+};
+
+/** Used while a project loads, or when its write-up has no summary. */
+export const PROJECT_FALLBACK_DESCRIPTION = 'Explore this project in detail.';
 
 /** Param names in a pattern, e.g. 'slug' for '/projects/:slug'. */
 type ParamNames<Pattern extends string> = Pattern extends `${string}:${infer Name}/${infer Rest}`

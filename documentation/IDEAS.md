@@ -62,16 +62,15 @@ Add a footer, and move the Status link there from the navbar. It belongs with th
 
 ### Prerendering
 
-The build already writes `<route>/index.html` for every route (`routeFiles()` in `vite.config.ts`), but each one is a copy of the same empty shell. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`. This would fix SEO #1 and #2 in Issues.
+The build already writes `<route>/index.html` for every route (`plugins/routeHtml.ts`) with that page's head tags, but the body is the same empty shell. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`. This would fix SEO #2 in Issues.
 
-- **Gains:** visitors without JavaScript and simple crawlers see real content; each page gets its own title, description, and OG tags; content appears before the JS loads.
+- **Gains:** visitors without JavaScript and simple crawlers see real content; content appears before the JS loads.
 - **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. It's also a second render path, which CI's `pnpm build` now covers.
 - **Scope:** start with the static pages (home, about, projects, project detail, contact). Utilities need JS and live data anyway, so they keep the plain shell. Mermaid diagrams stay client-side.
-- **Cheaper middle step:** write only each route's `<title>`, description, and OG tags into its file at build time, without rendering the body. Link previews get fixed; visitors without JS still see only the `<noscript>` list.
 
 ### OG images
 
-Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, which is currently the 128px favicon for every page. Generate a 1200×630 image per project at build time (title + summary in the terminal style) and point each project's `og:image` at it, with a site-wide default for other pages. Needs per-route meta tags first (either prerendering option above). Turning an SVG template into a PNG needs a renderer, which probably means a build-only dependency (e.g. `@resvg/resvg-js`); the alternative is to make the images by hand once per project.
+Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, which is currently the 128px favicon for every page. Generate a 1200×630 image per project at build time (title + summary in the terminal style) and point each project's `og:image` at it, with a site-wide default for other pages. Turning an SVG template into a PNG needs a renderer, which probably means a build-only dependency (e.g. `@resvg/resvg-js`); the alternative is to make the images by hand once per project.
 
 ## Utilities
 

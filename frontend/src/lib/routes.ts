@@ -17,7 +17,7 @@ import * as UtilityFileShare from '../pages/UtilityFileShare.svelte';
 import * as UtilityMessageBoard from '../pages/UtilityMessageBoard.svelte';
 import NotFound from '../pages/NotFound.svelte';
 import { hasProject } from './projects/content';
-import { routeDefinitions, type RouteKey } from './routeDefinitions';
+import { NOT_FOUND_META, routeDefinitions, type RouteKey } from './routeDefinitions';
 import type { PageLayout, Route } from './router.svelte';
 
 type PageModule = {
@@ -52,5 +52,5 @@ export const routes: Route[] = (Object.keys(routeDefinitions) as RouteKey[]).map
 export const notFoundRoute: Route = {
   path: '/404',
   page: NotFound,
-  meta: { title: '404 - Not Found', description: 'The page you requested could not be found.' },
+  meta: NOT_FOUND_META,
 };

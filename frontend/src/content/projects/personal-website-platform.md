@@ -75,7 +75,7 @@ flowchart TB
 
 All traffic enters through Cloudflare, which forwards it over an outbound-only tunnel to the VM. From there, requests follow two paths:
 
-1. Page/navigation requests are served by Nginx from the Svelte build, with SPA fallback to `index.html`.
+1. Page/navigation requests are served by Nginx from per-route HTML files in the Svelte build, each with its own title, description, and Open Graph tags. Unknown paths get a real 404 whose body is the app shell.
 2. Data requests under `/api/*` are proxied by Nginx to Flask on `127.0.0.1:5000`.
 
 Project pages need no API call: their HTML is rendered at build time and ships as one small JavaScript chunk per write-up.
