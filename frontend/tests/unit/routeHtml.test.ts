@@ -7,6 +7,7 @@ import {
   renderHead,
   renderNoscriptLinks,
   renderShell,
+  structuredData,
 } from '../../plugins/routeHtml.ts';
 import type { ProjectSummary } from '../../src/lib/projects/types.ts';
 import {
@@ -14,6 +15,7 @@ import {
   routeDefinitions,
   SITE_NAME,
 } from '../../src/lib/routeDefinitions.ts';
+import { OWNER_NAME } from '../../src/lib/site.ts';
 
 const ORIGIN = 'https://example.com';
 const project = (slug: string, title: string, summary: string): ProjectSummary => ({
@@ -58,7 +60,7 @@ describe('renderHead', () => {
     assert.match(head, /<title>A &quot;B&quot; &amp; &lt;C&gt; · /);
     assert.match(head, /<link rel="canonical" href="https:\/\/example.com\/x" data-static-meta/);
     assert.match(head, /property="og:url" content="https:\/\/example.com\/x"/);
-    assert.match(head, /property="og:image" content="https:\/\/example.com\/favicon.png"/);
+    assert.match(head, /property="og:image" content="https:\/\/example.com\/og-image.png"/);
   });
 
   test('uses the site name when the page has no title', () => {
@@ -70,6 +72,30 @@ describe('renderHead', () => {
   test('gives the 404 page no canonical URL', () => {
     const head = renderHead(notFoundHead, ORIGIN);
     assert.doesNotMatch(head, /canonical|og:url/);
+  });
+
+  test('adds structured data to the home page only', () => {
+    const home = renderHead({ path: '/', canonicalPath: '/', description: 'd' }, ORIGIN);
+    assert.ok(home.includes(structuredData(ORIGIN)));
+    const about = renderHead({ path: '/about', canonicalPath: '/about', description: 'd' }, ORIGIN);
+    assert.doesNotMatch(about, /ld\+json/);
+    assert.doesNotMatch(renderHead(notFoundHead, ORIGIN), /ld\+json/);
+  });
+});
+
+describe('structuredData', () => {
+  const block = structuredData('https://example.com/</script>');
+  const json = block.slice(block.indexOf('>') + 1, block.lastIndexOf('<'));
+
+  test('describes the site and its owner', () => {
+    const graph = JSON.parse(json)['@graph'];
+    const person = graph.find((node: { '@type': string }) => node['@type'] === 'Person');
+    assert.equal(person.name, OWNER_NAME);
+    assert.ok(person.sameAs.length > 0);
+  });
+
+  test('cannot close its own script tag', () => {
+    assert.doesNotMatch(json, /</);
   });
 });
 

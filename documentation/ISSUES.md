@@ -6,10 +6,8 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### SEO
 
-1. No structured data.
-2. The served HTML has only each page's head tags and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
-3. The full name appears in page titles and the `<noscript>` content, but nowhere in the rendered page text except the domain and email.
-4. `/apple-touch-icon.png` returns 404. `index.html` declares `/favicon.png` for it, so browsers that honor the tag are fine, and a 128px icon is small for Apple touch icons and link-preview images.
+1. The served HTML has only each page's head tags and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
+2. **Minor:** `apple-touch-icon.png` (180px) and `og-image.png` (512px) are upscaled from the 128px favicon, so they're a little blurry. Replace them if a larger source image turns up.
 
 ### Accessibility
 
@@ -32,14 +30,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
 2. Expiry is request-driven; idle files linger until the next file-share request.
-
-## Duplication and Refactoring
-
-Found in a full read of the codebase (2026-11-06). Each item says where the copies are and suggests one shared place for them.
-
-### Infrastructure and CI
-
-1. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
 
 ## Appendix: Non-Issues
 

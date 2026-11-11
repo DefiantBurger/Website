@@ -1,12 +1,15 @@
 import { resolve } from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { fillTemplate, generatedFiles } from './plugins/generatedFiles.ts';
 import { projectsPlugin, readPublishedProjects } from './plugins/projects.ts';
 import { routeHtml } from './plugins/routeHtml.ts';
 import { pathFor, staticRoutePaths } from './src/lib/routeDefinitions.ts';
+import { EMAIL, SITE_ORIGIN } from './src/lib/site.ts';
 
-const SITE_ORIGIN = 'https://josephcicalese.com';
 const PROJECTS_DIR = resolve(import.meta.dirname, 'src/content/projects');
+const SITE_FILES_DIR = resolve(import.meta.dirname, 'site-files');
+const TEMPLATE_VALUES = { SITE_ORIGIN, EMAIL };
 
 const publishedProjectPaths = () =>
   readPublishedProjects(PROJECTS_DIR).map((project) =>
@@ -20,28 +23,19 @@ function sitemapXml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
-/** Writes dist/sitemap.xml at build time and serves /sitemap.xml from the dev server. */
-function sitemap(): Plugin {
-  return {
-    name: 'sitemap',
-    configureServer(server) {
-      server.middlewares.use('/sitemap.xml', (_req, res) => {
-        res.setHeader('Content-Type', 'application/xml; charset=utf-8');
-        res.end(sitemapXml());
-      });
-    },
-    generateBundle() {
-      this.emitFile({ type: 'asset', fileName: 'sitemap.xml', source: sitemapXml() });
-    },
-  };
-}
+const siteFile = (name: string) => () =>
+  fillTemplate(resolve(SITE_FILES_DIR, name), TEMPLATE_VALUES);
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     svelte(),
     projectsPlugin(PROJECTS_DIR),
-    sitemap(),
+    generatedFiles({
+      'sitemap.xml': sitemapXml,
+      'robots.txt': siteFile('robots.txt'),
+      '.well-known/security.txt': siteFile('security.txt'),
+    }),
     routeHtml(SITE_ORIGIN, () => readPublishedProjects(PROJECTS_DIR)),
   ],
 });

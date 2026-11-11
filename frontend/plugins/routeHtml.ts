@@ -16,6 +16,7 @@ import {
   type RouteDefinition,
   type RouteMeta,
 } from '../src/lib/routeDefinitions.ts';
+import { GITHUB_URL, LINKEDIN_URL, OWNER_NAME } from '../src/lib/site.ts';
 
 const definitions: RouteDefinition[] = Object.values(routeDefinitions);
 
@@ -63,6 +64,34 @@ export function pageHeads(projects: readonly ProjectSummary[]): PageHead[] {
 /** The 404 page's head. It's served for every unknown path, so it claims no URL. */
 export const notFoundHead: PageHead = { path: '/404', ...NOT_FOUND_META };
 
+/** schema.org data for the home page, so search engines tie the site to its owner. */
+export function structuredData(origin: string): string {
+  const person = `${origin}/#person`;
+  const data = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${origin}/#website`,
+        url: `${origin}/`,
+        name: SITE_NAME,
+        publisher: { '@id': person },
+      },
+      {
+        '@type': 'Person',
+        '@id': person,
+        name: OWNER_NAME,
+        url: `${origin}/`,
+        sameAs: [GITHUB_URL, LINKEDIN_URL],
+      },
+    ],
+  };
+  // A JSON-LD data block never runs, so the CSP's script-src doesn't apply; escaping `<`
+  // keeps any `</script>` in the data from closing the tag.
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
 /** The tags that go in place of HEAD_MARKER. */
 export function renderHead(page: PageHead, origin: string): string {
   const title = escapeHtml(pageTitle(page.title));
@@ -75,7 +104,7 @@ export function renderHead(page: PageHead, origin: string): string {
     `<meta property="og:description" content="${description}" />`,
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />`,
-    `<meta property="og:image" content="${escapeHtml(origin)}/favicon.png" />`,
+    `<meta property="og:image" content="${escapeHtml(origin)}/og-image.png" />`,
     `<meta name="twitter:card" content="summary" />`,
   ];
   if (page.canonicalPath) {
@@ -84,6 +113,9 @@ export function renderHead(page: PageHead, origin: string): string {
       `<link rel="canonical" href="${url}" data-static-meta />`,
       `<meta property="og:url" content="${url}" />`,
     );
+  }
+  if (page.canonicalPath === '/') {
+    tags.push(structuredData(origin));
   }
   return tags.join('\n    ');
 }

@@ -1,0 +1,4 @@
+Contact: mailto:%EMAIL%
+Expires: 2027-11-10T00:00:00.000Z
+Preferred-Languages: en
+Canonical: %SITE_ORIGIN%/.well-known/security.txt

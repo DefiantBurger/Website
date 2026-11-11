@@ -1,6 +1,7 @@
 <script lang="ts">
   import { pathFor, routeDefinitions, SITE_NAME } from '../routeDefinitions';
   import { router } from '../router.svelte';
+  import { STATUS_PAGE_URL } from '../site';
   import { theme } from '../theme.svelte';
   import ExternalLink from './ExternalLink.svelte';
 
@@ -51,9 +52,7 @@
     </ul>
 
     <div class="nav-actions">
-      <ExternalLink class="status-link" href="https://status.josephcicalese.com/"
-        >Status</ExternalLink
-      >
+      <ExternalLink class="status-link" href={STATUS_PAGE_URL}>Status</ExternalLink>
       <button type="button" class="theme-toggle" onclick={() => theme.toggle()}>
         {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>

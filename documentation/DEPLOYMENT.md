@@ -58,7 +58,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
   - gzip for HTML, JSON, CSS, JS, and SVG, including API responses (the course catalog is ~3 MB raw).
   - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
   - Security headers: HSTS (with `includeSubDomains`, so every subdomain, `status` included, must serve HTTPS), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce it, browse each page with the console open, fix or allow what it reports, then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
-- `/.well-known/security.txt` is a static file in `frontend/public/`. Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
+- `/.well-known/security.txt` is built from `frontend/site-files/security.txt` (see [Implementation](./IMPLEMENTATION.md)). Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
 - **`flaskapp`** (systemd, `FLASK_ENV=production`, `PORT=backend_port`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
 
 ### Releases

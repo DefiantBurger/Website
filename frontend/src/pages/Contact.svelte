@@ -2,14 +2,15 @@
   import PageHeader from '../lib/components/PageHeader.svelte';
   import ExternalLink from '../lib/components/ExternalLink.svelte';
 
+  import { EMAIL, GITHUB_URL, LINKEDIN_URL } from '../lib/site';
+
+  // Shown without the scheme, "www.", or trailing slash.
+  const displayUrl = (url: string) => url.replace(/^https:\/\/(www\.)?/, '').replace(/\/$/, '');
+
   const contacts = [
-    { label: 'email', text: 'joseph.cicalese@gmail.com', href: 'mailto:joseph.cicalese@gmail.com' },
-    { label: 'github', text: 'github.com/DefiantBurger', href: 'https://github.com/DefiantBurger' },
-    {
-      label: 'linkedin',
-      text: 'linkedin.com/in/joseph-cicalese',
-      href: 'https://www.linkedin.com/in/joseph-cicalese/',
-    },
+    { label: 'email', text: EMAIL, href: `mailto:${EMAIL}` },
+    { label: 'github', text: displayUrl(GITHUB_URL), href: GITHUB_URL },
+    { label: 'linkedin', text: displayUrl(LINKEDIN_URL), href: LINKEDIN_URL },
     { label: 'location', text: 'Madison, WI & Philadelphia, PA' },
   ];
 </script>
