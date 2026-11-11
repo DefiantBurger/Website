@@ -27,8 +27,19 @@ Docs that no longer match the code:
 
 ## Infrastructure
 
-1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
-2. **Minor:** `pnpm audit` reports three advisories with no in-range fix: KaTeX 0.16.47 (low, pinned to `^0.16` by Mermaid 11), and minimatch 10 (moderate, via ESLint) and deepmerge (low, via the Svelte Vite plugin, no patched release), which are both dev-only. Mermaid 12 would clear KaTeX.
+1. **High:** Nothing keeps the VM patched. `deployment/startup.sh.tftpl` never installs or configures `unattended-upgrades`. The GCE Debian image ships it enabled for Debian's own security origin only, so the Cloudflare apt repo added in step 7 is never covered, and `cloudflared.service.tftpl` runs with `--no-autoupdate`. So `cloudflared` stays at whatever version the first boot installed, and kernel updates only take effect on a reboot nobody schedules. Fix, all inside the first-boot block of `startup.sh.tftpl`:
+   - Add `unattended-upgrades` to the `apt-get install` list in step 2, so it's explicit rather than inherited from the image.
+   - After the `cloudflared` install in step 7, write `/etc/apt/apt.conf.d/52personalwebsite` (heredoc, like the sysctl file):
+     ```
+     Unattended-Upgrade::Origins-Pattern { "origin=cloudflare"; };
+     Unattended-Upgrade::Automatic-Reboot "true";
+     Unattended-Upgrade::Automatic-Reboot-Time "09:00";
+     ```
+     Apt config lists append, so this adds the Cloudflare origin to Debian's defaults in `50unattended-upgrades` rather than replacing them. The reboot only happens when a package leaves `/var/run/reboot-required` (kernel, libc), and the time is the VM's clock, which is UTC. A reboot re-runs the startup script, which re-fetches secrets, so rotation gets a free trigger.
+   - **Before relying on the origin string**, check it on the VM: `apt-cache policy cloudflared` prints the release line; the `o=` field is the origin. If it's empty, use `"site=pkg.cloudflare.com"` instead.
+   Changing `startup.sh.tftpl` replaces the VM: run `./tf.sh plan` from `deployment/` and confirm it shows `flask-vm` being replaced and nothing else; the owner applies and deploys. In the same change, update `DEPLOYMENT.md`: the `cloudflared` bullet under *Runtime on the VM* (it currently says to update with `apt-get upgrade cloudflared`) and the *VM Bootstrap* list.
+2. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
+3. **Minor:** `pnpm audit` reports three advisories with no in-range fix: KaTeX 0.16.47 (low, pinned to `^0.16` by Mermaid 11), and minimatch 10 (moderate, via ESLint) and deepmerge (low, via the Svelte Vite plugin, no patched release), which are both dev-only. Mermaid 12 would clear KaTeX.
 
 ## Utilities
 
