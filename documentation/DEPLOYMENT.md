@@ -43,9 +43,10 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 `startup.sh.tftpl` runs as root on every boot (logged to `/var/log/startup-script.log`). On the first boot only, it:
 
 1. Installs Python 3.11, Nginx, curl, and `cloudflared` (with raised UDP buffers for QUIC).
-2. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
-3. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
-4. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
+2. Configures `unattended-upgrades` (`/etc/apt/apt.conf.d/52personalwebsite`) to also install Debian point releases and `cloudflared`, and to reboot at 09:00 UTC when an update needs it.
+3. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
+4. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
+5. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
 
 On every boot it refreshes secrets from Secret Manager. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
 
@@ -53,7 +54,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
 
 ## Runtime on the VM
 
-- **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; update with `apt-get upgrade cloudflared`) holds the tunnel and forwards to Nginx.
+- **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; updated by `unattended-upgrades` instead) holds the tunnel and forwards to Nginx.
 - **Nginx** listens only on `127.0.0.1:80` (Cloudflare terminates TLS; no origin certificate). It serves `current/frontend/dist` and proxies `/api/` to `127.0.0.1:5000` (`backend_port`).
   - Trailing-slash paths get a `301` to the path without the slash.
   - No SPA fallback: the build writes `<route>/index.html` for every route, so other paths return a real `404` whose body is the SPA shell, and the app renders its not-found page.

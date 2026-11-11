@@ -29,7 +29,8 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 		nginx \
 		curl \
 		ca-certificates \
-		gnupg
+		gnupg \
+		unattended-upgrades
 
 	echo "[3/7] Verifying Python 3.11 runtime..."
 	python3.11 --version
@@ -68,6 +69,17 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main" > /etc/apt/sources.list.d/cloudflared.list
 	apt-get update -yq
 	apt-get install -yq cloudflared
+
+	# Lists append to Debian's 50unattended-upgrades (security only), adding point releases and cloudflared.
+	# Reboots only when a package needs one (kernel, libc); the VM clock is UTC.
+	cat > /etc/apt/apt.conf.d/52personalwebsite <<'EOF'
+Unattended-Upgrade::Origins-Pattern {
+	"origin=Debian,codename=$${distro_codename},label=Debian";
+	"site=pkg.cloudflare.com";
+};
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-Time "09:00";
+EOF
 
 	# quic-go (used by cloudflared) wants ~7 MiB UDP buffers; the Debian default caps them at 208 KiB.
 	cat > /etc/sysctl.d/99-cloudflared.conf <<'EOF'
