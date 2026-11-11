@@ -28,6 +28,19 @@ Semester planner that validates prerequisites and draws them as a dependency gra
 - `not_open_with_credit_for` is treated as symmetric, since the catalog usually lists a pair on one side only.
 - `last_taught` is loaded but unused.
 
+**Updating the catalog.** The catalog is a snapshot of [guide.wisc.edu/courses](https://guide.wisc.edu/courses/), so regenerate it each term. The scraper lives in [`course-data-scraper`](https://github.com/DefiantBurger/course-data-scraper), cloned next to this repo:
+
+```bash
+uv run main.py fetch --refresh     # re-download the subject pages
+uv run main.py build               # writes output/course_data.json and output/report.md
+uv run main.py diff ../PersonalWebsite/backend/app/static/json/course_data.json output/course_data.json -v
+cp output/course_data.json ../PersonalWebsite/backend/app/static/json/
+```
+
+- Requisite text is parsed by a rule parser that refuses anything ambiguous; refused strings get hand-written entries in its `data/overrides.json`, and until then export with no requirements. `report.md` lists unresolved strings, stale overrides, and dropped references; check it before copying the file over.
+- Non-course conditions (standing, consent, placement) and courses missing from the catalog are dropped, so a dropped alternative makes a requirement stricter.
+- Unknown courses in saved plans are skipped on load, so a catalog update doesn't break old links. `my_courses.json` (the default plan) isn't generated; check it still loads cleanly after an update.
+
 ### Behavior
 
 - **Code layout.** `catalog.ts` builds and exports schedules (each course occurrence gets a unique ID, `<course>__<n>`) and searches the catalog. `schedule.ts` holds every edit as a pure function; `store.svelte.ts` (`SchedulerStore`) applies them through `store.apply()` so `history.ts` can undo/redo (100 steps). `UtilityScheduler.svelte` keeps only the schedule as state and derives everything else.

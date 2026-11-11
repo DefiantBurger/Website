@@ -62,7 +62,7 @@ Add a footer, and move the Status link there from the navbar. It belongs with th
 
 ### Prerendering
 
-The build already writes `<route>/index.html` for every route (`plugins/routeHtml.ts`) with that page's head tags, but the body is the same empty shell. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`. This would fix SEO #2 in Issues.
+The build already writes `<route>/index.html` for every route (`plugins/routeHtml.ts`) with that page's head tags, but the body is the same empty shell plus a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`.
 
 - **Gains:** visitors without JavaScript and simple crawlers see real content; content appears before the JS loads.
 - **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. It's also a second render path, which CI's `pnpm build` now covers.
@@ -98,9 +98,13 @@ Show a progress bar while uploading. `fetch` can't report upload progress, so th
 
 ## Infrastructure
 
+### Remote Terraform state
+
+Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking, and it contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. a GCS bucket, which also gives locking). Low priority while there's only one developer.
+
 ### Cloudflare provider v5
 
-Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing (Issues, Infrastructure #2).
+Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing (Issues, Infrastructure #1).
 
 - **Breaking changes:** `cloudflare_record` becomes `cloudflare_dns_record` (`moved` blocks handle state); nested blocks become attributes (tunnel config, ruleset rules, CAA `data`); `cloudflare_managed_headers` becomes `cloudflare_managed_transforms`; the `cloudflare_record` data sources change shape. Cloudflare's `tf-migrate` tool does most of the rewrite.
 - **Main risk:** `tunnel_token` moves off the tunnel resource to the `cloudflare_zero_trust_tunnel_cloudflared_token` data source, and it feeds the Secret Manager version the VM reads. `plan` must show no replacement of the tunnel or the VM, or the site goes down until a redeploy.
