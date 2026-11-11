@@ -64,7 +64,7 @@ def test_404_handler_returns_json(client):
 def test_cors_only_in_development(monkeypatch, flask_env, allowed_origins):
 	monkeypatch.setenv('FLASK_ENV', flask_env)
 	client = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True}).test_client()
-	res = client.get('/api/messageboard/status/', headers={'Origin': 'https://example.com'})
+	res = client.get('/api/messageboard/messages/', headers={'Origin': 'https://example.com'})
 	assert res.status_code == 200
 	assert res.headers.get('Access-Control-Allow-Origin') in allowed_origins
 

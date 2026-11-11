@@ -37,7 +37,6 @@ class BoardMessageRecord:
 	text: str
 	created_at: str
 	expires_at: str
-	created_at_epoch: float
 	expires_at_epoch: float
 
 	def to_json(self) -> dict:
@@ -136,15 +135,9 @@ class MessageBoardStore:
 		self._messages: list[BoardMessageRecord] = []
 		self._lock = threading.Lock()
 
-	def _purge_locked(self, now: float) -> int:
-		"""Drop expired messages and return how many were removed. Caller holds `_lock`."""
-		initial_count = len(self._messages)
+	def _purge_locked(self, now: float) -> None:
+		"""Drop expired messages. Caller holds `_lock`."""
 		self._messages = [msg for msg in self._messages if msg.expires_at_epoch > now]
-		return initial_count - len(self._messages)
-
-	def cleanup(self, now: float | None = None) -> int:
-		with self._lock:
-			return self._purge_locked(_now(now))
 
 	def add_message(
 		self,
@@ -170,27 +163,24 @@ class MessageBoardStore:
 				text=text,
 				created_at=created_dt.isoformat(),
 				expires_at=expires_dt.isoformat(),
-				created_at_epoch=current_time,
 				expires_at_epoch=current_time + self.ttl_seconds,
 			)
 			self._messages.append(record)
 			return record
 
-	def get_active_messages(self, now: float | None = None) -> list[dict]:
+	def snapshot(self, now: float | None = None) -> dict:
+		"""Active messages (newest first) plus the board's limits, as `GET /messages/` returns them."""
+		current_time = _now(now)
 		with self._lock:
-			self._purge_locked(_now(now))
-			return [msg.to_json() for msg in reversed(self._messages)]  # Newest first.
-
-	def get_status(self, now: float | None = None) -> dict:
-		with self._lock:
-			self._purge_locked(_now(now))
-			active_count = len(self._messages)
+			self._purge_locked(current_time)
+			messages = [msg.to_json() for msg in reversed(self._messages)]
 
 		return {
-			'activeCount': active_count,
+			'messages': messages,
+			# Lets the client time expiry against the server's clock, not its own.
+			'serverTime': datetime.fromtimestamp(current_time, UTC).isoformat(),
 			'retentionSeconds': int(self.ttl_seconds),
 			'maxMessageLength': MAX_MESSAGE_LENGTH,
-			'maxMessages': self.max_messages,
 		}
 
 	def reset(self) -> None:

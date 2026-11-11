@@ -63,12 +63,6 @@ Docs that no longer match the code:
 7. **Cleanup:** Frontend: `FileShareUploadResult` and `FileShareListItem` are the same interface. `downloadFileShare()`'s `Content-Disposition` parsing and its `occurrenceIndex = 1` default are dead, since the only caller always passes both. The "No files found" branch in `handleListSubmit()` can't run, because `/list/` answers 404 when there are none.
 8. **Cleanup:** The page explains replace-on-upload and encryption three times (header description, upload panel, Storage Info note).
 
-### Message Board
-
-1. **Minor:** The client counts length in UTF-16 code units (`maxlength` and `.length`), but the server counts code points after NFC and stripping. Characters outside the BMP count double, so 150 emoji are blocked in the browser though the server accepts up to 280. The extra `trimmed.length > maxLength` check in `handlePost()` is also redundant with `maxlength`.
-2. **Cleanup:** `GET /messages/` returns `retentionSeconds`, which the page ignores (it reads it from `/status/`), and `/status/`'s `activeCount` and `maxMessages` are unused too. Either drop them, or put the limits in the `/messages/` response and skip the second request on load.
-3. **Cleanup:** `BoardMessageRecord.created_at_epoch` is set but never read, and `MessageBoardStore.cleanup()` is only called from tests.
-
 ## Appendix: Non-Issues
 
 These are deliberate. Don't report or "fix" them without revisiting the decision.

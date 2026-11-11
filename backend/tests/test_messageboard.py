@@ -70,23 +70,27 @@ def test_rate_limiter_window():
 	assert limiter.check_and_record('192.168.1.1', now=now + 11.0)  # Window has passed.
 
 
+def _active_ids(store, now):
+	return [m['id'] for m in store.snapshot(now=now)['messages']]
+
+
 def test_store_and_expiration():
 	store = MessageBoardStore(ttl_seconds=30.0, max_messages=10)
 	now = 1000.0
 	msg1 = store.add_message('First message', '127.0.0.1', now=now)
 	msg2 = store.add_message('Second message', '127.0.0.1', now=now + 5.0)
 
-	assert [m['id'] for m in store.get_active_messages(now=now + 10.0)] == [msg2.id, msg1.id]
-	assert [m['id'] for m in store.get_active_messages(now=now + 31.0)] == [msg2.id]
-	assert store.get_active_messages(now=now + 36.0) == []
+	assert _active_ids(store, now + 10.0) == [msg2.id, msg1.id]
+	assert _active_ids(store, now + 31.0) == [msg2.id]
+	assert _active_ids(store, now + 36.0) == []
 
 
-def test_status_counts_only_active_messages():
-	store = MessageBoardStore(ttl_seconds=10.0, max_messages=10)
-	store.add_message('Msg 1', '127.0.0.1', now=100.0)
-	store.add_message('Msg 2', '127.0.0.1', now=105.0)
-	assert store.get_status(now=106.0)['activeCount'] == 2
-	assert store.get_status(now=112.0)['activeCount'] == 1
+def test_snapshot_reports_server_time_and_limits():
+	store = MessageBoardStore(ttl_seconds=30.0, max_messages=10)
+	snapshot = store.snapshot(now=0.0)
+	assert snapshot['serverTime'] == '1970-01-01T00:00:00+00:00'
+	assert snapshot['retentionSeconds'] == 30
+	assert snapshot['maxMessageLength'] == MAX_MESSAGE_LENGTH
 
 
 def test_capacity_eviction():
@@ -96,17 +100,7 @@ def test_capacity_eviction():
 	msg2 = store.add_message('Msg 2', '127.0.0.1', now=now + 1.0)
 	msg3 = store.add_message('Msg 3', '127.0.0.1', now=now + 2.0)
 
-	ids = {m['id'] for m in store.get_active_messages(now=now + 3.0)}
-	assert ids == {msg2.id, msg3.id}
-
-
-def test_store_cleanup():
-	store = MessageBoardStore(ttl_seconds=10.0, max_messages=10)
-	store.add_message('Msg 1', '127.0.0.1', now=100.0)
-	store.add_message('Msg 2', '127.0.0.1', now=105.0)
-
-	assert store.cleanup(now=106.0) == 0
-	assert store.cleanup(now=112.0) == 1  # Msg 1 expired at 110.
+	assert set(_active_ids(store, now + 3.0)) == {msg2.id, msg3.id}
 
 
 # API
@@ -115,7 +109,10 @@ def test_store_cleanup():
 def test_get_messages_empty(client):
 	res = client.get(MESSAGES_URL)
 	assert res.status_code == 200
-	assert res.get_json()['messages'] == []
+	data = res.get_json()
+	assert data['messages'] == []
+	assert data['retentionSeconds'] == MESSAGE_TTL_SECONDS
+	assert data['maxMessageLength'] == MAX_MESSAGE_LENGTH
 
 
 def test_post_and_get_message(client):
@@ -141,14 +138,6 @@ def test_post_empty_rejected(client):
 	res = client.post(MESSAGES_URL, json={'text': '   '})
 	assert res.status_code == 400
 	assert 'error' in res.get_json()
-
-
-def test_status_endpoint(client):
-	res = client.get('/api/messageboard/status/')
-	assert res.status_code == 200
-	data = res.get_json()
-	assert data['activeCount'] == 0
-	assert data['retentionSeconds'] == MESSAGE_TTL_SECONDS
 
 
 def test_post_via_form_data(client):

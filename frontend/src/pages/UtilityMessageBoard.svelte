@@ -6,13 +6,13 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { fetchActiveMessages, postBoardMessage, type BoardLimits } from '../lib/messageboard/api';
   import {
-    fetchActiveMessages,
-    fetchMessageBoardStatus,
-    postBoardMessage,
-    type BoardMessage,
-    type MessageBoardStatus,
-  } from '../lib/messageboard/api';
+    messageLength,
+    secondsLeft,
+    withLocalExpiry,
+    type LiveMessage,
+  } from '../lib/messageboard/board';
   import { AsyncTask } from '../lib/asyncTask.svelte';
   import { formatTime } from '../lib/format';
   import FormMessages from '../lib/components/FormMessages.svelte';
@@ -20,21 +20,43 @@
   import { routeDefinitions } from '../lib/routeDefinitions';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
 
+  const POLL_INTERVAL_MS = 5000;
+  // The countdown turns red this close to expiry.
+  const EXPIRING_SECONDS = 10;
+
   // TTL and length limit come from the backend; null until loaded (the server enforces both).
-  let limits = $state<MessageBoardStatus | null>(null);
+  let limits = $state<BoardLimits | null>(null);
   const ttl = $derived(limits ? `~${limits.retentionSeconds}s` : null);
   const maxLength = $derived(limits?.maxMessageLength);
 
-  let messages = $state<BoardMessage[]>([]);
+  let messages = $state<LiveMessage[]>([]);
+  // Ticks every second, so cards count down and drop off as they expire.
+  let now = $state(Date.now());
+  const activeMessages = $derived(messages.filter((message) => secondsLeft(message, now) > 0));
   const feed = new AsyncTask('Failed to load messages.', { busy: true });
 
   let messageText = $state('');
+  const length = $derived(messageLength(messageText));
   const post = new AsyncTask('Failed to post message.');
 
-  async function loadMessages(): Promise<void> {
-    await feed.run(async () => {
-      messages = (await fetchActiveMessages()).messages;
-    });
+  async function fetchBoard(): Promise<void> {
+    const { messages: fetched, serverTime, ...boardLimits } = await fetchActiveMessages();
+    messages = withLocalExpiry(fetched, serverTime, Date.now());
+    limits = boardLimits;
+  }
+
+  /** Quiet refresh for polling and after posting: a failure keeps the current board, which still expires locally. */
+  async function refresh(): Promise<void> {
+    if (feed.busy || document.hidden) {
+      return;
+    }
+    try {
+      await fetchBoard();
+      // Recovers from a failed first load.
+      feed.error = null;
+    } catch {
+      // The next poll tries again.
+    }
   }
 
   async function handlePost(event: SubmitEvent): Promise<void> {
@@ -46,7 +68,8 @@
       return;
     }
 
-    if (maxLength !== undefined && trimmed.length > maxLength) {
+    // No `maxlength` on the textarea: it counts UTF-16 units, so emoji would count twice.
+    if (maxLength !== undefined && length > maxLength) {
       post.fail(`Message exceeds ${maxLength} characters.`);
       return;
     }
@@ -59,71 +82,62 @@
         : 'Message posted!';
     });
     if (posted) {
-      await loadMessages();
-    }
-  }
-
-  async function loadLimits(): Promise<void> {
-    try {
-      limits = await fetchMessageBoardStatus();
-    } catch {
-      // Non-fatal: the page just omits the TTL and length hints.
+      await refresh();
     }
   }
 
   onMount(() => {
-    void loadMessages();
-    void loadLimits();
+    void feed.run(fetchBoard);
+    const clock = setInterval(() => (now = Date.now()), 1000);
+    const poller = setInterval(refresh, POLL_INTERVAL_MS);
+    return () => {
+      clearInterval(clock);
+      clearInterval(poller);
+    };
   });
 </script>
 
+<!-- Polling pauses in background tabs, so catch up as soon as the tab is shown again. -->
+<svelte:document onvisibilitychange={refresh} />
+
 <PageHeader
   title="Utilities / {routeDefinitions.messageBoard.meta.title}"
-  description="Post short anonymous notes to the public board. All messages are ephemeral and automatically expire on the server shortly after posting. Reload anytime to refresh active notes."
->
-  {#snippet actions()}
-    <button
-      type="button"
-      class="reload-btn"
-      onclick={loadMessages}
-      disabled={feed.busy || post.busy}
-    >
-      {feed.busy ? 'Refreshing...' : 'Reload Board'}
-    </button>
-  {/snippet}
-</PageHeader>
+  description="Post short anonymous notes to the public board. All messages are ephemeral and expire shortly after posting. The board updates on its own every few seconds."
+/>
 
 <div class="board-layout">
   <section class="feed-column">
     <div class="feed-header">
-      <h2 class="prompt">Active Broadcasts ({messages.length})</h2>
+      <h2 class="prompt">Active Broadcasts ({activeMessages.length})</h2>
       {#if ttl}
         <span class="pill">[ {ttl} TTL ]</span>
       {/if}
     </div>
 
-    {#if feed.busy && messages.length === 0}
+    {#if feed.busy}
       <div class="terminal-box empty-card">
         <StatusMessage kind="loading" message="Fetching active broadcasts..." />
       </div>
     {:else if feed.error}
       <StatusMessage kind="error" message={feed.error} />
-    {:else if messages.length === 0}
+    {:else if activeMessages.length === 0}
       <div class="terminal-box empty-card">
         <p class="empty-title">[ NO ACTIVE BROADCASTS ]</p>
         <p class="empty-desc">
-          The board is clear right now. Post a message using the compose box on the side, then
-          reload to see it before it expires!
+          The board is clear right now. Post a note with the compose box and it shows up here until
+          it expires.
         </p>
       </div>
     {:else}
       <div class="auto-grid message-grid" style:--grid-min="320px" style:--grid-repeat="auto-fill">
-        {#each messages as msg (msg.id)}
+        {#each activeMessages as msg (msg.id)}
+          {@const left = secondsLeft(msg, now)}
           <article class="terminal-box hover-lift message-card">
             <header class="card-meta">
               <span class="prompt-icon" aria-hidden="true">></span>
               <span class="card-id">#{msg.id.slice(0, 6)}</span>
               <span class="card-time">{formatTime(msg.createdAt)}</span>
+              <span class="card-ttl" class:expiring={left <= EXPIRING_SECONDS}>{left}s left</span>
             </header>
             <p class="message-text">{msg.text}</p>
           </article>
@@ -151,16 +165,15 @@
         id="board-message-input"
         bind:value={messageText}
         placeholder={ttl ? `Type a note (vanishes in ${ttl})...` : 'Type a note...'}
-        maxlength={maxLength}
         rows="4"
         disabled={post.busy}></textarea>
 
       <div class="compose-meta">
         <span
           class="char-count"
-          class:near-limit={maxLength !== undefined && messageText.length > maxLength - 30}
+          class:near-limit={maxLength !== undefined && length > maxLength - 30}
         >
-          {messageText.length}{maxLength !== undefined ? `/${maxLength}` : ''}
+          {length}{maxLength !== undefined ? `/${maxLength}` : ''}
         </span>
         <button type="submit" class="submit-btn" disabled={post.busy || !messageText.trim()}>
           {post.busy ? 'Posting...' : 'Post Note'}
@@ -173,11 +186,6 @@
 </div>
 
 <style>
-  .reload-btn {
-    white-space: nowrap;
-    background-color: transparent;
-  }
-
   /* Message board as the main column, compose box to the side. */
   .board-layout {
     display: grid;
@@ -245,6 +253,16 @@
 
   .card-time {
     margin-left: auto;
+  }
+
+  /* Fixed width so the header doesn't shift as the countdown loses a digit. */
+  .card-ttl {
+    min-width: 7ch;
+    text-align: right;
+  }
+
+  .card-ttl.expiring {
+    color: var(--color-error);
   }
 
   .message-text {

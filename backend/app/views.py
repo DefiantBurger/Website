@@ -248,20 +248,9 @@ def about_you_request_context():
 	)
 
 
-@views.route('/api/messageboard/status/', methods=['GET'])
-def messageboard_status():
-	return jsonify(board_store.get_status())
-
-
 @views.route('/api/messageboard/messages/', methods=['GET'])
 def messageboard_messages():
-	messages = board_store.get_active_messages()
-	return jsonify(
-		{
-			'messages': messages,
-			'retentionSeconds': int(board_store.ttl_seconds),
-		}
-	)
+	return jsonify(board_store.snapshot())
 
 
 @views.route('/api/messageboard/messages/', methods=['POST'])

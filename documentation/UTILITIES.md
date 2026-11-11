@@ -85,16 +85,16 @@ Anonymous board where messages expire 60 seconds after posting.
 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
-| GET | `/api/messageboard/messages/` | | `{messages, retentionSeconds}`, newest first |
+| GET | `/api/messageboard/messages/` | | `{messages, serverTime, retentionSeconds, maxMessageLength}`, messages newest first |
 | POST | `/api/messageboard/messages/` | JSON or form: `{"text": "..."}` | `201` with the message |
-| GET | `/api/messageboard/status/` | | `{activeCount, retentionSeconds, maxMessageLength, maxMessages}` |
 
 A message is `{id, text, createdAt, expiresAt}`. Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` rate limit.
 
 - **Sanitizing.** NFC-normalizes, turns tabs into spaces, and drops control, format (zero-width, bidi overrides), private-use, and unassigned characters, except the joiner and tag characters emoji sequences need. Markup is stored as typed; the frontend renders text, never HTML. Runs of 3+ newlines collapse to 2.
 - **Storage.** In-process memory behind a lock: at most 200 messages (oldest evicted), expired ones purged on every read and write, all lost on restart.
 - **Rate limit.** 5 posts per 10 s per client IP (sliding window), checked before validation, so rejected posts count too.
-- The page reloads messages on mount, after posting, and on demand (no polling), and never renders them with `{@html}`.
+- **Page.** Polls every 5 s while the tab is visible (and right away when it becomes visible again), and after posting. Each card counts down and disappears when it expires. Expiry is timed from `serverTime`, so a wrong local clock doesn't hide or keep messages (`lib/messageboard/board.ts`). Messages are never rendered with `{@html}`.
+- **Length.** The page counts code points after NFC, like the server, so an emoji counts once. The textarea has no `maxlength`, which counts UTF-16 units.
 
 ## Adding a Utility
 

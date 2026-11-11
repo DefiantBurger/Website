@@ -1,22 +1,15 @@
 import { apiJson } from '../api';
+import type { BoardMessage } from './board';
 
-export interface BoardMessage {
-  id: string;
-  text: string;
-  createdAt: string;
-  expiresAt: string;
-}
-
-export interface MessageBoardResponse {
-  messages: BoardMessage[];
-  retentionSeconds: number;
-}
-
-export interface MessageBoardStatus {
-  activeCount: number;
+export interface BoardLimits {
   retentionSeconds: number;
   maxMessageLength: number;
-  maxMessages: number;
+}
+
+export interface MessageBoardResponse extends BoardLimits {
+  messages: BoardMessage[];
+  // When the server built the response, for timing expiry on the client.
+  serverTime: string;
 }
 
 export function fetchActiveMessages(): Promise<MessageBoardResponse> {
@@ -29,8 +22,4 @@ export function postBoardMessage(text: string): Promise<BoardMessage> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
   });
-}
-
-export function fetchMessageBoardStatus(): Promise<MessageBoardStatus> {
-  return apiJson<MessageBoardStatus>('/api/messageboard/status/');
 }
