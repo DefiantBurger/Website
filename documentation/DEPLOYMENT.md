@@ -14,12 +14,15 @@ Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudf
 | Compute | `flask-vm`: e2-micro, Debian 12, service account `flask-vm-runtime`, OS Login, startup script from `startup.sh.tftpl` |
 | Firewall | `allow-iap-ssh`: port 22 from IAP (`35.235.240.0/20`) only. No inbound web ports; the external IP is outbound-only. |
 | Cloudflare | Tunnel `personal-website` routing `${domain}` to `http://localhost:80`; proxied `@` CNAME to the tunnel; "Add visitor location headers" Managed Transform (used by About You) |
+| DNS | DNSSEC; CAA allowing only `pki.goog`, `letsencrypt.org`, `ssl.com`; `status` CNAME to Better Stack (must stay **DNS only**); Google site-verification TXT; `_dmarc` TXT (`p=reject`, reports to Cloudflare DMARC Management) |
 | Secret Manager | `cloudflare-tunnel-token`; VM accessor IAM on it and on `flask-secret` |
 | GitHub deploys (`github_deploy.tf`) | Workload Identity pool + provider (accepts only `${github_repository}`, `refs/heads/main`, environment `production`); service account `github-deployer` with IAP tunnel access, non-admin OS Login on the VM, `serviceAccountUser` on `flask-vm-runtime`, and project `compute.viewer` |
 
 Outputs `github_wif_provider` and `github_deployer_email` are the values for the GitHub repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA`.
 
-Not in Terraform: the `status` CNAME to `statuspage.betteruptime.com` (Better Stack). It was added by hand and must stay **DNS only** (unproxied), or Better Stack can't serve the page.
+The hand-made DNS records are adopted with `import` blocks that look up record IDs by name, so the records must exist before `plan`. The `_dmarc` record comes from enabling DMARC Management (Email → DMARC Management); Terraform keeps its `rua` address and sets the policy.
+
+Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns and locks the MX, SPF, and `cf2024-1._domainkey` records. The provider can't import its settings. If the zone is rebuilt, re-enable it and recreate the routing rules in the dashboard.
 
 ## Secrets
 
