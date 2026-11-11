@@ -20,9 +20,9 @@ Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudf
 
 Outputs `github_wif_provider` and `github_deployer_email` are the values for the GitHub repository variables `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA`.
 
-The hand-made DNS records are adopted with `import` blocks that look up record IDs by name, so the records must exist before `plan`. The `_dmarc` record comes from enabling DMARC Management (Email → DMARC Management); Terraform keeps its `rua` address and sets the policy.
+The `_dmarc` record comes from enabling DMARC Management (Email → DMARC Management); Terraform reads its `rua` address and sets the policy. The site-verification TXT and `_dmarc` must exist before `plan`, since Terraform looks them up.
 
-Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns and locks the MX, SPF, and `cf2024-1._domainkey` records. The provider can't import its settings. If the zone is rebuilt, re-enable it and recreate the routing rules in the dashboard.
+Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns and locks the MX, SPF, and `cf2024-1._domainkey` records. Provider v4 can't import its settings (see [Ideas](./IDEAS.md#cloudflare-provider-v5)). If the zone is rebuilt, re-enable it and recreate the routing rules in the dashboard.
 
 ## Secrets
 

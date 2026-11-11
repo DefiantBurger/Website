@@ -50,12 +50,6 @@ resource "cloudflare_record" "website" {
   }
 }
 
-# Originally created by hand in the dashboard.
-import {
-  to = cloudflare_record.www
-  id = "${var.cloudflare_zone_id}/313cd5c0c7a68ae405aae8fa8271f0d5"
-}
-
 # Proxied so www resolves to Cloudflare. The redirect rule below answers every
 # request, so nothing is ever forwarded to the apex through this record.
 resource "cloudflare_record" "www" {
@@ -125,14 +119,6 @@ resource "cloudflare_record" "caa" {
   }
 }
 
-# The records below were created by hand. Provider v4 can only import records
-# by ID, so these look the IDs up by name.
-data "cloudflare_record" "status" {
-  zone_id  = var.cloudflare_zone_id
-  hostname = "status.${var.domain}"
-  type     = "CNAME"
-}
-
 data "cloudflare_record" "google_verification" {
   zone_id  = var.cloudflare_zone_id
   hostname = var.domain
@@ -144,21 +130,6 @@ data "cloudflare_record" "dmarc" {
   zone_id  = var.cloudflare_zone_id
   hostname = "_dmarc.${var.domain}"
   type     = "TXT"
-}
-
-import {
-  to = cloudflare_record.status
-  id = "${var.cloudflare_zone_id}/${data.cloudflare_record.status.id}"
-}
-
-import {
-  to = cloudflare_record.google_verification
-  id = "${var.cloudflare_zone_id}/${data.cloudflare_record.google_verification.id}"
-}
-
-import {
-  to = cloudflare_record.dmarc
-  id = "${var.cloudflare_zone_id}/${data.cloudflare_record.dmarc.id}"
 }
 
 # Must stay DNS only, or Better Stack can't serve the page or renew its cert.

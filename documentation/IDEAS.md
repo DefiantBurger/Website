@@ -95,3 +95,13 @@ Show a progress bar while uploading. `fetch` can't report upload progress, so th
 
 - Encode a link with the key in the fragment (`/utilities/fileshare#key=...`), so scanning it opens the page with the key filled in, and the key never reaches the server or its logs.
 - QR encoding is a few hundred lines to write by hand. A small, dependency-free library (e.g. `qrcode-generator`) is a reasonable exception to the no-new-dependencies rule.
+
+## Infrastructure
+
+### Cloudflare provider v5
+
+Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing (Issues, Infrastructure #2).
+
+- **Breaking changes:** `cloudflare_record` becomes `cloudflare_dns_record` (`moved` blocks handle state); nested blocks become attributes (tunnel config, ruleset rules, CAA `data`); `cloudflare_managed_headers` becomes `cloudflare_managed_transforms`; the `cloudflare_record` data sources change shape. Cloudflare's `tf-migrate` tool does most of the rewrite.
+- **Main risk:** `tunnel_token` moves off the tunnel resource to the `cloudflare_zero_trust_tunnel_cloudflared_token` data source, and it feeds the Secret Manager version the VM reads. `plan` must show no replacement of the tunnel or the VM, or the site goes down until a redeploy.
+- **Email Routing:** import `cloudflare_email_routing_settings` and `cloudflare_email_routing_dns` (both by zone ID). The repo is public, so rule destination addresses either go in a tfvars variable or stay in the dashboard.
