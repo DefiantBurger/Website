@@ -31,7 +31,7 @@ cd frontend && pnpm a11y                 # axe-core scan
 - **Backend tests** (`backend/tests/`) get a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage.
 - **Unit tests** (`frontend/tests/unit/*.test.ts`) use Node's built-in runner and cover pure logic only: code using runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep testable logic in plain `.ts` modules. `tests/unit/resolve-ts.ts` lets Node resolve the source's extensionless imports. A test marked `{ todo }` documents a known bug without failing the suite.
 - **`pnpm smoke`** loads every route and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, and theme persistence.
-- **`pnpm a11y`** runs axe-core (WCAG 2.2 A/AA plus best practices) on every route, one project page, and the 404 page, in both themes at desktop and phone width. Mermaid diagrams are excluded (see Issues); screen-reader flow, focus handling, and drag-and-drop still need a manual check.
+- **`pnpm a11y`** runs axe-core (WCAG 2.2 A/AA plus best practices) on every route, one project page, and two 404 paths (an unknown page and an unknown project), in both themes at desktop and phone width. Nothing is excluded, Mermaid diagrams included. Screen-reader flow, focus handling, and drag-and-drop still need a manual check.
 - Both browser scripts need the dev servers running, drive the installed Google Chrome through `playwright-core` (or run `pnpm exec playwright-core install chromium`), and accept `TEST_BASE_URL` to target another host.
 - **CI** (`test.yaml`) runs everything except the browser checks. Lint and format problems only warn.
 
@@ -40,7 +40,7 @@ cd frontend && pnpm a11y                 # axe-core scan
 | File | Role |
 | --- | --- |
 | `main.py` | Loads `.env`, builds the app, logs each request, starts the dev server or Waitress based on `FLASK_ENV`. |
-| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at 101 MiB, enables CORS in development, registers the `views` blueprint, returns JSON 404s. |
+| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at `MAX_FILE_BYTES` + 1 MiB (~81 MB), trusts Nginx's `X-Forwarded-For`/`-Proto` (`ProxyFix`), enables CORS in development, registers the `views` blueprint, returns JSON 404s. |
 | `app/views.py` | All routes and the client-IP/Cloudflare-header helpers. Turns any `ApiError` into a JSON `{error}` response. |
 | `app/errors.py` | `ApiError(message, status_code)`, the base for `FileShareError` and `MessageBoardError`. |
 | `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
@@ -58,10 +58,10 @@ Data: `app/static/json/course_data.json` and `my_courses.json` (scheduler catalo
 
 - `src/lib/routeDefinitions.ts` holds each route's path and page metadata (tab title and description), plus the helpers built on them. Link with `pathFor(key, params)` instead of writing paths out. It has no Svelte imports so `vite.config.ts` can read it.
 - `src/lib/routes.ts` pairs each key with its page component (separate to avoid an import cycle); the type check fails if a key has no page. A route's `accepts(params)` can reject params so they fall through to the 404 page (used for unknown project slugs).
-- Derived from those two: the 404 page's suggestions, plus, at build time (`vite.config.ts`), `sitemap.xml` and a copy of `index.html` per route (`plugins/routeHtml.ts`) with that page's title, description, canonical link, and Open Graph tags filled in, so link previews are per page and Nginx can return real 404s for unknown paths. The home page also gets JSON-LD structured data (`WebSite` + `Person`). The dev server fills in the same tags for the requested path. A new route with a param other than `/projects/:slug` fails the build until `servedPaths()` knows its values.
+- Derived from those two: the 404 page's suggestions, plus, at build time (`vite.config.ts`), `sitemap.xml` and a copy of `index.html` per route (`plugins/routeHtml.ts`) with that page's title, description, canonical link, and Open Graph tags filled in, so link previews are per page and Nginx can return real 404s for unknown paths (with `404.html` as the body). Each copy also gets a `<noscript>` list of links to the static pages, and the home page gets JSON-LD structured data (`WebSite` + `Person`). `main.ts` removes the static description and canonical tags once the app renders its own. The dev server fills in the same tags for the requested path. A new route with a param other than `/projects/:slug` fails the build until `pageHeads()` knows its values.
 - The site origin, owner name, and profile links live in `src/lib/site.ts`. `robots.txt` and `security.txt` are templates in `frontend/site-files/` whose `%NAME%` placeholders are filled from it at build time (`plugins/generatedFiles.ts`); don't put files that mention the domain in `public/`.
 
-`App.svelte` renders `<PageMeta>` (the `<title>` with the site-name suffix, and the meta description) from the current route's `meta`. A route without `meta` renders its own `<PageMeta>`, as project pages do once their content loads.
+`App.svelte` renders `<PageMeta>` (the `<title>` with the site-name suffix, and the meta description) from the current route's `meta`, plus the canonical link. A route without `meta` renders its own `<PageMeta>`, as project pages do once their content loads.
 
 On client-side navigation, `App.svelte` moves focus to `<main id="main">` and announces the new `document.title` through a polite live region. A skip link also targets `#main`.
 
@@ -92,7 +92,7 @@ Requests go through `fetchWithTimeout` (`lib/fetchTimeout.ts`), which gives up i
 
 `plugins/projects.ts` reads `src/content/projects/*.md` ([frontmatter](#project-frontmatter)), drops unpublished ones, and exposes two virtual modules: `virtual:projects` (summaries, highest `priority` first, plus a loader per slug, in the main bundle) and `virtual:project/<slug>` (one project's HTML, its own chunk). `src/lib/projects/content.ts` wraps them. The build fails on a duplicate or invalid slug (lowercase letters, digits, hyphens). In dev, editing a write-up reloads the page.
 
-`plugins/renderMarkdown.ts` runs remark → GFM → rehype → heading anchors → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize`. `ProjectDetail.svelte` injects the HTML, then loads Mermaid on demand (only when the page has a diagram) and renders it in the current theme, re-rendering on theme change. Wide diagrams stop shrinking at 60% of their natural width and scroll horizontally instead.
+`plugins/renderMarkdown.ts` runs remark → GFM → rehype → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → heading ids (`rehype-slug`) → heading anchor links. Order matters: ids are added after sanitizing so the anchors' `href`s match them, and the build fails if a Mermaid fence doesn't survive as a diagram. `ProjectDetail.svelte` injects the HTML, then loads Mermaid on demand (only when the page has a diagram) and renders it in the current theme, re-rendering on theme change. Wide diagrams stop shrinking at 60% of their natural width and scroll horizontally instead.
 
 ### About You
 

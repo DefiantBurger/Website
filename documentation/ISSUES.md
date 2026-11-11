@@ -14,17 +14,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 2. **Minor:** The 404 page always shows "Did you mean ...?", since `closest()` returns the nearest path however far it is (e.g. `/zzzzzz` suggests some unrelated page). A distance cutoff would fix it.
 3. **Minor:** `App.svelte` builds the canonical link from `window.location.origin`, while the build (`plugins/routeHtml.ts`) uses `SITE_ORIGIN`. They only agree because Cloudflare redirects other hosts; use `SITE_ORIGIN` in both.
 
-## Documentation
-
-Docs that no longer match the code:
-
-1. `IMPLEMENTATION.md` says `create_app()` caps bodies at 101 MiB; it's `MAX_FILE_BYTES` + 1 MiB (~81 MB).
-2. `IMPLEMENTATION.md` refers to `servedPaths()`; the function is `pageHeads()` in `plugins/routeHtml.ts`.
-3. `IMPLEMENTATION.md` says `pnpm a11y` excludes Mermaid diagrams "(see Issues)"; `a11y.ts` excludes nothing and there's no such issue.
-4. `IMPLEMENTATION.md` gives the Markdown pipeline as anchors → Mermaid → sanitize. The real order is Mermaid → sanitize → slug → autolink, and it matters: slugs run after sanitize so anchor hrefs match the ids.
-5. `UTILITIES.md` says `UtilityScheduler.svelte` keeps the schedule as state; it lives in `SchedulerStore` (`store.svelte.ts`).
-6. `backend/pyproject.toml` still has the template description "Add your description here".
-
 ## Infrastructure
 
 1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
@@ -37,6 +26,7 @@ Docs that no longer match the code:
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
 2. Expiry is request-driven; idle files linger until the next file-share request.
 3. **Possible:** "Download All" starts each download after an `await`, outside the click's user activation, so Chrome may prompt for or block multiple automatic downloads. Needs a manual check.
+4. **Minor:** An upload body between Flask's `MAX_CONTENT_LENGTH` (`MAX_FILE_BYTES` + 1 MiB, ~81.05 MB) and Nginx's `81M` (~84.9 MB) gets Werkzeug's HTML 413, not JSON, though the comment in `app/__init__.py` says otherwise. The frontend falls back to a status-based message, so users still see an error. An `@app.errorhandler(413)` returning `{'error': ...}` would fix it.
 
 ## Code Quality
 

@@ -43,7 +43,7 @@ cp output/course_data.json ../PersonalWebsite/backend/app/static/json/
 
 ### Behavior
 
-- **Code layout.** `catalog.ts` builds and exports schedules (each course occurrence gets a unique ID, `<course>__<n>`) and searches the catalog. `schedule.ts` holds every edit as a pure function; `store.svelte.ts` (`SchedulerStore`) applies them through `store.apply()` so `history.ts` can undo/redo (100 steps). `UtilityScheduler.svelte` keeps only the schedule as state and derives everything else.
+- **Code layout.** `catalog.ts` builds and exports schedules (each course occurrence gets a unique ID, `<course>__<n>`) and searches the catalog. `schedule.ts` holds every edit as a pure function. `store.svelte.ts` (`SchedulerStore`) holds the page state (the schedule as undo history, the catalog, selection, notices, drag state), applies edits through `store.apply()` so `history.ts` can undo/redo (100 steps), and derives everything else (graph, overlaps, problems). `UtilityScheduler.svelte` creates the store, passes it to the components, and handles loading, import/export, and the share link.
 - **Requirement checks** (`logic.ts`). Each row is evaluated against a course's earliest scheduled instance: `met`, `concurrent`, `out-of-order`, or `missing`, ranked in that order. `any` takes its best child, `all` its worst, `atleast k` its k-th best. Edges are drawn from the courses that decided each row. Precollege courses count as earned, so their own requirements aren't checked. Progress is satisfied rows ÷ all rows.
 - **Credit overlaps.** For a pair that can't both count, the later one is flagged and both cards show `≠`; pairs entirely in precollege are ignored.
 - **Auto-detangle** reorders cards within columns (barycenter sweeps) to reduce edge crossings.
@@ -68,7 +68,7 @@ Temporary file sharing keyed by an access key: files are encrypted at rest and e
 
 A file record is `{occurrenceIndex, originalFilename, sizeBytes, uploadedAt, expiresAt}`.
 
-Errors: `400` missing key/file, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `503` storage full or too many concurrent transfers.
+Errors: `400` missing key/file or invalid index, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `503` storage full or too many concurrent transfers.
 
 ### Behavior
 

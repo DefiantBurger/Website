@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "Flask API backend for josephcicalese.com"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

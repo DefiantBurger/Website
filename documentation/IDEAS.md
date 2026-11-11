@@ -65,7 +65,7 @@ Add a footer, and move the Status link there from the navbar. It belongs with th
 The build already writes `<route>/index.html` for every route (`plugins/routeHtml.ts`) with that page's head tags, but the body is the same empty shell plus a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`.
 
 - **Gains:** visitors without JavaScript and simple crawlers see real content; content appears before the JS loads.
-- **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. It's also a second render path, which CI's `pnpm build` now covers.
+- **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. The CSP blocks inline scripts, and a blocking external script was already tried and made the flash worse (Issues appendix), so allow the inline one by hash: add its `'sha256-...'` to `script-src` in `nginx.conf.tftpl`, and have the build fail if the script's hash stops matching. Keep the script tiny and stable, since the Nginx config only reaches the VM through an in-place update or a VM replacement. It's also a second render path, which CI's `pnpm build` now covers.
 - **Scope:** start with the static pages (home, about, projects, project detail, contact). Utilities need JS and live data anyway, so they keep the plain shell. Mermaid diagrams stay client-side.
 
 ### OG images
@@ -104,7 +104,7 @@ Terraform state is local to the operator's machine (gitignored): no remote backe
 
 ### Cloudflare provider v5
 
-Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing (Issues, Infrastructure #2).
+Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing (Issues, Infrastructure #1).
 
 - **Breaking changes:** `cloudflare_record` becomes `cloudflare_dns_record` (`moved` blocks handle state); nested blocks become attributes (tunnel config, ruleset rules, CAA `data`); `cloudflare_managed_headers` becomes `cloudflare_managed_transforms`; the `cloudflare_record` data sources change shape. Cloudflare's `tf-migrate` tool does most of the rewrite.
 - **Main risk:** `tunnel_token` moves off the tunnel resource to the `cloudflare_zero_trust_tunnel_cloudflared_token` data source, and it feeds the Secret Manager version the VM reads. `plan` must show no replacement of the tunnel or the VM, or the site goes down until a redeploy.
@@ -112,7 +112,7 @@ Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates e
 
 ### Debian 13 and Python 3.13
 
-Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028 (confirm at https://wiki.debian.org/LTS before scheduling). Debian 13 (trixie) ships Python 3.13. This replaces the VM, so do it in the same apply as the `unattended-upgrades` fix (Issues, Infrastructure #1).
+Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028 (confirm at https://wiki.debian.org/LTS before scheduling). Debian 13 (trixie) ships Python 3.13. This replaces the VM.
 
 - `deployment/main.tf`: `image = "debian-cloud/debian-13"`.
 - `deployment/startup.sh.tftpl`: `python3.11` and `python3.11-venv` become `python3.13` and `python3.13-venv` (step 2 and the version check in step 3); the cloudflared apt line's `bookworm` becomes `trixie` (check that https://pkg.cloudflare.com/cloudflared has a `trixie` suite; the `bookworm` packages also run on trixie if not). `deployment/deploy.sh.tftpl`: `python3.11 -m venv` becomes `python3.13`.
@@ -121,10 +121,10 @@ Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028
 
 ### Supply-chain cooldowns in the repo
 
-pnpm's `minimumReleaseAge` (install nothing published in the last N minutes) is currently set only in the owner's `~/.npmrc`, while `frontend/pnpm-workspace.yaml` carries just the `minimumReleaseAgeExclude` for vite. So the protection exists on one machine. Dependabot has its own equivalent and ignores pnpm's.
+pnpm's `minimumReleaseAge` (install nothing published in the last N minutes) is currently set only in the owner's `~/.npmrc` (`minimum-release-age=4320`, three days). So the protection exists on one machine. Dependabot has its own equivalent and ignores pnpm's.
 
-- `frontend/pnpm-workspace.yaml`: add `minimumReleaseAge: 10080` (seven days, in minutes) above the existing exclude. Copy the value from the owner's config instead if it differs (`grep minimum-release-age ~/.npmrc`; read only that line, the file can hold tokens).
-- `.github/dependabot.yml`: add `cooldown: { default-days: 7 }` to all three `updates` entries (npm, uv, github-actions). uv itself has no rolling-window option (`exclude-newer` is a fixed date), so the Dependabot cooldown is the backend's only cover.
+- Create `frontend/pnpm-workspace.yaml` with `minimumReleaseAge: 4320`. pnpm reads it for this project only; when a needed release is too new, add a `minimumReleaseAgeExclude` entry and remove it once the release has aged past the window.
+- `.github/dependabot.yml`: add `cooldown: { default-days: 3 }` to all three `updates` entries (npm, uv, github-actions). uv itself has no rolling-window option (`exclude-newer` is a fixed date), so the Dependabot cooldown is the backend's only cover.
 - Also enable **Dependabot security updates** in GitHub → Settings → Code security (alerts and secret scanning are already on; security updates, which open a PR as soon as an advisory lands, are off). Owner-only, no code.
 - Docs: mention both settings in `IMPLEMENTATION.md` wherever dependencies are described.
 
@@ -219,9 +219,9 @@ resource "cloudflare_zone_settings_override" "website" {
 
 ### Trim the production venv
 
-`flask-cors` and `python-dotenv` only matter under `FLASK_ENV=development`, yet both ship in every release and get Dependabot PRs against production. `backend/pyproject.toml` also still carries the setuptools `[build-system]` block and the placeholder description, although `uv export --no-emit-project` means the package is never built.
+`flask-cors` and `python-dotenv` only matter under `FLASK_ENV=development`, yet both ship in every release and get Dependabot PRs against production. `backend/pyproject.toml` also still carries the setuptools `[build-system]` block, although `uv export --no-emit-project` means the package is never built.
 
 - **Drop `python-dotenv`.** `start-dev.sh` already exports every variable, the README shows them inline, and uv can load a file itself: `uv run --env-file .env main.py`. Remove `load_dotenv()` from `backend/main.py`, the dependency from `pyproject.toml`, and the "loads `.env`" mentions in `IMPLEMENTATION.md` (the environment table intro and the `main.py` row), replacing them with the `--env-file` form. The alternative, if the owner wants `.env` to keep working with a bare `uv run main.py`, is to move it to the `dev` group and guard the import with `try: from dotenv import load_dotenv / except ImportError`.
 - **Move `flask-cors` to the `dev` group** and import it where it's used, inside the `development` branch of `create_app` in `backend/app/__init__.py` (`from flask_cors import CORS`), so production never imports it. Ruff doesn't flag function-level imports with the current rule set.
-- **Stop treating the backend as a package:** delete `[build-system]` and `[tool.setuptools.packages.find]`, fix the `description`, and add `[tool.uv]` with `package = false`. Tests then no longer get `app` from an installed package, so add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. `main.py` is unaffected: it's run from `backend/`, which puts the script's directory on `sys.path`.
+- **Stop treating the backend as a package:** delete `[build-system]` and `[tool.setuptools.packages.find]`, and add `[tool.uv]` with `package = false`. Tests then no longer get `app` from an installed package, so add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. `main.py` is unaffected: it's run from `backend/`, which puts the script's directory on `sys.path`.
 - Run `uv lock` after each manifest change (never hand-edit `uv.lock`), then `uv run pytest` and the Ruff checks. Confirm the release still builds: `uv export --frozen --no-dev --no-emit-project --format requirements-txt` must list neither package.

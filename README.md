@@ -17,7 +17,7 @@ Svelte + Vite frontend, Flask API backend, on a single GCP VM (provisioned by Te
 
 ## Quick Start
 
-Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22+, and pnpm.
+Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.18+ (the test scripts run TypeScript directly), and pnpm.
 
 ```bash
 (cd backend && uv sync)
