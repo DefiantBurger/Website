@@ -250,7 +250,8 @@
     {#if uploadFiles.length > 0}
       <p class="file-meta">Selected: {uploadFiles.length} file(s)</p>
       <ul class="file-list">
-        {#each uploadFiles as file (file.name)}
+        <!-- Keyed by index: picked files can share a name (iOS calls every photo image.jpg). -->
+        {#each uploadFiles as file, index (index)}
           <li>{file.name} ({formatBytes(file.size)})</li>
         {/each}
       </ul>

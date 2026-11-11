@@ -420,10 +420,11 @@ def delete_records(password: str, occurrence_indices: Iterable[int]) -> int:
 
 def decrypt_record_payload(record: FileShareRecord, password: str) -> bytes:
 	_, payload_path = _record_paths(record.label, record.occurrence_index)
-	if not payload_path.exists():
-		raise FileShareError('The requested file is no longer available.', 404)
-
-	ciphertext = payload_path.read_bytes()
+	# Read first rather than checking exists(): a sweep or eviction can delete it in between.
+	try:
+		ciphertext = payload_path.read_bytes()
+	except FileNotFoundError:
+		raise FileShareError('The requested file is no longer available.', 404) from None
 	try:
 		return _decrypt_bytes(password, record, ciphertext)
 	except Exception as exc:

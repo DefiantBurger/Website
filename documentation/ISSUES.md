@@ -36,9 +36,7 @@ Docs that no longer match the code:
 
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
 2. Expiry is request-driven; idle files linger until the next file-share request.
-3. **Minor:** `decrypt_record_payload()` checks `payload_path.exists()` and then reads the file. If a concurrent sweep or eviction deletes it in between, `read_bytes()` raises and the download returns a 500 instead of a 404. Catching `FileNotFoundError` instead of checking first fixes it and is shorter.
-4. **Possible:** The selected-files list is keyed by `file.name`. Two picked files with the same name (iOS photo pickers have named every photo `image.jpg`) would make Svelte throw a duplicate-key error. Keying by index avoids it.
-5. **Possible:** "Download All" starts each download after an `await`, outside the click's user activation, so Chrome may prompt for or block multiple automatic downloads. Needs a manual check.
+3. **Possible:** "Download All" starts each download after an `await`, outside the click's user activation, so Chrome may prompt for or block multiple automatic downloads. Needs a manual check.
 
 ## Code Quality
 
