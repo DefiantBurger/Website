@@ -54,14 +54,26 @@ export class SchedulerStore {
     this.selectedCourseId = null;
   }
 
+  fail(text: string): void {
+    this.notice = { kind: 'error', text };
+  }
+
+  succeed(text: string): void {
+    this.notice = { kind: 'success', text };
+  }
+
   /** Run an edit and record it; a thrown error becomes the notice instead. */
   apply(edit: (schedule: ScheduleState) => ScheduleState, success?: string): boolean {
     try {
       this.history = commit(this.history, edit(this.schedule));
-      this.notice = success ? { kind: 'success', text: success } : null;
+      if (success) {
+        this.succeed(success);
+      } else {
+        this.notice = null;
+      }
       return true;
     } catch (error) {
-      this.notice = { kind: 'error', text: errorMessage(error, 'That change failed.') };
+      this.fail(errorMessage(error, 'That change failed.'));
       return false;
     }
   }

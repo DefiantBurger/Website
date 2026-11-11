@@ -23,7 +23,7 @@
   import { emptySchedule, nudgeCourse, shiftCourse } from '../lib/scheduler/schedule';
   import { decodePlan, encodePlan, planFromHash, planHash } from '../lib/scheduler/shareLink';
   import { SchedulerStore } from '../lib/scheduler/store.svelte';
-  import type { ScheduleState } from '../lib/scheduler/types';
+  import type { ScheduleFile, ScheduleState } from '../lib/scheduler/types';
 
   const URL_WRITE_DELAY_MS = 300;
 
@@ -74,27 +74,47 @@
     );
   }
 
-  async function scheduleFromLink(
-    encoded: string,
-  ): Promise<{ schedule: ScheduleState; skipped: string[] }> {
-    const skipped: string[] = [];
-    const schedule = buildSchedule(store.catalog, await decodePlan(encoded), skipped);
-    return { schedule, skipped };
-  }
-
   function skippedNote(skipped: string[]): string {
     const noun = skipped.length === 1 ? 'course' : 'courses';
     return ` Skipped ${skipped.length} unknown or invalid ${noun}: ${skipped.join(', ')}.`;
   }
 
-  /** Replace the plan as one undoable step, warning about any entries that were left out. */
-  function applyPlan(schedule: ScheduleState, skipped: string[], success: string): void {
-    if (!store.apply(() => schedule, success)) {
+  /** Replace the plan with one read from a link or file. `asUndoStep: false` replaces the history instead (initial load). */
+  async function importPlan(
+    read: () => Promise<ScheduleFile>,
+    {
+      success,
+      failure = (reason) => reason,
+      detangle = false,
+      asUndoStep = true,
+    }: {
+      success: string;
+      failure?: (reason: string) => string;
+      detangle?: boolean;
+      asUndoStep?: boolean;
+    },
+  ): Promise<void> {
+    const skipped: string[] = [];
+    let schedule: ScheduleState;
+    try {
+      schedule = buildSchedule(store.catalog, await read(), skipped);
+    } catch (error) {
+      store.fail(failure(errorMessage(error, 'Could not load that plan.')));
       return;
     }
-    store.selectedCourseId = null;
+    if (detangle) {
+      schedule = store.detangled(schedule);
+    }
+    if (asUndoStep) {
+      if (!store.apply(() => schedule, success)) {
+        return;
+      }
+      store.selectedCourseId = null;
+    } else {
+      store.load(store.catalog, schedule, false);
+    }
     if (skipped.length > 0) {
-      store.notice = { kind: 'error', text: success + skippedNote(skipped) };
+      store.fail(success + skippedNote(skipped));
     }
   }
 
@@ -104,29 +124,21 @@
     if (load.busy || load.error || !encoded) {
       return;
     }
-    try {
-      const { schedule, skipped } = await scheduleFromLink(encoded);
-      applyPlan(schedule, skipped, 'Loaded the plan from the link.');
-    } catch (error) {
-      store.notice = { kind: 'error', text: errorMessage(error, 'Could not load that plan link.') };
-    }
+    await importPlan(() => decodePlan(encoded), { success: 'Loaded the plan from the link.' });
   }
 
   async function handleCopyLink(): Promise<void> {
     try {
       writePlanToUrl(await encodePlan(exportSchedule(store.catalog, store.schedule)));
     } catch {
-      store.notice = { kind: 'error', text: 'This browser cannot create plan links.' };
+      store.fail('This browser cannot create plan links.');
       return;
     }
     try {
       await navigator.clipboard.writeText(window.location.href);
-      store.notice = { kind: 'success', text: 'Copied a link to this plan.' };
+      store.succeed('Copied a link to this plan.');
     } catch {
-      store.notice = {
-        kind: 'error',
-        text: 'Could not copy the link. The address bar has it; copy it from there.',
-      };
+      store.fail('Could not copy the link. The address bar has it; copy it from there.');
     }
   }
 
@@ -203,7 +215,7 @@
       store.schedule.semesterOrder.length === 0 &&
       Object.keys(store.schedule.coursesById).length === 0;
     if (isEmpty) {
-      store.notice = { kind: 'success', text: 'The plan is already empty.' };
+      store.succeed('The plan is already empty.');
       return;
     }
     if (
@@ -224,7 +236,7 @@
       }),
       'schedule-export.json',
     );
-    store.notice = { kind: 'success', text: 'Exported current schedule to schedule-export.json' };
+    store.succeed('Exported current schedule to schedule-export.json');
   }
 
   async function handleImportFile(
@@ -235,23 +247,12 @@
     if (!file) {
       return;
     }
-
-    const text = await file.text();
+    // Cleared before any await so picking the same file again always fires `change`.
     input.value = '';
-    const skipped: string[] = [];
-    let schedule: ScheduleState;
-    try {
-      schedule = store.detangled(
-        buildSchedule(store.catalog, parseScheduleFile(JSON.parse(text)), skipped),
-      );
-    } catch (error) {
-      store.notice = {
-        kind: 'error',
-        text: errorMessage(error, 'That file could not be imported.'),
-      };
-      return;
-    }
-    applyPlan(schedule, skipped, `Imported schedule from ${file.name}.`);
+    await importPlan(async () => parseScheduleFile(JSON.parse(await file.text())), {
+      success: `Imported schedule from ${file.name}.`,
+      detangle: true,
+    });
   }
 
   onMount(() => {
@@ -262,19 +263,11 @@
 
       const encoded = planFromHash(window.location.hash);
       if (encoded) {
-        try {
-          const { schedule, skipped } = await scheduleFromLink(encoded);
-          store.load(data.catalog, schedule, false);
-          if (skipped.length > 0) {
-            store.notice = {
-              kind: 'error',
-              text: 'Loaded the shared plan.' + skippedNote(skipped),
-            };
-          }
-        } catch (error) {
-          const reason = errorMessage(error, 'Could not load the plan link.');
-          store.notice = { kind: 'error', text: `${reason} Showing the default plan instead.` };
-        }
+        await importPlan(() => decodePlan(encoded), {
+          success: 'Loaded the shared plan.',
+          failure: (reason) => `${reason} Showing the default plan instead.`,
+          asUndoStep: false,
+        });
       }
       loadedSchedule = store.schedule;
     });

@@ -21,10 +21,7 @@
   function add(): void {
     const courseName = resolveCourseQuery(store.catalog, query, suggestions);
     if (!courseName) {
-      store.notice = {
-        kind: 'error',
-        text: 'Pick a course from the search results before adding.',
-      };
+      store.fail('Pick a course from the search results before adding.');
       return;
     }
 

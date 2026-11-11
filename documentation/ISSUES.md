@@ -32,10 +32,6 @@ Docs that no longer match the code:
 
 ## Utilities
 
-### Class Scheduler
-
-1. **Minor:** `handleImportFile()` in `UtilityScheduler.svelte` awaits `file.text()` outside its `try`. If the file can't be read (moved or deleted since it was picked), the rejection goes unhandled, no notice appears, and the input isn't cleared, so picking the same file again doesn't fire `change`. Resolved by Code Quality, Frontend #2 below (the read moves inside `importPlan`'s `try`); remove both together.
-
 ### File Share
 
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
@@ -74,66 +70,9 @@ Refactors from a code-quality review (2026-11-10). Every item is **Cleanup** (no
 
 ### Frontend
 
-1. **Cleanup:** `store.notice = { kind: 'error', text: ... }` is written by hand eleven times (`pages/UtilityScheduler.svelte` ten, `lib/scheduler/components/AddCourseForm.svelte` once). Add two methods to `SchedulerStore` in `lib/scheduler/store.svelte.ts` and use them everywhere, including inside `apply()`, `undo()`, and `redo()` where it fits:
+1. **Cleanup (small wording change, approved by the owner):** `pages/UtilityFileShare.svelte` has `handleDownload` and `handleDownloadAll`, which are the same function for a list of one file versus all of them. Replace both, plus the `downloadFile` helper, with one `startDownloads(files: FileShareRecord[])`: get the key with `requireAccessKey('Enter the access key to retrieve files.')`; if `files` is empty, `access.fail('No files available for download.')` and return; otherwise inside `access.run`, loop over `files` calling `saveBlob(await downloadFileShare(key, file.occurrenceIndex), file.originalFilename)` and collect failures in the same `- name: reason` format as now. Then `const succeeded = files.length - failures.length`; if `succeeded > 0`, `access.success = \`Started ${succeeded} download${succeeded === 1 ? '' : 's'}.\``; if `failures.length > 0`, `access.error = \`${succeeded} succeeded, ${failures.length} failed:\n${failures.join('\n')}\``. The Download button calls `startDownloads(accessFiles.filter((file) => file.occurrenceIndex === selectedFileIndex))` and Download All calls `startDownloads(accessFiles)`. What changes for the user: one download now says "Started 1 download." instead of "Started download for <name>.", and an all-successful batch says "Started N downloads." instead of "N succeeded, 0 failed.".
 
-   ```ts
-   fail(text: string): void {
-     this.notice = { kind: 'error', text };
-   }
-
-   succeed(text: string): void {
-     this.notice = { kind: 'success', text };
-   }
-   ```
-
-2. **Cleanup:** `pages/UtilityScheduler.svelte` builds a plan from an outside source in three near-identical places: the hash on mount (inside `load.run`), `handleHashChange`, and `handleImportFile`. Each decodes, collects `skipped`, applies, and composes a notice with `skippedNote`. Replace `scheduleFromLink` and `applyPlan` with one function (needs Frontend #1 and `import type { ScheduleFile, ScheduleState }` from `../lib/scheduler/types`):
-
-   ```ts
-   /** Replace the plan with one read from a link or file. `asUndoStep: false` replaces the history instead (initial load). */
-   async function importPlan(
-     read: () => Promise<ScheduleFile>,
-     {
-       success,
-       failure = (reason) => reason,
-       detangle = false,
-       asUndoStep = true,
-     }: {
-       success: string;
-       failure?: (reason: string) => string;
-       detangle?: boolean;
-       asUndoStep?: boolean;
-     },
-   ): Promise<void> {
-     const skipped: string[] = [];
-     let schedule: ScheduleState;
-     try {
-       schedule = buildSchedule(store.catalog, await read(), skipped);
-     } catch (error) {
-       store.fail(failure(errorMessage(error, 'Could not load that plan.')));
-       return;
-     }
-     if (detangle) {
-       schedule = store.detangled(schedule);
-     }
-     if (asUndoStep) {
-       if (!store.apply(() => schedule, success)) {
-         return;
-       }
-       store.selectedCourseId = null;
-     } else {
-       store.load(store.catalog, schedule, false);
-     }
-     if (skipped.length > 0) {
-       store.fail(success + skippedNote(skipped));
-     }
-   }
-   ```
-
-   Callers. On mount, inside `load.run` after `store.load(data.catalog, data.schedule)`: `if (encoded) { await importPlan(() => decodePlan(encoded), { success: 'Loaded the shared plan.', failure: (reason) => \`${reason} Showing the default plan instead.\`, asUndoStep: false }); }`, then `loadedSchedule = store.schedule` as now. `handleHashChange`: keep its guard, then `await importPlan(() => decodePlan(encoded), { success: 'Loaded the plan from the link.' })`. `handleImportFile`: read `file` from the input, set `input.value = ''` immediately (before any `await`), then `await importPlan(async () => parseScheduleFile(JSON.parse(await file.text())), { success: \`Imported schedule from ${file.name}.\`, detangle: true })`. Behavior to preserve: the mount path shows no notice unless entries were skipped; the other two show the success notice. Moving `file.text()` inside `read` also fixes Class Scheduler #1 above; remove that item too.
-
-3. **Cleanup (small wording change, approved by the owner):** `pages/UtilityFileShare.svelte` has `handleDownload` and `handleDownloadAll`, which are the same function for a list of one file versus all of them. Replace both, plus the `downloadFile` helper, with one `startDownloads(files: FileShareRecord[])`: get the key with `requireAccessKey('Enter the access key to retrieve files.')`; if `files` is empty, `access.fail('No files available for download.')` and return; otherwise inside `access.run`, loop over `files` calling `saveBlob(await downloadFileShare(key, file.occurrenceIndex), file.originalFilename)` and collect failures in the same `- name: reason` format as now. Then `const succeeded = files.length - failures.length`; if `succeeded > 0`, `access.success = \`Started ${succeeded} download${succeeded === 1 ? '' : 's'}.\``; if `failures.length > 0`, `access.error = \`${succeeded} succeeded, ${failures.length} failed:\n${failures.join('\n')}\``. The Download button calls `startDownloads(accessFiles.filter((file) => file.occurrenceIndex === selectedFileIndex))` and Download All calls `startDownloads(accessFiles)`. What changes for the user: one download now says "Started 1 download." instead of "Started download for <name>.", and an all-successful batch says "Started N downloads." instead of "N succeeded, 0 failed.".
-
-4. **Cleanup:** same file, the `stats` derived lists the four labels twice (once paired with values, once with `'—'`). Replace it with a table of rows so each label appears once; the template's `{#each stats as [label, value] (label)}` stays as it is:
+2. **Cleanup:** same file, the `stats` derived lists the four labels twice (once paired with values, once with `'—'`). Replace it with a table of rows so each label appears once; the template's `{#each stats as [label, value] (label)}` stays as it is:
 
    ```ts
    const STAT_ROWS: [label: string, value: (status: FileShareStatus) => string][] = [
@@ -145,15 +84,15 @@ Refactors from a code-quality review (2026-11-10). Every item is **Cleanup** (no
    const stats = $derived(STAT_ROWS.map(([label, value]) => [label, status ? value(status) : '—']));
    ```
 
-5. **Cleanup:** `lib/scheduler/catalog.ts` looks the same course up three times per `createCourse()`: `resolveCredits` calls `catalogEntry` only to throw, `getValidCredits` looks it up again, and `createCourse` a third time for the title. Add `function creditOptions(item: CourseCatalogRecord): number[]` holding the body of `getValidCredits` after its lookup (the `typeof item.credits === 'number'` branch and the min/max range). `getValidCredits` becomes `const item = lookupCourse(catalog, courseName); return item ? creditOptions(item) : [];`. Change `resolveCredits` to take `(item: CourseCatalogRecord, courseName: string, requestedCredits?: number)` and use `creditOptions(item)`; `courseName` is only for the error message. `createCourse` does `const item = catalogEntry(catalog, courseName);` once and uses it for both `credits` and `title`. Import `CourseCatalogRecord` from `./types`. `tests/unit/scheduler.test.ts` covers `getValidCredits`, `buildSchedule`, and the credit-validation errors.
+3. **Cleanup:** `lib/scheduler/catalog.ts` looks the same course up three times per `createCourse()`: `resolveCredits` calls `catalogEntry` only to throw, `getValidCredits` looks it up again, and `createCourse` a third time for the title. Add `function creditOptions(item: CourseCatalogRecord): number[]` holding the body of `getValidCredits` after its lookup (the `typeof item.credits === 'number'` branch and the min/max range). `getValidCredits` becomes `const item = lookupCourse(catalog, courseName); return item ? creditOptions(item) : [];`. Change `resolveCredits` to take `(item: CourseCatalogRecord, courseName: string, requestedCredits?: number)` and use `creditOptions(item)`; `courseName` is only for the error message. `createCourse` does `const item = catalogEntry(catalog, courseName);` once and uses it for both `credits` and `title`. Import `CourseCatalogRecord` from `./types`. `tests/unit/scheduler.test.ts` covers `getValidCredits`, `buildSchedule`, and the credit-validation errors.
 
-6. **Cleanup:** `lib/scheduler/logic.ts` `detangleCourseOrder()` is written in a different style from the rest of the file. (a) The two `if (!neighbors[x]) { neighbors[x] = new Set(); }` blocks plus the two `.add` calls become `(neighbors[edge.toCourseId] ??= new Set()).add(edge.fromCourseId);` and `(neighbors[edge.fromCourseId] ??= new Set()).add(edge.toCourseId);`, the idiom `buildCreditOverlapIndex` in `catalog.ts` already uses. (b) The three-`if` comparator passed to `scored.sort` is `a.barycenter - b.barycenter || a.currentPosition - b.currentPosition || a.courseId.localeCompare(b.courseId)`, the same `||` chain `compareResults` uses higher in the file. (c) The returned object in `scored` can be the shorthand `{ courseId, barycenter, currentPosition }`. The `detangleCourseOrder` test pins the output order.
+4. **Cleanup:** `lib/scheduler/logic.ts` `detangleCourseOrder()` is written in a different style from the rest of the file. (a) The two `if (!neighbors[x]) { neighbors[x] = new Set(); }` blocks plus the two `.add` calls become `(neighbors[edge.toCourseId] ??= new Set()).add(edge.fromCourseId);` and `(neighbors[edge.fromCourseId] ??= new Set()).add(edge.toCourseId);`, the idiom `buildCreditOverlapIndex` in `catalog.ts` already uses. (b) The three-`if` comparator passed to `scored.sort` is `a.barycenter - b.barycenter || a.currentPosition - b.currentPosition || a.courseId.localeCompare(b.courseId)`, the same `||` chain `compareResults` uses higher in the file. (c) The returned object in `scored` can be the shorthand `{ courseId, barycenter, currentPosition }`. The `detangleCourseOrder` test pins the output order.
 
-7. **Cleanup:** `lib/scheduler/catalog.ts` `requirementParts()` evaluates `isComposite(child) && bareGroups && isFlat(child)` twice: once inside the `rendered` map and again for `hasBareGroup`. Define `const isBareGroup = (child: RequirementNode) => bareGroups && isComposite(child) && isFlat(child);` once after `bareGroups`. In the map, the condition `isComposite(child) && !(bareGroups && isFlat(child))` is exactly `isComposite(child) && !isBareGroup(child)`; and `hasBareGroup` becomes `children.some(isBareGroup)`. The `requirementParts` tests pin every output string.
+5. **Cleanup:** `lib/scheduler/catalog.ts` `requirementParts()` evaluates `isComposite(child) && bareGroups && isFlat(child)` twice: once inside the `rendered` map and again for `hasBareGroup`. Define `const isBareGroup = (child: RequirementNode) => bareGroups && isComposite(child) && isFlat(child);` once after `bareGroups`. In the map, the condition `isComposite(child) && !(bareGroups && isFlat(child))` is exactly `isComposite(child) && !isBareGroup(child)`; and `hasBareGroup` becomes `children.some(isBareGroup)`. The `requirementParts` tests pin every output string.
 
-8. **Cleanup:** use type guards instead of casts. (a) `lib/aboutYou/facts.ts` `hasCoordinates()` returns `boolean`, so `pages/AboutYou.svelte` needs `geo.latitude as number` and `geo.longitude as number` when rendering `LocationMap`. Add `type Geolocation = RequestContextSnapshot['geolocation'];` and change the signature to `export function hasCoordinates(geo: Geolocation): geo is Geolocation & { latitude: number; longitude: number }` (same body), then drop both casts; TypeScript narrows inside `{#if geo && hasCoordinates(geo)}`. (b) `lib/scheduler/components/CourseDetails.svelte` builds `overlaps` with a `scheduledId` and the template then looks the course up again in `{@const scheduled = ...}`. Store the course instead: `scheduled: store.overlapPartners(course.id).map((id) => store.schedule.coursesById[id]).find((partner) => partner?.name === name)`, use `overlap.scheduled` in the template, and delete the `{@const}`.
+6. **Cleanup:** use type guards instead of casts. (a) `lib/aboutYou/facts.ts` `hasCoordinates()` returns `boolean`, so `pages/AboutYou.svelte` needs `geo.latitude as number` and `geo.longitude as number` when rendering `LocationMap`. Add `type Geolocation = RequestContextSnapshot['geolocation'];` and change the signature to `export function hasCoordinates(geo: Geolocation): geo is Geolocation & { latitude: number; longitude: number }` (same body), then drop both casts; TypeScript narrows inside `{#if geo && hasCoordinates(geo)}`. (b) `lib/scheduler/components/CourseDetails.svelte` builds `overlaps` with a `scheduledId` and the template then looks the course up again in `{@const scheduled = ...}`. Store the course instead: `scheduled: store.overlapPartners(course.id).map((id) => store.schedule.coursesById[id]).find((partner) => partner?.name === name)`, use `overlap.scheduled` in the template, and delete the `{@const}`.
 
-9. **Cleanup:** `lib/router.svelte.ts` `navigate()` recovers the query/hash with `path.slice(path.split(/[?#]/)[0].length)`, and `normalizePath` in `lib/routeMatching.ts` splits the same way. Add to `routeMatching.ts`:
+7. **Cleanup:** `lib/router.svelte.ts` `navigate()` recovers the query/hash with `path.slice(path.split(/[?#]/)[0].length)`, and `normalizePath` in `lib/routeMatching.ts` splits the same way. Add to `routeMatching.ts`:
 
    ```ts
    /** `/a/b?x#y` -> `['/a/b', '?x#y']`. */
@@ -165,9 +104,9 @@ Refactors from a code-quality review (2026-11-10). Every item is **Cleanup** (no
 
    Use it in `normalizePath` (`const [pathname] = splitPath(path);`) and in `navigate` (`const [pathname, suffix] = splitPath(path); const canonicalPath = normalizePath(pathname);`). Add a `splitPath` case to `tests/unit/routeMatching.test.ts` (no query, query only, hash only, both).
 
-10. **Cleanup (owner approved ES2024):** two hand-rolled groupings can use `Object.groupBy`. Set `"target": "es2024"` in `frontend/tsconfig.json` (the `lib` default follows `target`, and the base `@tsconfig/svelte` sets neither; `tsconfig.node.json` stays on ES2023). Then: (a) `lib/scheduler/logic.ts` `buildCourseIdsByName()`: `const bySemester = (course: { semester: string }) => indexOf(semesterToIndex, course.semester);` then `return Object.fromEntries(Object.entries(Object.groupBy(Object.values(coursesById), (course) => course.name)).map(([name, courses = []]) => [name, courses.toSorted((a, b) => bySemester(a) - bySemester(b)).map((course) => course.id)]));`. `Object.groupBy` returns `Partial<Record<string, T[]>>`, hence the `= []` default in the destructuring. (b) `lib/scheduler/schedule.ts` `repeatPositions()`: build the board-ordered course list first, `boardColumns(schedule).flatMap((semester) => (schedule.columnCourseIds[semester] ?? []).map((id) => schedule.coursesById[id]).filter((course) => !!course))`, group it with `Object.groupBy(..., (course) => course.name)`, and fill `positions` from every group with more than one entry as now. Runtime note: Vite doesn't polyfill `Object.groupBy`, so Safari before 17.4 and Chrome before 117 would throw on the scheduler page; the owner accepted that. `scheduleGraph` and `repeatPositions` tests in `scheduler.test.ts` pin the results.
+8. **Cleanup (owner approved ES2024):** two hand-rolled groupings can use `Object.groupBy`. Set `"target": "es2024"` in `frontend/tsconfig.json` (the `lib` default follows `target`, and the base `@tsconfig/svelte` sets neither; `tsconfig.node.json` stays on ES2023). Then: (a) `lib/scheduler/logic.ts` `buildCourseIdsByName()`: `const bySemester = (course: { semester: string }) => indexOf(semesterToIndex, course.semester);` then `return Object.fromEntries(Object.entries(Object.groupBy(Object.values(coursesById), (course) => course.name)).map(([name, courses = []]) => [name, courses.toSorted((a, b) => bySemester(a) - bySemester(b)).map((course) => course.id)]));`. `Object.groupBy` returns `Partial<Record<string, T[]>>`, hence the `= []` default in the destructuring. (b) `lib/scheduler/schedule.ts` `repeatPositions()`: build the board-ordered course list first, `boardColumns(schedule).flatMap((semester) => (schedule.columnCourseIds[semester] ?? []).map((id) => schedule.coursesById[id]).filter((course) => !!course))`, group it with `Object.groupBy(..., (course) => course.name)`, and fill `positions` from every group with more than one entry as now. Runtime note: Vite doesn't polyfill `Object.groupBy`, so Safari before 17.4 and Chrome before 117 would throw on the scheduler page; the owner accepted that. `scheduleGraph` and `repeatPositions` tests in `scheduler.test.ts` pin the results.
 
-11. **Cleanup:** one-line items.
+9. **Cleanup:** one-line items.
     - `lib/scheduler/semesters.ts` `parseSemesterKey` hardcodes `2000 + Number(match[2])` a few lines below `MIN_YEAR = 2000`; use `MIN_YEAR`.
     - `sortSemesters` in the same file: `keys.toSorted((a, b) => rank(a) - rank(b))` instead of `[...keys].sort(...)`.
     - `lib/scheduler/store.svelte.ts` `overlapPartners()` is a nested ternary inside `flatMap`; write it as `.filter((overlap) => overlap.courseId === courseId || overlap.otherCourseId === courseId).map((overlap) => (overlap.courseId === courseId ? overlap.otherCourseId : overlap.courseId))`.

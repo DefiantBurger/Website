@@ -67,6 +67,7 @@ backend/instance/*
 .mcp.json
 
 # Playwright
+.playwright-mcp/
 .playwright-mcp/*
 
 # Lighthouse report
