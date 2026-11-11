@@ -10,6 +10,18 @@ variable "app_path" {
   default     = "/opt/personalwebsite"
 }
 
+variable "data_path" {
+  description = "Writable runtime data directory for the Flask app (file-share uploads, provisioning marker)"
+  type        = string
+  default     = "/var/lib/personalwebsite"
+}
+
+variable "backend_port" {
+  description = "Port Waitress listens on (127.0.0.1 only)"
+  type        = number
+  default     = 5000
+}
+
 variable "github_repository" {
   description = "GitHub owner/repo allowed to deploy through Workload Identity Federation"
   type        = string

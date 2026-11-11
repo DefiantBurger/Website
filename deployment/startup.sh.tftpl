@@ -10,7 +10,7 @@ echo "===== Startup Script Begin ====="
 # Provisioning runs on the first boot only. Releases are deployed by GitHub
 # Actions (deploy.sh.tftpl); later boots just refresh secrets, and the enabled
 # units start on their own.
-PROVISIONED_MARKER=/var/lib/personalwebsite/.provisioned
+PROVISIONED_MARKER=${data_path}/.provisioned
 
 if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	echo "[0/7] Pre-Setup: Removing man-db and cleaning up..."
@@ -40,7 +40,7 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	fi
 	# Releases are root-owned; flaskapp can only write its runtime data.
 	install -d -m 755 -o root -g root ${app_path} ${app_path}/releases
-	install -d -m 700 -o flaskapp -g flaskapp /var/lib/personalwebsite
+	install -d -m 700 -o flaskapp -g flaskapp ${data_path}
 
 	echo "[5/7] Installing the release deploy script..."
 	printf "%s" "${deploy_script}" | base64 --decode > /usr/local/sbin/personalwebsite-deploy

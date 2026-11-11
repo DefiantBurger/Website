@@ -37,10 +37,6 @@ describe('pageHeads', () => {
     });
   });
 
-  test('points aliases at the main path', () => {
-    assert.equal(byPath('/utilities/messageboard')?.canonicalPath, '/utilities/message-board');
-  });
-
   test('expands project pages from their front matter, with a fallback description', () => {
     assert.deepEqual(byPath('/projects/one'), {
       path: '/projects/one',

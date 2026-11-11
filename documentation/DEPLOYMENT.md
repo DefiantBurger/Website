@@ -40,7 +40,7 @@ Not in Terraform: the `status` CNAME to `statuspage.betteruptime.com` (Better St
 `startup.sh.tftpl` runs as root on every boot (logged to `/var/log/startup-script.log`). On the first boot only, it:
 
 1. Installs Python 3.11, Nginx, curl, and `cloudflared` (with raised UDP buffers for QUIC).
-2. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases`, and `/var/lib/personalwebsite` (`flaskapp`, mode 700).
+2. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
 3. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
 4. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
 
@@ -51,13 +51,15 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
 ## Runtime on the VM
 
 - **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; update with `apt-get upgrade cloudflared`) holds the tunnel and forwards to Nginx.
-- **Nginx** listens only on `127.0.0.1:80` (Cloudflare terminates TLS; no origin certificate). It serves `current/frontend/dist` and proxies `/api/` to `127.0.0.1:5000`.
+- **Nginx** listens only on `127.0.0.1:80` (Cloudflare terminates TLS; no origin certificate). It serves `current/frontend/dist` and proxies `/api/` to `127.0.0.1:5000` (`backend_port`).
+  - Trailing-slash paths get a `301` to the path without the slash.
   - No SPA fallback: the build writes `<route>/index.html` for every route, so other paths return a real `404` whose body is the SPA shell, and the app renders its not-found page.
   - HTML is `Cache-Control: no-cache`; hashed `/assets/` are cached for a year and return a plain `404` when missing.
   - gzip for HTML, JSON, CSS, JS, and SVG, including API responses (the course catalog is ~3 MB raw).
   - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
-  - Security headers: HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce it, browse each page with the console open, fix or allow what it reports, then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
-- **`flaskapp`** (systemd, `FLASK_ENV=production`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
+  - Security headers: HSTS (with `includeSubDomains`, so every subdomain, `status` included, must serve HTTPS), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce it, browse each page with the console open, fix or allow what it reports, then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
+- `/.well-known/security.txt` is a static file in `frontend/public/`. Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
+- **`flaskapp`** (systemd, `FLASK_ENV=production`, `PORT=backend_port`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
 
 ### Releases
 

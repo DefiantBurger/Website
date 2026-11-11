@@ -9,7 +9,8 @@ User=flaskapp
 WorkingDirectory=${app_path}/current/backend
 EnvironmentFile=/etc/personalwebsite/secrets.env
 Environment="FLASK_ENV=production"
-Environment="PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite"
+Environment="PERSONALWEBSITE_INSTANCE_PATH=${data_path}"
+Environment="PORT=${backend_port}"
 ExecStart=${app_path}/current/backend/.venv/bin/python3 main.py
 Restart=always
 RestartSec=10
@@ -18,7 +19,7 @@ StandardError=journal
 
 # Releases are root-owned and read-only; runtime data is the only writable path.
 ProtectSystem=strict
-ReadWritePaths=/var/lib/personalwebsite
+ReadWritePaths=${data_path}
 ProtectHome=yes
 PrivateTmp=yes
 NoNewPrivileges=yes

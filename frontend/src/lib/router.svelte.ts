@@ -4,7 +4,7 @@
 import type { Component } from 'svelte';
 
 import { recordRouteVisit } from './aboutYou/interactionStore';
-import { routePatterns, type RouteDefinition } from './routeDefinitions';
+import type { RouteDefinition } from './routeDefinitions';
 import { matchPattern, normalizePath } from './routeMatching';
 
 /** Layout options a page declares with `export const layout` in `<script module>`. */
@@ -38,9 +38,7 @@ function applyRoute(pathname: string) {
   let params: Record<string, string> = {};
 
   for (const candidate of routes) {
-    const match = routePatterns(candidate)
-      .map((pattern) => matchPattern(pattern, pathname))
-      .find((result) => result !== null);
+    const match = matchPattern(candidate.path, pathname);
     if (match && (candidate.accepts?.(match) ?? true)) {
       route = candidate;
       params = match;

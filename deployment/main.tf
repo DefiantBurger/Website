@@ -30,13 +30,18 @@ locals {
     domain   = var.domain
     app_path = var.app_path
   })
-  nginx_api_proxy_params = templatefile("${path.module}/nginx_api_proxy_params.conf.tftpl", {})
+  nginx_api_proxy_params = templatefile("${path.module}/nginx_api_proxy_params.conf.tftpl", {
+    backend_port = var.backend_port
+  })
   flaskapp_service = templatefile("${path.module}/flaskapp.service.tftpl", {
-    app_path = var.app_path
+    app_path     = var.app_path
+    data_path    = var.data_path
+    backend_port = var.backend_port
   })
   cloudflared_service = templatefile("${path.module}/cloudflared.service.tftpl", {})
   deploy_script = templatefile("${path.module}/deploy.sh.tftpl", {
-    app_path = var.app_path
+    app_path     = var.app_path
+    backend_port = var.backend_port
   })
 }
 
@@ -69,6 +74,7 @@ resource "google_compute_instance" "default" {
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
     domain                              = var.domain
     app_path                            = var.app_path
+    data_path                           = var.data_path
     deploy_script                       = base64encode(local.deploy_script)
     deployer_username                   = "sa_${google_service_account.github_deployer.unique_id}"
     flaskapp_service                    = base64encode(local.flaskapp_service)

@@ -38,7 +38,7 @@ server {
 	}
 
 	# These apply to every location below, as long as none of them sets its own add_header.
-	add_header Strict-Transport-Security "max-age=31536000" always;
+	add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 	add_header X-Content-Type-Options "nosniff" always;
 	add_header X-Frame-Options "DENY" always;
 	add_header Referrer-Policy "strict-origin-when-cross-origin" always;
@@ -79,6 +79,9 @@ server {
 	# (vite.config.ts), so anything else is a real 404 for crawlers. The 404 body is
 	# still the shell, so visitors see the app's own not-found page.
 	location / {
+		# One URL per page, so crawlers don't index duplicates. Absolute target, since
+		# Nginx itself sees plain http and would otherwise redirect to http://.
+		rewrite ^(.+)/$ https://$host$1 permanent;
 		try_files $uri $uri/index.html =404;
 	}
 

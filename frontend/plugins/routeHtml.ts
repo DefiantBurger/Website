@@ -13,7 +13,6 @@ import {
   SITE_NAME,
   PROJECT_FALLBACK_DESCRIPTION,
   routeDefinitions,
-  routePatterns,
   type RouteDefinition,
   type RouteMeta,
 } from '../src/lib/routeDefinitions.ts';
@@ -34,7 +33,7 @@ const NOSCRIPT_MARKER = '<!-- noscript-links -->';
 const escapeHtml = (text: string) =>
   text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** Every path the SPA can render, aliases included, with `/projects/:slug` expanded to real slugs. */
+/** Every path the SPA can render, with `/projects/:slug` expanded to real slugs. */
 export function pageHeads(projects: readonly ProjectSummary[]): PageHead[] {
   return definitions.flatMap((definition): PageHead[] => {
     if (definition.path === routeDefinitions.projectDetail.path) {
@@ -52,13 +51,12 @@ export function pageHeads(projects: readonly ProjectSummary[]): PageHead[] {
     if (!meta) {
       throw new Error(`route-html: no meta for ${definition.path}`);
     }
-    return routePatterns(definition).map((path) => {
-      // Fail loudly: without real values for the param, Nginx would 404 this route.
-      if (path.includes(':')) {
-        throw new Error(`route-html: don't know which paths ${path} covers`);
-      }
-      return { path, canonicalPath: definition.path, ...meta };
-    });
+    const { path } = definition;
+    // Fail loudly: without real values for the param, Nginx would 404 this route.
+    if (path.includes(':')) {
+      throw new Error(`route-html: don't know which paths ${path} covers`);
+    }
+    return [{ path, canonicalPath: path, ...meta }];
   });
 }
 

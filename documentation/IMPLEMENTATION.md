@@ -56,7 +56,7 @@ Data: `app/static/json/course_data.json` and `my_courses.json` (scheduler catalo
 
 `src/lib/router.svelte.ts` is a small History API router. It strips trailing slashes, exposes reactive `router.path`, `router.route`, and `router.params`, and intercepts left-clicks on same-origin `<a href>` links, so pages use plain links (`navigate(path)` is for programmatic navigation only).
 
-- `src/lib/routeDefinitions.ts` holds each route's path, aliases, and page metadata (tab title and description), plus the helpers built on them. Link with `pathFor(key, params)` instead of writing paths out. It has no Svelte imports so `vite.config.ts` can read it.
+- `src/lib/routeDefinitions.ts` holds each route's path and page metadata (tab title and description), plus the helpers built on them. Link with `pathFor(key, params)` instead of writing paths out. It has no Svelte imports so `vite.config.ts` can read it.
 - `src/lib/routes.ts` pairs each key with its page component (separate to avoid an import cycle); the type check fails if a key has no page. A route's `accepts(params)` can reject params so they fall through to the 404 page (used for unknown project slugs).
 - Derived from those two: the 404 page's suggestions, plus, at build time (`vite.config.ts`), `sitemap.xml` and a copy of `index.html` per route (`plugins/routeHtml.ts`) with that page's title, description, canonical link, and Open Graph tags filled in, so link previews are per page and Nginx can return real 404s for unknown paths. The dev server fills in the same tags for the requested path. A new route with a param other than `/projects/:slug` fails the build until `servedPaths()` knows its values.
 

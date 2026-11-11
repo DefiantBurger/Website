@@ -16,8 +16,6 @@ export type RouteMeta = {
 export type RouteDefinition = {
   // Pattern; `:name` segments become route params.
   path: string;
-  // Extra patterns that render the same page. Left out of the sitemap.
-  aliases?: readonly string[];
   // Omitted when the page renders its own <PageMeta> (e.g. from loaded content).
   meta?: RouteMeta;
 };
@@ -77,7 +75,6 @@ export const routeDefinitions = {
   },
   messageBoard: {
     path: '/utilities/message-board',
-    aliases: ['/utilities/messageboard'],
     meta: {
       title: 'Message Board',
       description:
@@ -118,11 +115,6 @@ export function pathFor<Key extends RouteKey>(key: Key, ...[params]: ParamsArg<K
     }
     return encodeURIComponent(values[name]);
   });
-}
-
-/** A route's main path followed by its aliases. */
-export function routePatterns(definition: RouteDefinition): string[] {
-  return [definition.path, ...(definition.aliases ?? [])];
 }
 
 /** Paths without params, e.g. for the sitemap or suggesting where a broken link meant to go. */

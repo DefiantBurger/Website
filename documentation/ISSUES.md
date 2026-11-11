@@ -6,7 +6,7 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### SEO
 
-1. No structured data. Trailing-slash paths and the `/utilities/messageboard` alias are served as duplicates with no server-side redirect; only the canonical tag points crawlers at the main path.
+1. No structured data.
 2. The served HTML has only each page's head tags and a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content.
 3. The full name appears in page titles and the `<noscript>` content, but nowhere in the rendered page text except the domain and email.
 4. `/apple-touch-icon.png` returns 404. `index.html` declares `/favicon.png` for it, so browsers that honor the tag are fine, and a 128px icon is small for Apple touch icons and link-preview images.
@@ -20,7 +20,7 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking. It contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. GCS). Low priority while there's only one developer.
 2. **Possible:** the `status` CNAME for the Better Stack status page lives outside Terraform (see [Deployment](./DEPLOYMENT.md#resources)), so it won't show up in `plan` and could be lost if the zone is rebuilt. The MX, SPF, and site-verification records are also outside Terraform.
 3. **Minor:** `pnpm audit` reports DOMPurify 3.4.16 (1 critical, 1 high, 1 low) and KaTeX 0.16.47 (1 low), both through Mermaid. Project Markdown is the only input and only the site owner writes it, so real exposure is low. Whether Mermaid uses the affected paths hasn't been confirmed.
-4. **Possible:** no DMARC, CAA, or DNSSEC. HSTS has no `includeSubDomains`, and there's no `security.txt`.
+4. **Possible:** no DMARC, CAA, or DNSSEC.
 
 ## Utilities
 
@@ -39,8 +39,7 @@ Found in a full read of the codebase (2026-11-06). Each item says where the copi
 
 ### Infrastructure and CI
 
-1. **Minor:** some values are hard-coded where Terraform could pass them as template variables. `/var/lib/personalwebsite` appears four times across `startup.sh.tftpl` and `flaskapp.service.tftpl` (`app_path` is already a variable), and port 5000 is in `nginx_api_proxy_params.conf.tftpl`, `deploy.sh.tftpl`, and `main.py`'s default. The three `/api/` locations in `nginx.conf.tftpl` also repeat the same `include` and `limit_req` lines.
-2. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
+1. **Minor:** the site origin is hard-coded in `deploy.yaml`, `vite.config.ts`, `Nav.svelte` (status link), and `robots.txt`, as well as in `variables.tf`.
 
 ## Appendix: Non-Issues
 
@@ -53,6 +52,10 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 - Visitors who chose dark see a brief flash of the light theme on load, since `index.html` hard-codes `data-theme="light"` and the saved theme is applied once the bundle runs. A blocking external script in `<head>` that set the theme from `localStorage` was tried (2026-11) and made the flash worse (the CSP rules out an inline script).
 - The router doesn't manage scroll position: Back/Forward don't restore it, and a link to a `#section` may not scroll there once the page renders. Restoring it was tried (2026-11) and dropped. Content renders asynchronously (project Markdown, then Mermaid), so the position had to be held while the layout settled, which felt jittery and drifted on pages whose diagrams resize after load.
 - The About You map requests tiles from `tile.openstreetmap.org`, which shows a third party the visitor's approximate location, while the page says "Nothing here is stored". The page exists to show that this is possible, so the lack of a disclosure or privacy policy isn't treated as an issue.
+
+### Infrastructure
+
+- The three `/api/` locations in `nginx.conf.tftpl` each repeat `include api_proxy_params.conf` and a `limit_req` line. Nested locations don't inherit `proxy_pass`, and the `limit_req` lines differ (`delay=5` vs `nodelay`), so there's nothing worth sharing.
 
 ### Class Scheduler
 

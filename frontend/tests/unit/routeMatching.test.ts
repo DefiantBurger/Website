@@ -1,12 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-import {
-  pathFor,
-  routeDefinitions,
-  routePatterns,
-  staticRoutePaths,
-} from '../../src/lib/routeDefinitions.ts';
+import { pathFor, routeDefinitions, staticRoutePaths } from '../../src/lib/routeDefinitions.ts';
 import { matchPattern, normalizePath } from '../../src/lib/routeMatching.ts';
 
 describe('normalizePath', () => {
@@ -44,9 +39,9 @@ describe('matchPattern', () => {
 });
 
 describe('routeDefinitions', () => {
-  test('no two routes share a path or alias', () => {
-    const patterns = Object.values(routeDefinitions).flatMap(routePatterns);
-    assert.deepEqual(patterns.length, new Set(patterns).size);
+  test('no two routes share a path', () => {
+    const paths = Object.values(routeDefinitions).map((definition) => definition.path);
+    assert.deepEqual(paths.length, new Set(paths).size);
   });
 
   test('every pattern is already in canonical form', () => {
@@ -79,17 +74,9 @@ describe('pathFor', () => {
 });
 
 describe('route lists', () => {
-  test('routePatterns puts the main path before aliases', () => {
-    assert.deepEqual(routePatterns(routeDefinitions.messageBoard), [
-      '/utilities/message-board',
-      '/utilities/messageboard',
-    ]);
-  });
-
-  test('staticRoutePaths skips param routes and aliases', () => {
+  test('staticRoutePaths skips param routes', () => {
     const paths = staticRoutePaths();
     assert.ok(paths.includes('/about'));
     assert.ok(!paths.some((path) => path.includes(':')));
-    assert.ok(!paths.includes('/utilities/messageboard'));
   });
 });
