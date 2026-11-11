@@ -15,7 +15,6 @@ export function readBrowser(): BrowserInfo {
     os: nav.userAgentData?.platform || nav.platform,
     userAgent: nav.userAgent,
     brands: nav.userAgentData?.brands?.map((brand) => `${brand.brand} ${brand.version}`) ?? [],
-    platform: nav.platform || nav.userAgentData?.platform,
     languages: nav.languages,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     screen: `${window.screen.width} × ${window.screen.height}`,

@@ -8,7 +8,7 @@ import type {
   ScheduleFile,
   ScheduleState,
 } from './types';
-import { PRECOLLEGE_SEMESTER, formatSemester, isSemesterKey, sortSemesters } from './semesters';
+import { PRECOLLEGE_SEMESTER, isSemesterKey, sortSemesters } from './semesters';
 
 /** Own-property lookup, so names like `constructor` don't match `Object.prototype`. */
 function lookupCourse(catalog: CourseCatalog, courseName: string) {
@@ -195,13 +195,6 @@ function joinParts(groups: RequirementPart[][], separator: string): RequirementP
   return groups.flatMap((parts, index) => (index === 0 ? parts : [{ text: separator }, ...parts]));
 }
 
-/** Plain-text form of `requirementParts`, with `*` after courses that may be concurrent. */
-export function requirementText(node: RequirementNode): string {
-  return requirementParts(node)
-    .map((part) => (part.concurrent ? `${part.text}*` : part.text))
-    .join('');
-}
-
 export function createCourse(
   catalog: CourseCatalog,
   courseName: string,
@@ -243,7 +236,7 @@ export function buildSchedule(
   scheduleFile: ScheduleFile,
   skipped?: string[],
 ): ScheduleState {
-  const semesters = scheduleFile.semesters ?? {};
+  const { semesters } = scheduleFile;
   for (const key of Object.keys(semesters)) {
     if (!isSemesterKey(key)) {
       throw new Error(
@@ -263,11 +256,7 @@ export function buildSchedule(
 
   // Number occurrences in date order, so `__1` is always the earliest.
   for (const semester of [PRECOLLEGE_SEMESTER, ...semesterOrder]) {
-    const entries = semesters[semester] ?? [];
-    if (!Array.isArray(entries)) {
-      throw new Error(`Semester '${formatSemester(semester)}' must be a list of courses.`);
-    }
-    for (const entry of entries) {
+    for (const entry of semesters[semester] ?? []) {
       let course: CourseInstance;
       try {
         const { courseName, requestedCredits } = parseCourseEntry(entry);

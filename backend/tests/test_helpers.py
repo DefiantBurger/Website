@@ -15,13 +15,9 @@ from app.views import _cloudflare_geolocation, _resolve_client_ip
 			('203.0.113.1', 'CF-Connecting-IP'),
 		),
 		(
-			{
-				'X-Forwarded-For': '203.0.113.10, 198.51.100.20, 127.0.0.1',
-				'X-Real-IP': '203.0.113.30',
-			},
-			('203.0.113.10', 'X-Forwarded-For'),
+			{'X-Forwarded-For': '203.0.113.10', 'X-Real-IP': '203.0.113.30'},
+			('127.0.0.1', 'remote_addr'),
 		),
-		({'X-Real-IP': '203.0.113.5'}, ('203.0.113.5', 'X-Real-IP')),
 		({}, ('127.0.0.1', 'remote_addr')),
 	],
 )

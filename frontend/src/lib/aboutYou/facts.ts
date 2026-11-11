@@ -55,7 +55,6 @@ export type BrowserInfo = {
   os?: string;
   userAgent: string;
   brands: string[];
-  platform?: string;
   languages: readonly string[];
   timezone: string;
   screen: string;
@@ -153,7 +152,7 @@ export function countryName(code: string | undefined): string {
 
 export function deviceFacts(browser: BrowserInfo): Fact[] {
   return [
-    fact('Platform', browser.platform),
+    fact('Platform', browser.os),
     fact('Screen', browser.screen),
     fact('Window', browser.viewport),
     fact('Pixel Ratio', browser.pixelRatio),

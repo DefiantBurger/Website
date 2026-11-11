@@ -54,17 +54,7 @@ def _resolve_client_ip() -> tuple[str, str]:
 	cf_connecting_ip = request.headers.get('CF-Connecting-IP', '').strip()
 	if cf_connecting_ip:
 		return cf_connecting_ip, 'CF-Connecting-IP'
-
-	x_forwarded_for = request.headers.get('X-Forwarded-For', '').strip()
-	if x_forwarded_for:
-		first_ip = x_forwarded_for.split(',')[0].strip()
-		if first_ip:
-			return first_ip, 'X-Forwarded-For'
-
-	x_real_ip = request.headers.get('X-Real-IP', '').strip()
-	if x_real_ip:
-		return x_real_ip, 'X-Real-IP'
-
+	# Local dev has no Cloudflare; Nginx's X-Forwarded-For is already in remote_addr via ProxyFix.
 	return (request.remote_addr or '').strip(), 'remote_addr'
 
 

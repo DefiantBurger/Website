@@ -76,7 +76,7 @@ server {
 	}
 
 	# The build writes the SPA shell to <route>/index.html for every real route
-	# (vite.config.ts), so anything else is a real 404 for crawlers. The 404 body is
+	# (plugins/routeHtml.ts), so anything else is a real 404 for crawlers. The 404 body is
 	# still the shell, so visitors see the app's own not-found page.
 	location / {
 		# One URL per page, so crawlers don't index duplicates. Absolute target, since

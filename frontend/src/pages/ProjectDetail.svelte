@@ -86,19 +86,13 @@
   }
 </script>
 
-{#await pagePromise}
-  <PageMeta title="Project Details" description={PROJECT_FALLBACK_DESCRIPTION} />
-{:then project}
-  <PageMeta title={project.title} description={project.summary || PROJECT_FALLBACK_DESCRIPTION} />
-{:catch}
-  <PageMeta title="Project Failed to Load" description={PROJECT_FALLBACK_DESCRIPTION} />
-{/await}
-
 <a class="button back-button" href={pathFor('projects')}>&lt; Back to Projects</a>
 
 {#await pagePromise}
+  <PageMeta title="Project Details" description={PROJECT_FALLBACK_DESCRIPTION} />
   <StatusMessage kind="loading" message="Loading project..." />
 {:then project}
+  <PageMeta title={project.title} description={project.summary || PROJECT_FALLBACK_DESCRIPTION} />
   <header class="terminal-box">
     <h1 class="prompt">{project.title}</h1>
     <TagList tags={project.tags} />
@@ -118,6 +112,7 @@
     {@html project.html}
   </article>
 {:catch}
+  <PageMeta title="Project Failed to Load" description={PROJECT_FALLBACK_DESCRIPTION} />
   <!-- Unknown slugs 404 in the router, so this is a failed chunk load; its error text is a dev URL. -->
   <StatusMessage kind="error" message="Couldn't load this project. Try refreshing the page." />
 {/await}

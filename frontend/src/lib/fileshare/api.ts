@@ -9,15 +9,7 @@ export interface FileShareStatus {
   retentionSeconds: number;
 }
 
-export interface FileShareUploadResult {
-  occurrenceIndex: number;
-  originalFilename: string;
-  sizeBytes: number;
-  uploadedAt: string;
-  expiresAt: string;
-}
-
-export interface FileShareListItem {
+export interface FileShareRecord {
   occurrenceIndex: number;
   originalFilename: string;
   sizeBytes: number;
@@ -26,7 +18,7 @@ export interface FileShareListItem {
 }
 
 export interface FileShareListResult {
-  files: FileShareListItem[];
+  files: FileShareRecord[];
 }
 
 function postForm(fields: Record<string, string | Blob>): RequestInit {
@@ -45,7 +37,7 @@ export function fetchFileShareStatus(): Promise<FileShareStatus> {
 export async function uploadFileShare(
   files: File[],
   password: string,
-): Promise<ReplaceBatchResult<FileShareUploadResult>> {
+): Promise<ReplaceBatchResult<FileShareRecord>> {
   // Fail before touching the server if a selected file was moved or deleted since it was picked.
   for (const file of files) {
     await readFile(file.slice(0, 1), file.name);
@@ -68,7 +60,7 @@ export async function uploadFileShare(
       // disk-backed body file disappears, which would skip the rollback.
       const copy = new File([await readFile(file, file.name)], file.name, { type: file.type });
       // No timeout: the server only answers once the whole body has arrived, which can take minutes.
-      return apiJson<FileShareUploadResult>('/api/fileshare/upload/', {
+      return apiJson<FileShareRecord>('/api/fileshare/upload/', {
         ...postForm({ file: copy, password }),
         timeoutMs: null,
       });
@@ -94,25 +86,12 @@ export async function deleteFileShareFiles(password: string, indices: number[]):
   );
 }
 
-export async function downloadFileShare(
-  password: string,
-  occurrenceIndex: number = 1,
-  expectedFilename?: string,
-): Promise<{ blob: Blob; filename: string }> {
+export async function downloadFileShare(password: string, occurrenceIndex: number): Promise<Blob> {
   const response = await apiFetch(
     '/api/fileshare/access/',
     postForm({ password, occurrenceIndex: occurrenceIndex.toString() }),
   );
-
-  // Prefer the filename the caller already knows; fall back to content-disposition.
-  let filename = expectedFilename;
-  if (!filename) {
-    const disposition = response.headers.get('content-disposition') ?? '';
-    const filenameMatch = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
-    filename = decodeURIComponent(filenameMatch?.[1] ?? filenameMatch?.[2] ?? 'download');
-  }
-
-  return { blob: await response.blob(), filename };
+  return response.blob();
 }
 
 export function listFileShareFiles(password: string): Promise<FileShareListResult> {

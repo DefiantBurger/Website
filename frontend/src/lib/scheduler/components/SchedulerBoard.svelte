@@ -9,7 +9,7 @@
   let { store }: { store: SchedulerStore } = $props();
 
   /** A prerequisite edge positioned in board coordinates. */
-  type EdgeLine = Pick<PrereqEdge, 'id' | 'fromCourseId' | 'toCourseId' | 'status'> & {
+  type EdgeLine = PrereqEdge & {
     x1: number;
     y1: number;
     x2: number;
@@ -55,10 +55,7 @@
       // Concurrent (same-semester) edges join card centers; others run right side -> left side.
       const isConcurrent = edge.status === 'concurrent';
       lines.push({
-        id: edge.id,
-        fromCourseId: edge.fromCourseId,
-        toCourseId: edge.toCourseId,
-        status: edge.status,
+        ...edge,
         x1: fromRect.left - boardRect.left + fromRect.width * (isConcurrent ? 0.5 : 0.75),
         y1: fromRect.top - boardRect.top + fromRect.height / 2,
         x2: toRect.left - boardRect.left + toRect.width * (isConcurrent ? 0.5 : 0.25),
@@ -193,7 +190,7 @@
   }
 
   .add-column {
-    border: 1px dashed var(--color-primary-opacity-50);
+    border: 1px dashed var(--color-primary-opacity-40);
     border-radius: 3px;
     padding: 0.75rem;
     display: flex;

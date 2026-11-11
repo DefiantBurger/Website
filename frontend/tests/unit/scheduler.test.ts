@@ -10,7 +10,7 @@ import {
   parseCourseEntry,
   parseScheduleFile,
   resolveCourseQuery,
-  requirementText,
+  requirementParts,
   searchCatalog,
 } from '../../src/lib/scheduler/catalog.ts';
 import { commit, createHistory, redo, undo } from '../../src/lib/scheduler/history.ts';
@@ -153,7 +153,14 @@ describe('parseCatalogFile', () => {
   });
 });
 
-describe('requirementText', () => {
+/** `requirementParts` as one string, with `*` after courses that may be concurrent. */
+function requirementText(node: RequirementNode): string {
+  return requirementParts(node)
+    .map((part) => (part.concurrent ? `${part.text}*` : part.text))
+    .join('');
+}
+
+describe('requirementParts', () => {
   test('renders rows readably, marking concurrent courses', () => {
     const text = (name: string) => requirementText(catalog[name].requires!.all[0]);
     assert.equal(text('E C E 352'), 'E C E 252');

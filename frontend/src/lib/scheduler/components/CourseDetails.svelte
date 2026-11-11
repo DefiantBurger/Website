@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { buildRequirements, requirementText } from '../catalog';
+  import { buildRequirements, requirementParts } from '../catalog';
   import { setCourseCredits, shiftCourse } from '../schedule';
   import { PRECOLLEGE_SEMESTER, formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
@@ -28,7 +28,7 @@
   );
   const showConcurrentLegend = $derived(
     [...uncheckedRequirements, ...checks.map((check) => check.requirement)].some((requirement) =>
-      requirementText(requirement.node).includes('*'),
+      requirementParts(requirement.node).some((part) => part.concurrent),
     ),
   );
 

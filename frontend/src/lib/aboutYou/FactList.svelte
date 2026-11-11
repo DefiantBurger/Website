@@ -26,7 +26,7 @@
   dt,
   dd {
     padding: 0.45rem 0;
-    border-top: 1px dashed var(--color-primary-opacity-50);
+    border-top: 1px dashed var(--color-primary-opacity-40);
     line-height: 1.5;
   }
 

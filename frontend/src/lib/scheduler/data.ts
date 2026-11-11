@@ -1,6 +1,6 @@
 import { apiJson } from '../api';
-import { buildSchedule, parseCatalogFile } from './catalog';
-import type { CourseCatalog, ScheduleFile, ScheduleState } from './types';
+import { buildSchedule, parseCatalogFile, parseScheduleFile } from './catalog';
+import type { CourseCatalog, ScheduleState } from './types';
 
 /** Fetch the course catalog and the default schedule, expanded into course instances. */
 export async function loadSchedulerData(): Promise<{
@@ -8,10 +8,10 @@ export async function loadSchedulerData(): Promise<{
   schedule: ScheduleState;
 }> {
   const [scheduleFile, catalogFile] = await Promise.all([
-    apiJson<ScheduleFile>('/api/scheduler/default-schedule/'),
+    apiJson<unknown>('/api/scheduler/default-schedule/'),
     apiJson<unknown>('/api/scheduler/course-data/'),
   ]);
   const catalog = parseCatalogFile(catalogFile);
 
-  return { catalog, schedule: buildSchedule(catalog, scheduleFile) };
+  return { catalog, schedule: buildSchedule(catalog, parseScheduleFile(scheduleFile)) };
 }

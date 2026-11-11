@@ -254,7 +254,7 @@
     display: grid;
     gap: 0.5rem;
     padding-top: 1rem;
-    border-top: 1px dashed var(--color-primary-opacity-50);
+    border-top: 1px dashed var(--color-primary-opacity-40);
   }
 
   .dossier-lines li {

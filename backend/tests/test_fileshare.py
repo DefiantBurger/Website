@@ -28,7 +28,6 @@ from app.fileshare import (
 	_sweep,
 	acquire_transfer_slot,
 	build_label,
-	cleanup_expired_records,
 	decrypt_record_payload,
 	delete_records,
 	get_all_records_for_password,
@@ -42,13 +41,12 @@ def _file(filename='sample.txt', content=b'hello', content_type='text/plain') ->
 	return FileStorage(stream=BytesIO(content), filename=filename, content_type=content_type)
 
 
-def _record(salt_b64='', nonce_b64='', size_bytes=10) -> FileShareRecord:
+def _record(salt_b64, nonce_b64, size_bytes=10) -> FileShareRecord:
 	return FileShareRecord(
 		label='label',
 		occurrence_index=1,
 		original_filename='test.txt',
 		size_bytes=size_bytes,
-		mime_type='text/plain',
 		uploaded_at='',
 		expires_at='',
 		salt_b64=salt_b64,
@@ -99,10 +97,16 @@ def test_decrypt_with_wrong_password_fails():
 		_decrypt_bytes('wrong-password', _record(salt_b64, nonce_b64), ciphertext)
 
 
-def test_decrypt_missing_salt_or_nonce_raises():
+def test_decrypt_missing_salt_or_nonce_is_forbidden(app_ctx):
+	record = save_upload(_file(), 'key')
+	meta_path, _ = _record_paths(record.label, record.occurrence_index)
+	meta = json.loads(meta_path.read_text(encoding='utf-8'))
+	del meta['salt_b64'], meta['nonce_b64']
+	meta_path.write_text(json.dumps(meta), encoding='utf-8')
+
 	with pytest.raises(FileShareError) as exc_info:
-		_decrypt_bytes('password', _record(), b'some-ciphertext')
-	assert exc_info.value.status_code == 500
+		decrypt_record_payload(get_record_for_password('key', 1), 'key')
+	assert exc_info.value.status_code == 403
 
 
 @pytest.mark.parametrize(
@@ -158,7 +162,7 @@ def test_save_upload_and_decrypt_record_success(app_ctx):
 	assert record.size_bytes == len(b'Secret data content')
 	assert record.occurrence_index == 1
 
-	retrieved = get_record_for_password('password123')
+	retrieved = get_record_for_password('password123', 1)
 	assert retrieved is not None
 	assert retrieved.label == record.label
 	assert decrypt_record_payload(retrieved, 'password123') == b'Secret data content'
@@ -230,8 +234,8 @@ def test_delete_records_requires_key(app_ctx):
 def test_cleanup_expired_records(app_ctx):
 	save_upload(_file('expire_me.txt', b'Temporary'), 'temp-key')
 	future = datetime.now(UTC) + timedelta(seconds=700)  # Retention is 600 s.
-	assert cleanup_expired_records(now=future) == 1
-	assert get_record_for_password('temp-key') is None
+	assert _sweep(now=future)[1] == 1
+	assert get_record_for_password('temp-key', 1) is None
 
 
 def test_cleanup_corrupted_records(app_ctx):
@@ -240,7 +244,7 @@ def test_cleanup_corrupted_records(app_ctx):
 	corrupt_meta = root / 'corrupt_test.json'
 	corrupt_meta.write_text('invalid json content')
 
-	assert cleanup_expired_records() == 1
+	assert _sweep()[1] == 1
 	assert not corrupt_meta.exists()
 
 
@@ -249,7 +253,7 @@ def test_cleanup_corrupted_record_removes_payload(app_ctx):
 	meta_path, payload_path = _record_paths(record.label, record.occurrence_index)
 	meta_path.write_text('invalid json content')
 
-	cleanup_expired_records()
+	_sweep()
 	assert not meta_path.exists()
 	assert not payload_path.exists()
 	assert get_storage_status()['usedBytes'] == 0
@@ -262,7 +266,7 @@ def test_cleanup_invalid_timestamp(app_ctx):
 	meta['expires_at'] = 'not-a-valid-date'
 	meta_path.write_text(json.dumps(meta), encoding='utf-8')
 
-	assert cleanup_expired_records() == 1
+	assert _sweep()[1] == 1
 	assert not meta_path.exists()
 
 
@@ -291,8 +295,8 @@ def test_evict_oldest_records(app_ctx):
 	save_upload(_file('new.txt', b'new content'), 'key2')
 
 	assert _evict_oldest_records(_sweep()[0], required_free_bytes=1) > 0
-	assert get_record_for_password('key1') is None
-	assert get_record_for_password('key2') is not None
+	assert get_record_for_password('key1', 1) is None
+	assert get_record_for_password('key2', 1) is not None
 
 
 def test_save_upload_oversized_file(app_ctx):

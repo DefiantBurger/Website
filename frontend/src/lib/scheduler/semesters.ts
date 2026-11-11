@@ -7,7 +7,7 @@ export const PRECOLLEGE_SEMESTER = 'precollege';
 export const TERMS = ['winter', 'spring', 'summer', 'fall'] as const;
 export type Term = (typeof TERMS)[number];
 
-const TERM_KEY = /^(winter|spring|summer|fall)(\d{2})$/;
+const TERM_KEY = new RegExp(`^(${TERMS.join('|')})(\\d{2})$`);
 
 // Two-digit keys only cover one century.
 export const MIN_YEAR = 2000;

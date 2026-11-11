@@ -1,7 +1,7 @@
 // Build-time project content: reads the write-ups in src/content/projects/ and
 // serves them to the app as virtual modules, with the Markdown already rendered.
 //   virtual:projects        published summaries (highest priority first) + per-project loaders
-//   virtual:project/<slug>  one project's summary, HTML, and render diagnostics (its own chunk)
+//   virtual:project/<slug>  one project's summary and HTML (its own chunk)
 import { readdirSync, readFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
 import type { Plugin } from 'vite';

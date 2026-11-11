@@ -12,7 +12,7 @@
     uploadFileShare,
     listFileShareFiles,
     type FileShareStatus,
-    type FileShareListItem,
+    type FileShareRecord,
   } from '../lib/fileshare/api';
   import { errorMessage } from '../lib/api';
   import { formatBytes, formatDuration, formatMinutes } from '../lib/format';
@@ -35,7 +35,7 @@
   let accessPassword = $state('');
   // List and download share one task, so only one access request runs at a time.
   const access = new AsyncTask("Couldn't retrieve files.");
-  let accessFiles = $state<FileShareListItem[]>([]);
+  let accessFiles = $state<FileShareRecord[]>([]);
   let selectedFileIndex = $state(1);
 
   // Limits come from the backend, so the page can't drift from it; '—' until loaded.
@@ -135,24 +135,16 @@
 
     await access.run(async () => {
       accessFiles = []; // so a failed lookup doesn't leave the previous key's files listed
+      // The API answers 404 when there are none, so this list is never empty.
       accessFiles = (await listFileShareFiles(key)).files;
-      if (accessFiles.length > 0) {
-        // Indices don't restart at 1: a replaced batch keeps counting up.
-        selectedFileIndex = accessFiles[0].occurrenceIndex;
-        access.success = `Found ${accessFiles.length} file(s) for this access key.`;
-      } else {
-        access.error = 'No files found for this access key.';
-      }
+      // Indices don't restart at 1: a replaced batch keeps counting up.
+      selectedFileIndex = accessFiles[0].occurrenceIndex;
+      access.success = `Found ${accessFiles.length} file(s) for this access key.`;
     });
   }
 
-  async function downloadFile(key: string, file: FileShareListItem): Promise<void> {
-    const { blob, filename } = await downloadFileShare(
-      key,
-      file.occurrenceIndex,
-      file.originalFilename,
-    );
-    saveBlob(blob, filename);
+  async function downloadFile(key: string, file: FileShareRecord): Promise<void> {
+    saveBlob(await downloadFileShare(key, file.occurrenceIndex), file.originalFilename);
   }
 
   async function handleDownload(): Promise<void> {
@@ -237,8 +229,7 @@
   <Panel element="form" title="Upload Files" onsubmit={handleUploadSubmit}>
     <p>
       {limitsIntro} the backend evicts oldest files to free space before accepting new uploads. Uploading
-      with an existing access key will replace all previous files for that key, and the new files will
-      be encrypted before they are written to disk.
+      with an existing access key replaces all previous files for that key.
     </p>
 
     <label>
@@ -324,10 +315,6 @@
       </div>
     {/each}
   </dl>
-  <p class="note">
-    Uploading under an existing key replaces its files. Files stay encrypted on disk with a key
-    derived from your access key.
-  </p>
 </Panel>
 
 <style>
@@ -424,11 +411,5 @@
 
   .stats dd {
     margin: 0;
-  }
-
-  .note {
-    margin: 0;
-    font-size: 0.9rem;
-    opacity: 0.85;
   }
 </style>

@@ -7,7 +7,6 @@ import type {
   CreditOverlap,
   PrereqEdge,
   RequirementCheck,
-  Requirement,
   RequirementNode,
   RequirementStatus,
   ScheduleProblem,
@@ -15,23 +14,9 @@ import type {
   SchedulerGraph,
 } from './types';
 
-interface ComputeGraphParams {
-  coursesById: Record<string, { id: string; name: string; semester: string }>;
-  prereqsByCourseId: Record<string, Requirement[]>;
-  semesterToIndex: Record<string, number>;
-}
-
 /** Column index of a semester; unknown semesters sort last. */
 function indexOf(semesterToIndex: Record<string, number>, semester: string): number {
   return semesterToIndex[semester] ?? Number.MAX_SAFE_INTEGER;
-}
-
-/** Precollege is -1, then each term in date order. */
-export function semesterIndexMap(schedule: ScheduleState): Record<string, number> {
-  return {
-    [PRECOLLEGE_SEMESTER]: -1,
-    ...Object.fromEntries(schedule.semesterOrder.map((semester, index) => [semester, index])),
-  };
 }
 
 const STATUS_RANK: Record<CheckStatus, number> = {
@@ -144,24 +129,26 @@ function buildCourseIdsByName(
  * progress (satisfied rows / all rows). Precollege courses are taken as
  * already earned, so their own requirements aren't checked.
  */
-export function computeSchedulerGraph({
-  coursesById,
-  prereqsByCourseId,
-  semesterToIndex,
-}: ComputeGraphParams): SchedulerGraph {
+export function scheduleGraph(catalog: CourseCatalog, schedule: ScheduleState): SchedulerGraph {
+  const { coursesById } = schedule;
+  // Precollege is -1, then each term in date order.
+  const semesterToIndex: Record<string, number> = {
+    [PRECOLLEGE_SEMESTER]: -1,
+    ...Object.fromEntries(schedule.semesterOrder.map((semester, index) => [semester, index])),
+  };
   const courseIdsByName = buildCourseIdsByName(coursesById, semesterToIndex);
   const edges: PrereqEdge[] = [];
   const requirementProgressByCourseId: Record<string, number> = {};
   const requirementChecksByCourseId: Record<string, RequirementCheck[]> = {};
 
-  for (const [courseId, requirements] of Object.entries(prereqsByCourseId)) {
-    const courseSemester = coursesById[courseId].semester;
-    if (courseSemester === PRECOLLEGE_SEMESTER || requirements.length === 0) {
+  for (const course of Object.values(coursesById)) {
+    const requirements = buildRequirements(catalog, course.name);
+    if (course.semester === PRECOLLEGE_SEMESTER || requirements.length === 0) {
       continue;
     }
 
     const ctx: EvaluationContext = {
-      courseIndex: indexOf(semesterToIndex, courseSemester),
+      courseIndex: indexOf(semesterToIndex, course.semester),
       courseIdsByName,
       coursesById,
       semesterToIndex,
@@ -177,36 +164,22 @@ export function computeSchedulerGraph({
         }
         matchedCourseIds.push(leaf.courseId);
         edges.push({
-          id: `${courseId}__${requirement.key}__${leaf.courseId}`,
+          id: `${course.id}__${requirement.key}__${leaf.courseId}`,
           fromCourseId: leaf.courseId,
-          toCourseId: courseId,
+          toCourseId: course.id,
           status: EDGE_STATUS[leaf.status],
         });
       }
       checks.push({ requirement, status: result.status, matchedCourseIds });
     }
 
-    requirementChecksByCourseId[courseId] = checks;
-    requirementProgressByCourseId[courseId] =
+    requirementChecksByCourseId[course.id] = checks;
+    requirementProgressByCourseId[course.id] =
       checks.filter((check) => check.status === 'met' || check.status === 'concurrent').length /
       checks.length;
   }
 
   return { edges, requirementProgressByCourseId, requirementChecksByCourseId };
-}
-
-/** The graph for a whole schedule, as the scheduler page draws it. */
-export function scheduleGraph(catalog: CourseCatalog, schedule: ScheduleState): SchedulerGraph {
-  return computeSchedulerGraph({
-    coursesById: schedule.coursesById,
-    prereqsByCourseId: Object.fromEntries(
-      Object.values(schedule.coursesById).map((course) => [
-        course.id,
-        buildRequirements(catalog, course.name),
-      ]),
-    ),
-    semesterToIndex: semesterIndexMap(schedule),
-  });
 }
 
 /**

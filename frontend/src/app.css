@@ -18,14 +18,14 @@
   --color-warning: #e5c07b;
   --color-red: #ff2d2d;
 
-  /* Transparency Variants */
+  /* Transparency variants. Suffixes are the dark-theme opacity; light uses lower values for similar contrast. */
   --color-primary-opacity-10: rgba(184, 216, 197, 0.1);
   --color-primary-opacity-15: rgba(184, 216, 197, 0.15);
   --color-primary-opacity-20: rgba(184, 216, 197, 0.2);
-  --color-primary-opacity-30: rgba(184, 216, 197, 0.28);
-  --color-primary-opacity-50: rgba(184, 216, 197, 0.42);
+  --color-primary-opacity-30: rgba(184, 216, 197, 0.3);
+  --color-primary-opacity-40: rgba(184, 216, 197, 0.4);
   --color-error-opacity-05: rgba(255, 107, 107, 0.05);
-  --color-success-opacity-05: rgba(81, 207, 102, 0.05);
+  --color-success-opacity-05: rgba(133, 199, 154, 0.05);
 
   --font-mono: 'Courier New', 'Courier', monospace;
   /* Faint row/section separator; resolves per theme through the color variable. */
@@ -52,7 +52,7 @@
   --color-primary-opacity-15: rgba(49, 68, 79, 0.1);
   --color-primary-opacity-20: rgba(49, 68, 79, 0.14);
   --color-primary-opacity-30: rgba(49, 68, 79, 0.2);
-  --color-primary-opacity-50: rgba(49, 68, 79, 0.3);
+  --color-primary-opacity-40: rgba(49, 68, 79, 0.3);
   --color-error-opacity-05: rgba(176, 54, 54, 0.08);
   --color-success-opacity-05: rgba(43, 110, 67, 0.08);
 }

@@ -14,7 +14,6 @@ import hmac
 import json
 import os
 import threading
-import unicodedata
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -60,14 +59,13 @@ class FileShareRecord:
 	occurrence_index: int
 	original_filename: str
 	size_bytes: int
-	mime_type: str
 	uploaded_at: str
 	expires_at: str
 	salt_b64: str
 	nonce_b64: str
 
 	def to_json(self) -> dict:
-		# The public fields only; salt, nonce, and MIME type stay server-side.
+		# The public fields only; salt and nonce stay server-side.
 		return {
 			'occurrenceIndex': self.occurrence_index,
 			'originalFilename': self.original_filename,
@@ -193,7 +191,6 @@ def _load_record(meta_path: Path) -> FileShareRecord | None:
 		occurrence_index=occurrence_index,
 		original_filename=str(payload.get('original_filename') or 'download'),
 		size_bytes=size_bytes,
-		mime_type=str(payload.get('mime_type') or 'application/octet-stream'),
 		uploaded_at=str(payload.get('uploaded_at') or ''),
 		expires_at=str(payload.get('expires_at') or ''),
 		salt_b64=str(payload.get('salt_b64') or ''),
@@ -247,11 +244,6 @@ def _sweep(now: datetime | None = None) -> tuple[list[FileShareRecord], int]:
 	return active, deleted_count
 
 
-def cleanup_expired_records(now: datetime | None = None) -> int:
-	"""Delete expired or unreadable records; returns how many were removed."""
-	return _sweep(now)[1]
-
-
 def get_storage_status() -> dict[str, int | bool]:
 	records, _ = _sweep()
 	return {
@@ -268,13 +260,8 @@ def get_all_records_for_password(password: str) -> list[FileShareRecord]:
 	return [record for record in _sweep()[0] if record.label == label]
 
 
-def get_record_for_password(
-	password: str, occurrence_index: int | None = None
-) -> FileShareRecord | None:
-	"""Return the key's record at `occurrence_index`, or its first record when None."""
+def get_record_for_password(password: str, occurrence_index: int) -> FileShareRecord | None:
 	records = get_all_records_for_password(password)
-	if occurrence_index is None:
-		return records[0] if records else None
 	return next((r for r in records if r.occurrence_index == occurrence_index), None)
 
 
@@ -287,29 +274,22 @@ def _encrypt_bytes(password: str, plaintext: bytes) -> tuple[bytes, str, str]:
 
 
 def _decrypt_bytes(password: str, record: FileShareRecord, ciphertext: bytes) -> bytes:
-	if not record.salt_b64 or not record.nonce_b64:
-		raise FileShareError('Stored encryption metadata is missing.', 500)
-
 	salt = _b64decode(record.salt_b64)
 	nonce = _b64decode(record.nonce_b64)
 	key = _derive_key(password, salt)
 	return AESGCM(key).decrypt(nonce, ciphertext, None)
 
 
-def _to_ascii(text: str) -> str:
-	"""Strip accents deterministically (`café` -> `cafe`); characters with no ASCII form are dropped."""
-	return unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-
-
 def _sanitize_original_filename(filename: str) -> str:
-	clean_name = secure_filename(_to_ascii(filename)).strip()
+	# secure_filename strips accents (`café` -> `cafe`) and drops other non-ASCII.
+	clean_name = secure_filename(filename)
 
 	stem, ext = os.path.splitext(os.path.basename(filename.replace('\\', '/')))
-	if not filename.isascii() and stem.strip() and not secure_filename(_to_ascii(stem)):
+	if not filename.isascii() and stem.strip() and not secure_filename(stem):
 		# Nothing in the name survives ASCII conversion (e.g. `日本語.pdf`), so keep the
 		# extension and use a placeholder stem that is stable for the same name.
 		digest = hashlib.sha256(stem.encode('utf-8')).hexdigest()[:8]
-		clean_ext = secure_filename(_to_ascii(ext.lstrip('.')))
+		clean_ext = secure_filename(ext.lstrip('.'))
 		clean_name = f'file-{digest}.{clean_ext}' if clean_ext else f'file-{digest}'
 
 	return clean_name or 'download'
@@ -379,10 +359,6 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 		raise FileShareError('A file is required.')
 
 	plaintext = uploaded_file.read()
-	if isinstance(plaintext, str):
-		plaintext = plaintext.encode('utf-8')
-	if plaintext is None:
-		plaintext = b''
 	if len(plaintext) > MAX_FILE_BYTES:
 		raise FileShareError(f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.', 413)
 
@@ -402,7 +378,6 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 		occurrence_index=0,  # Set once the payload has claimed an index.
 		original_filename=_sanitize_original_filename(uploaded_file.filename),
 		size_bytes=len(plaintext),
-		mime_type=uploaded_file.mimetype or 'application/octet-stream',
 		uploaded_at=now.isoformat(),
 		expires_at=(now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
 		salt_b64=salt_b64,
@@ -411,7 +386,6 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 	metadata = {
 		'original_filename': record.original_filename,
 		'size_bytes': record.size_bytes,
-		'mime_type': record.mime_type,
 		'uploaded_at': record.uploaded_at,
 		'expires_at': record.expires_at,
 		'salt_b64': record.salt_b64,
