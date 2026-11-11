@@ -92,7 +92,7 @@ Both workflows set up uv, pnpm, and Node through `.github/actions/setup`, and al
 - ***Test*** (`test.yaml`, on PRs and non-docs pushes to `main`): backend `ruff` + `pytest --cov=app`; frontend `lint`, `format:check`, `check`, `test`.
 - ***Deploy*** (`deploy.yaml`, manual, `main` only; doesn't rerun tests):
   1. **package:** build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`, export hash-pinned requirements (`uv export --frozen --no-dev`), and upload the tarball as artifact `release-<sha>`.
-  2. **deploy** (environment `production`, serialized): authenticate through WIF, stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`, then `curl` the public `/api/health/`.
+  2. **deploy** (environment `production`, serialized): authenticate through WIF, stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`, then `curl` the public `/api/health/`, the home page, and its entry script.
 
 ### First-time setup
 

@@ -142,8 +142,8 @@
       </div>
 
       <p class="compose-hint">
-        Broadcasts self-destruct {ttl ? `after ${ttl}` : 'shortly after posting'}. Only URL-safe
-        characters are permitted.
+        Broadcasts self-destruct {ttl ? `after ${ttl}` : 'shortly after posting'}. Plain text only;
+        invisible and control characters are removed.
       </p>
 
       <label for="board-message-input" class="sr-only">Message content</label>

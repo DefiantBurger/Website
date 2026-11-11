@@ -48,7 +48,7 @@ flowchart LR
 1. **No open web ports.** All traffic arrives through the Cloudflare Tunnel; Nginx and Flask listen only on loopback. Cloudflare-set headers (`CF-Connecting-IP`, visitor location headers) are therefore trustworthy.
 2. **HTTPS** is enforced by Cloudflare plus an Nginx redirect and HSTS. Nginx also sets security headers and rate-limits `/api/` per visitor IP (CSP is currently report-only).
 3. **CORS** is enabled only when `FLASK_ENV=development`; production is same-origin.
-4. **Untrusted content.** Project Markdown is sanitized at build time; message-board text is allowlist-filtered and rendered as plain text; file-share downloads are always `application/octet-stream`.
+4. **Untrusted content.** Project Markdown is sanitized at build time; message-board text has control and invisible characters stripped and is rendered as plain text; file-share downloads are always `application/octet-stream`.
 5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output.
 6. **Deploys.** Only GitHub Actions jobs on `main` in the `production` environment can get credentials, through Workload Identity Federation (no stored keys). The deployer reaches the VM only over IAP SSH as a non-admin OS Login user; its one root action is the deploy script, which checks the release checksum and installs only hash-pinned wheels.
 7. **Least privilege on the VM.** Releases are root-owned and read-only to `flaskapp`, which runs under systemd sandboxing and can write only `/var/lib/personalwebsite`.

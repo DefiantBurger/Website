@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import threading
 import time
+import unicodedata
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -17,9 +18,13 @@ MAX_MESSAGE_LENGTH = 280
 RATE_LIMIT_WINDOW_SECONDS = 10.0
 RATE_LIMIT_MAX_REQUESTS = 5
 
-# Allowlist: Alphanumeric, safe URL punctuation, and standard whitespace (spaces/newlines)
-# Characters explicitly excluded: <, >, &, ", ', and all control characters/null bytes
-_ALLOWED_CHARS_PATTERN = re.compile(r'[^a-zA-Z0-9\s,.\-!/()=?`*;:_{}\[\]\\|~^]')
+# Control, format (zero-width, bidi overrides), surrogate, private-use, unassigned,
+# and line/paragraph-separator characters. Ordinary punctuation is safe because the
+# frontend renders messages as text, never as HTML.
+_DROPPED_CATEGORIES = frozenset({'Cc', 'Cf', 'Cs', 'Co', 'Cn', 'Zl', 'Zp'})
+# Newline, plus the zero-width joiner and tag characters that emoji sequences
+# (family, subdivision flags) depend on.
+_KEPT_CHARS = frozenset({'\n', '\u200d'}) | {chr(c) for c in range(0xE0020, 0xE0080)}
 
 
 class MessageBoardError(ApiError):
@@ -49,30 +54,26 @@ def _now(now: float | None) -> float:
 	return time.time() if now is None else now
 
 
+def _is_kept(char: str) -> bool:
+	return char in _KEPT_CHARS or unicodedata.category(char) not in _DROPPED_CATEGORIES
+
+
 def sanitize_message_text(raw_text: object) -> str:
-	"""
-	Sanitize user message using an explicit allowlist:
-	- Only allows alphanumeric characters, URL-safe punctuation, and whitespace.
-	- Strips any character not in the allowlist (excluding <, >, &, ", ', etc.).
-	- Normalizes whitespace and collapses excessive newlines.
-	- Enforces non-empty and maximum length constraints.
-	"""
+	"""Drop invisible and control characters, collapse blank lines, and enforce the length limit."""
 	if raw_text is None:
 		raise MessageBoardError('Message text is required.', 400)
 
 	if not isinstance(raw_text, str):
 		raise MessageBoardError('Message text must be a string.', 400)
 
-	# Replace carriage returns with standard newline
-	normalized = raw_text.replace('\r\n', '\n').replace('\r', '\n')
-
-	# Strip everything outside the strict allowlist
-	cleaned = _ALLOWED_CHARS_PATTERN.sub('', normalized).strip()
+	normalized = raw_text.replace('\r\n', '\n').replace('\r', '\n').replace('\t', ' ')
+	# NFC so the length limit counts "é" once whether it arrived composed or not.
+	normalized = unicodedata.normalize('NFC', normalized)
+	cleaned = ''.join(c for c in normalized if _is_kept(c)).strip()
 
 	if not cleaned:
-		raise MessageBoardError('Message cannot be empty or contain only invalid characters.', 400)
+		raise MessageBoardError('Message cannot be empty.', 400)
 
-	# Collapse excessive blank lines
 	cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
 
 	if len(cleaned) > MAX_MESSAGE_LENGTH:

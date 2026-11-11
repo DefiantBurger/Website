@@ -186,7 +186,7 @@ Provisioning and releases are separate. Terraform builds the VM rarely; GitHub A
 ```mermaid
 flowchart LR
     P[Push] --> TB[test-backend: pytest]
-    P --> TF[test-frontend: svelte-check + tsc]
+    P --> TF[test-frontend: svelte-check + tsc + build]
     TB --> PK[package: build + tarball]
     TF --> PK
     PK -->|main only| D[deploy over IAP SSH]
@@ -195,7 +195,7 @@ flowchart LR
     H -->|fail| R[automatic rollback]
 ```
 
-1. Pull requests and pushes run backend tests and frontend type checks.
+1. Pull requests and pushes run backend tests, frontend type checks, and a frontend build.
 2. On `main`, CI builds the frontend, exports hash-pinned backend requirements from `uv.lock`, and packages a release tarball.
 3. The deploy job authenticates with Workload Identity Federation (no stored keys) and streams the tarball to the VM over IAP SSH.
 4. On the VM, the deployer's only sudo right is a deploy script. It verifies the checksum, builds a venv from hash-pinned wheels, swaps the `current` symlink atomically, and restarts the service.
@@ -233,7 +233,7 @@ The platform hosts several interactive utilities that showcase different enginee
 
 - **Class Scheduler** (`/utilities/scheduler`): semester-based drag-and-drop planning with prerequisite validation, a dependency graph, variable-credit courses, auto-detangling of graph edges, plans saved and shared through the URL, and JSON import/export.
 - **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. Files are encrypted at rest (scrypt + AES-256-GCM), looked up by an HMAC of the key, limited to 80 MB each and 1 GB total, and expire after 10 minutes.
-- **Message Board** (`/utilities/message-board`): an anonymous board where posts expire 60 seconds after posting, with allowlist sanitization, a 280-character limit, and per-IP rate limiting.
+- **Message Board** (`/utilities/message-board`): an anonymous board where posts expire 60 seconds after posting, with control-character filtering, a 280-character limit, and per-IP rate limiting.
 
 There's also an **About You** page that shows what the site can observe about a visit: request headers, Cloudflare's location headers, browser properties, and in-session navigation history (kept in memory, never sent to the server).
 
@@ -358,7 +358,7 @@ Key practices in the current implementation:
 - no open web ports: all traffic arrives through the Cloudflare Tunnel
 - HTTPS enforced by Cloudflare, plus an Nginx redirect and HSTS
 - CORS enabled only in development; production is same-origin
-- Markdown sanitized before HTML injection; message-board text allowlist-filtered and rendered as plain text
+- Markdown sanitized before HTML injection; message-board text stripped of control and invisible characters and rendered as plain text
 - file-share downloads always served as `application/octet-stream` with `nosniff`
 - secrets fetched from Secret Manager at boot
 - deploy credentials issued only to `main` in the `production` environment through Workload Identity Federation

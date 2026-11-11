@@ -103,5 +103,12 @@ jobs:
             --command "sudo /usr/local/sbin/personalwebsite-deploy $GITHUB_SHA $RELEASE_SHA256" \
             < release.tar.gz
 
+      # Also checks that the page and its entry script are served, which the API
+      # health check alone can't catch.
       - name: Smoke test through Cloudflare
-        run: curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$DOMAIN/api/health/"
+        run: |
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "https://$DOMAIN/api/health/"
+          html=$(curl -fsS "https://$DOMAIN/")
+          script=$(grep -o '/assets/[^"]*\.js' <<< "$html" | head -1)
+          [ -n "$script" ] || { echo "::error::No entry script in index.html"; exit 1; }
+          curl -fsS -o /dev/null "https://$DOMAIN$script"

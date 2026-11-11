@@ -33,7 +33,7 @@ cd frontend && pnpm a11y                 # axe-core scan
 - **`pnpm smoke`** loads every route and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, and theme persistence.
 - **`pnpm a11y`** runs axe-core (WCAG 2.2 A/AA plus best practices) on every route, one project page, and the 404 page, in both themes at desktop and phone width. Mermaid diagrams are excluded (see Issues); screen-reader flow, focus handling, and drag-and-drop still need a manual check.
 - Both browser scripts need the dev servers running, drive the installed Google Chrome through `playwright-core` (or run `pnpm exec playwright-core install chromium`), and accept `TEST_BASE_URL` to target another host.
-- **CI** (`test.yaml`) runs everything except `pnpm build` and the browser checks. Lint and format problems only warn.
+- **CI** (`test.yaml`) runs everything except the browser checks. Lint and format problems only warn.
 
 ## Backend
 

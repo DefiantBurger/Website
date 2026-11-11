@@ -78,7 +78,7 @@ Anonymous board where messages expire 60 seconds after posting.
 
 A message is `{id, text, createdAt, expiresAt}`. Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` rate limit.
 
-- **Sanitizing.** Keeps only letters, digits, whitespace, and ``,.-!/()=?`*;:_{}[]\|~^``. Runs of 3+ newlines collapse to 2.
+- **Sanitizing.** NFC-normalizes, turns tabs into spaces, and drops control, format (zero-width, bidi overrides), private-use, and unassigned characters, except the joiner and tag characters emoji sequences need. Markup is stored as typed; the frontend renders text, never HTML. Runs of 3+ newlines collapse to 2.
 - **Storage.** In-process memory behind a lock: at most 200 messages (oldest evicted), expired ones purged on every read and write, all lost on restart.
 - **Rate limit.** 5 posts per 10 s per client IP (sliding window), checked before validation, so rejected posts count too.
 - The page reloads messages on mount, after posting, and on demand (no polling), and never renders them with `{@html}`.

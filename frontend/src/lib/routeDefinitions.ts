@@ -75,7 +75,7 @@ export const routeDefinitions = {
     meta: {
       title: 'Message Board',
       description:
-        'Post short anonymous notes that self-destruct shortly after posting. Uses a strict URL-safe allowlist for sanitization.',
+        'Post short anonymous notes that self-destruct shortly after posting. Plain text, anonymous, and gone in a minute.',
     },
   },
 } as const satisfies Record<string, RouteDefinition>;

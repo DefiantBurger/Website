@@ -18,29 +18,32 @@ MESSAGES_URL = '/api/messageboard/messages/'
 # Sanitization
 
 
-def test_valid_message_preserved():
-	msg = 'Hello, world! (Test: 123) /path?param=value~^_{}[]|*;'
+@pytest.mark.parametrize(
+	'msg',
+	[
+		'Hello, world! (Test: 123) /path?param=value~^_{}[]|*;',
+		'don\'t & <b>won\'t</b> "quote" #tag 50% a+b me@example.com',
+		'café ñ 你好 🎉 👨\u200d👩\u200d👧 🏴\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f',
+	],
+)
+def test_printable_text_preserved(msg):
 	assert sanitize_message_text(msg) == msg
 
 
-def test_html_tags_and_entities_stripped():
-	raw = '<script>alert("hacked")</script> & \'test\''
-	cleaned = sanitize_message_text(raw)
-	for char in '<>&"\'':
-		assert char not in cleaned
-	assert cleaned == 'scriptalert(hacked)/script  test'
+def test_control_and_invisible_characters_stripped():
+	raw = 'Hello\x00\x1b[31mWorld\x08!\u200b\u202eevil\u2028\ue000'
+	assert sanitize_message_text(raw) == 'Hello[31mWorld!evil'
 
 
-def test_control_characters_and_null_bytes_stripped():
-	cleaned = sanitize_message_text('Hello\x00\x1b[31mWorld\x08!')
-	assert cleaned == 'Hello[31mWorld!'
+def test_tabs_become_spaces_and_text_is_nfc_normalized():
+	assert sanitize_message_text('a\tcafe\u0301') == 'a caf\u00e9'
 
 
 def test_whitespace_and_excessive_newlines():
 	assert sanitize_message_text('Line 1\r\n\n\n\n\nLine 2') == 'Line 1\n\nLine 2'
 
 
-@pytest.mark.parametrize('raw', ['', '   ', '<<<>>>&&&"""\'\'\'', None, 12345])
+@pytest.mark.parametrize('raw', ['', '   ', '\u200b\u202e\x00', None, 12345])
 def test_empty_invalid_or_non_string_rejected(raw):
 	with pytest.raises(MessageBoardError):
 		sanitize_message_text(raw)
@@ -127,10 +130,11 @@ def test_post_and_get_message(client):
 	assert res.get_json()['messages'] == [posted]
 
 
-def test_post_sanitization_removes_html(client):
-	res = client.post(MESSAGES_URL, json={'text': '<script>alert(1)</script> Hello!'})
+def test_post_is_sanitized_but_keeps_markup_as_text(client):
+	# The frontend escapes on render, so markup is stored verbatim.
+	res = client.post(MESSAGES_URL, json={'text': '<b>hi</b>\u202e\x00 Hello!'})
 	assert res.status_code == 201
-	assert res.get_json()['text'] == 'scriptalert(1)/script Hello!'
+	assert res.get_json()['text'] == '<b>hi</b> Hello!'
 
 
 def test_post_empty_rejected(client):
