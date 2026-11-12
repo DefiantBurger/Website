@@ -121,12 +121,11 @@ Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028
 
 ### Supply-chain cooldowns in the repo
 
-pnpm's `minimumReleaseAge` (install nothing published in the last N minutes) is currently set only in the owner's `~/.npmrc` (`minimum-release-age=4320`, three days). So the protection exists on one machine. Dependabot has its own equivalent and ignores pnpm's.
+pnpm's `minimumReleaseAge` (install nothing published in the last N minutes) is currently set only in the owner's `~/.npmrc` (`minimum-release-age=4320`, three days). So the protection exists on one machine.
 
 - Create `frontend/pnpm-workspace.yaml` with `minimumReleaseAge: 4320`. pnpm reads it for this project only; when a needed release is too new, add a `minimumReleaseAgeExclude` entry and remove it once the release has aged past the window.
-- `.github/dependabot.yml`: add `cooldown: { default-days: 3 }` to all three `updates` entries (npm, uv, github-actions). uv itself has no rolling-window option (`exclude-newer` is a fixed date), so the Dependabot cooldown is the backend's only cover.
-- Also enable **Dependabot security updates** in GitHub → Settings → Code security (alerts and secret scanning are already on; security updates, which open a PR as soon as an advisory lands, are off). Owner-only, no code.
-- Docs: mention both settings in `IMPLEMENTATION.md` wherever dependencies are described.
+- uv has no rolling-window option (`exclude-newer` is a fixed date), so the backend has no equivalent; a `uv lock --upgrade` picks up releases from minutes ago.
+- Docs: mention the setting under *Updating Dependencies* in `IMPLEMENTATION.md`.
 
 ### Terraform and shell checks in CI
 
@@ -139,7 +138,7 @@ New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_reque
 3. In `deployment/`: `terraform fmt -check -recursive -diff` (warn, like the other format checks), then `terraform init -backend=false -input=false` and `terraform validate` (fail: these are build errors, like `pnpm check`).
 4. `shellcheck deploy.sh test.sh start-dev.sh format.sh deployment/tf.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; leave them out.
 
-Dependabot already scans `/` for action pins, so the new workflow is covered. Docs: add the workflow to the *Pipeline* list in `DEPLOYMENT.md` and the workflows bullet in `ARCHITECTURE.md`.
+Docs: add the workflow to the *Pipeline* list in `DEPLOYMENT.md` and the workflows bullet in `ARCHITECTURE.md`.
 
 ### Shielded VM
 
@@ -219,7 +218,7 @@ resource "cloudflare_zone_settings_override" "website" {
 
 ### Trim the production venv
 
-`flask-cors` and `python-dotenv` only matter under `FLASK_ENV=development`, yet both ship in every release and get Dependabot PRs against production. `backend/pyproject.toml` also still carries the setuptools `[build-system]` block, although `uv export --no-emit-project` means the package is never built.
+`flask-cors` and `python-dotenv` only matter under `FLASK_ENV=development`, yet both ship in every release. `backend/pyproject.toml` also still carries the setuptools `[build-system]` block, although `uv export --no-emit-project` means the package is never built.
 
 - **Drop `python-dotenv`.** `start-dev.sh` already exports every variable, the README shows them inline, and uv can load a file itself: `uv run --env-file .env main.py`. Remove `load_dotenv()` from `backend/main.py`, the dependency from `pyproject.toml`, and the "loads `.env`" mentions in `IMPLEMENTATION.md` (the environment table intro and the `main.py` row), replacing them with the `--env-file` form. The alternative, if the owner wants `.env` to keep working with a bare `uv run main.py`, is to move it to the `dev` group and guard the import with `try: from dotenv import load_dotenv / except ImportError`.
 - **Move `flask-cors` to the `dev` group** and import it where it's used, inside the `development` branch of `create_app` in `backend/app/__init__.py` (`from flask_cors import CORS`), so production never imports it. Ruff doesn't flag function-level imports with the current rule set.

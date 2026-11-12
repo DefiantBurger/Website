@@ -35,6 +35,17 @@ cd frontend && pnpm a11y                 # axe-core scan
 - Both browser scripts need the dev servers running, drive the installed Google Chrome through `playwright-core` (or run `pnpm exec playwright-core install chromium`), and accept `TEST_BASE_URL` to target another host.
 - **CI** (`test.yaml`) runs everything except the browser checks. Lint and format problems only warn.
 
+### Updating Dependencies
+
+There's no update bot; GitHub's Dependabot security alerts (Security tab, email) are the only notification. Update by hand, then run `./test.sh`:
+
+```bash
+cd frontend && pnpm outdated && pnpm update -i --latest
+cd backend && uv tree --outdated --depth 1 && uv lock --upgrade && uv sync
+```
+
+GitHub Actions are pinned by commit SHA in `.github/workflows/` and `.github/actions/`; bump those by hand too.
+
 ## Backend
 
 | File | Role |
