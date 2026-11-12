@@ -213,7 +213,7 @@ Before the scattering work, my first weeks went into getting up to speed with th
 - **A comparison of time propagators.** I'm doing a literature review of methods for the time-dependent Schrödinger equation (split operator, Crank–Nicolson, Chebyshev, short iterative Lanczos, FDTD), focused on scattering: how sources are injected, how absorbing boundaries behave under each method, and how transmission and reflection are measured. TF/SF in the split-operator method, from this project, is one piece of that.
 - **Wigner transport.** The phase-space view doubles as a reference for a Wigner transport simulation in the group, which evolves the Wigner function directly. Running both on the same problem and comparing them should be a good correctness check.
 - **More realistic inverse problems.** Training on data closer to what an experiment could actually measure, such as time series recorded along the edges rather than a single snapshot.
-- **Solver upgrades:** Strang splitting, a leapfrog FDTD with norm conservation, and time-dependent potentials and electric fields.
+- **Solver upgrades:** a leapfrog FDTD with norm conservation, time-dependent potentials and electric fields, a near-to-far-field transform for angle-resolved cross sections, and GPU batching for faster dataset generation.
 
 ## Stack
 
