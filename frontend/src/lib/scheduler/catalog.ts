@@ -2,6 +2,7 @@
 import type {
   CourseCatalog,
   CourseCatalogFile,
+  CourseCatalogRecord,
   CourseInstance,
   Requirement,
   RequirementNode,
@@ -48,10 +49,10 @@ export function parseCourseEntry(entry: string): { courseName: string; requested
 /** Credit options for a course, lowest (the default) first. */
 export function getValidCredits(catalog: CourseCatalog, courseName: string): number[] {
   const item = lookupCourse(catalog, courseName);
-  if (!item) {
-    return [];
-  }
+  return item ? creditOptions(item) : [];
+}
 
+function creditOptions(item: CourseCatalogRecord): number[] {
   if (typeof item.credits === 'number') {
     return [item.credits];
   }
@@ -66,12 +67,11 @@ export function getValidCredits(catalog: CourseCatalog, courseName: string): num
 
 /** Validate requested credits against the catalog; defaults to the lowest valid value. */
 function resolveCredits(
-  catalog: CourseCatalog,
+  item: CourseCatalogRecord,
   courseName: string,
   requestedCredits?: number,
 ): number {
-  catalogEntry(catalog, courseName);
-  const validCredits = getValidCredits(catalog, courseName);
+  const validCredits = creditOptions(item);
 
   if (requestedCredits === undefined) {
     return validCredits[0];
@@ -176,9 +176,10 @@ export function requirementParts(
     return requirementParts(children[0], childConcurrent, isRoot);
   }
   const bareGroups = isRoot && !('atleast' in node);
+  const isBareGroup = (child: RequirementNode) => bareGroups && isComposite(child) && isFlat(child);
   const rendered = children.map((child) => {
     const parts = requirementParts(child, childConcurrent, false);
-    return isComposite(child) && !(bareGroups && isFlat(child))
+    return isComposite(child) && !isBareGroup(child)
       ? [{ text: '(' }, ...parts, { text: ')' }]
       : parts;
   });
@@ -187,7 +188,7 @@ export function requirementParts(
     return [{ text: `${node.atleast} of: ` }, ...joinParts(rendered, ', ')];
   }
   const word = 'all' in node ? 'and' : 'or';
-  const hasBareGroup = children.some((child) => isComposite(child) && bareGroups && isFlat(child));
+  const hasBareGroup = children.some(isBareGroup);
   return joinParts(rendered, hasBareGroup ? `, ${word} ` : ` ${word} `);
 }
 
@@ -202,13 +203,14 @@ export function createCourse(
   semester: string,
   requestedCredits?: number,
 ): CourseInstance {
+  const item = catalogEntry(catalog, courseName);
   return {
     id: `${courseName}__${occurrenceIndex}`,
     name: courseName,
     occurrenceIndex,
     semester,
-    credits: resolveCredits(catalog, courseName, requestedCredits),
-    title: catalogEntry(catalog, courseName).title,
+    credits: resolveCredits(item, courseName, requestedCredits),
+    title: item.title,
   };
 }
 

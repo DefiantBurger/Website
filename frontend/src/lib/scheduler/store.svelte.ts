@@ -120,13 +120,9 @@ export class SchedulerStore {
 
   /** Scheduled courses that can't count for credit alongside this one (either side of a pair). */
   overlapPartners(courseId: string): string[] {
-    return this.creditOverlaps.flatMap((overlap) =>
-      overlap.courseId === courseId
-        ? [overlap.otherCourseId]
-        : overlap.otherCourseId === courseId
-          ? [overlap.courseId]
-          : [],
-    );
+    return this.creditOverlaps
+      .filter((overlap) => overlap.courseId === courseId || overlap.otherCourseId === courseId)
+      .map((overlap) => (overlap.courseId === courseId ? overlap.otherCourseId : overlap.courseId));
   }
 
   progressPercent(courseId: string): number | null {

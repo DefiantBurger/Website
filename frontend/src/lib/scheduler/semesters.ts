@@ -21,7 +21,7 @@ export interface TermParts {
 /** `fall24` -> `{ term: 'fall', year: 2024 }`; null for precollege or anything malformed. */
 export function parseSemesterKey(key: string): TermParts | null {
   const match = TERM_KEY.exec(key);
-  return match ? { term: match[1] as Term, year: 2000 + Number(match[2]) } : null;
+  return match ? { term: match[1] as Term, year: MIN_YEAR + Number(match[2]) } : null;
 }
 
 export function semesterKey({ term, year }: TermParts): string {
@@ -55,7 +55,7 @@ function rank(key: string): number {
 
 /** Chronological order; precollege sorts first. */
 export function sortSemesters(keys: string[]): string[] {
-  return [...keys].sort((a, b) => rank(a) - rank(b));
+  return keys.toSorted((a, b) => rank(a) - rank(b));
 }
 
 /** The next fall or spring after `key`; winter and summer are added by hand. */

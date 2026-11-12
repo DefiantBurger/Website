@@ -258,14 +258,8 @@ export function detangleCourseOrder(
 
   const neighbors: Record<string, Set<string>> = {};
   for (const edge of edges) {
-    if (!neighbors[edge.toCourseId]) {
-      neighbors[edge.toCourseId] = new Set();
-    }
-    if (!neighbors[edge.fromCourseId]) {
-      neighbors[edge.fromCourseId] = new Set();
-    }
-    neighbors[edge.toCourseId].add(edge.fromCourseId);
-    neighbors[edge.fromCourseId].add(edge.toCourseId);
+    (neighbors[edge.toCourseId] ??= new Set()).add(edge.fromCourseId);
+    (neighbors[edge.fromCourseId] ??= new Set()).add(edge.toCourseId);
   }
 
   const positionInLayer: Record<string, number> = {};
@@ -290,22 +284,15 @@ export function detangleCourseOrder(
             ? neighborPositions.reduce((sum, value) => sum + value, 0) / neighborPositions.length
             : currentPosition;
 
-        return {
-          courseId,
-          barycenter,
-          currentPosition,
-        };
+        return { courseId, barycenter, currentPosition };
       });
 
-      scored.sort((a, b) => {
-        if (a.barycenter !== b.barycenter) {
-          return a.barycenter - b.barycenter;
-        }
-        if (a.currentPosition !== b.currentPosition) {
-          return a.currentPosition - b.currentPosition;
-        }
-        return a.courseId.localeCompare(b.courseId);
-      });
+      scored.sort(
+        (a, b) =>
+          a.barycenter - b.barycenter ||
+          a.currentPosition - b.currentPosition ||
+          a.courseId.localeCompare(b.courseId),
+      );
 
       result[semester] = scored.map((item) => item.courseId);
       result[semester].forEach((courseId, index) => {
