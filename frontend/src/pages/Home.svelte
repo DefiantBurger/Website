@@ -1,12 +1,7 @@
 <script lang="ts">
   import LinkCard from '../lib/components/LinkCard.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
-  import { pathFor, routeDefinitions } from '../lib/routeDefinitions';
-
-  const sectionLinks = (['about', 'projects', 'utilities', 'contact'] as const).map((key) => ({
-    label: routeDefinitions[key].meta.title,
-    href: pathFor(key),
-  }));
+  import { pathFor } from '../lib/routeDefinitions';
 
   const featuredProjects: { title: string; description: string; slug: string }[] = [
     {
@@ -40,14 +35,7 @@
   ];
 </script>
 
-<PageHeader title="Welcome" description="I'm Joseph Cicalese. This is my website.">
-  <p class="section-links">
-    {#each sectionLinks as link, index (link.href)}
-      <!-- eslint-disable-next-line svelte/no-useless-mustaches -- Svelte trims literal whitespace at block edges -->
-      {#if index > 0}{' • '}{/if}<a href={link.href}>{link.label}</a>
-    {/each}
-  </p>
-</PageHeader>
+<PageHeader title="Welcome" description="I'm Joseph Cicalese. This is my website." />
 
 <section>
   <h2 class="prompt section-title">Featured Projects</h2>
@@ -79,10 +67,6 @@
 </section>
 
 <style>
-  .section-links {
-    margin-top: 1rem;
-  }
-
   section {
     margin: 3rem 0;
   }

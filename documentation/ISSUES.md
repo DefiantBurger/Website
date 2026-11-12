@@ -2,12 +2,6 @@
 
 Items are confirmed issues unless labelled **High** (priority), **Likely**, **Possible** (needs review), or **Minor**. **Cleanup** marks dead or redundant code whose removal shouldn't change behavior. Deliberate behavior that can look like a bug is listed in the [appendix](#appendix-non-issues).
 
-## Frontend
-
-### General
-
-1. **Minor:** `Home.svelte` links About, Utilities, and Contact three times on one screen (nav, header links, Quick Links).
-
 ## Infrastructure
 
 1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
