@@ -4,10 +4,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ## Frontend
 
-### SEO
-
-1. **Minor:** `apple-touch-icon.png` (180px) and `og-image.png` (512px) are upscaled from the 128px favicon, so they're a little blurry. Replace them if a larger source image turns up.
-
 ### General
 
 1. **Minor:** `Home.svelte` links About, Utilities, and Contact three times on one screen (nav, header links, Quick Links).

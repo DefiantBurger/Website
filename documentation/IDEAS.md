@@ -70,7 +70,7 @@ The build already writes `<route>/index.html` for every route (`plugins/routeHtm
 
 ### OG images
 
-Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, which is currently the same upscaled (blurry) 512px icon for every page. Generate a 1200×630 image per project at build time (title + summary in the terminal style) and point each project's `og:image` at it, with a site-wide default for other pages. Turning an SVG template into a PNG needs a renderer, which probably means a build-only dependency (e.g. `@resvg/resvg-js`); the alternative is to make the images by hand once per project.
+Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, which is currently the same 512px site icon for every page. Generate a 1200×630 image per project at build time (title + summary in the terminal style) and point each project's `og:image` at it, with a site-wide default for other pages. Turning an SVG template into a PNG needs a renderer, which probably means a build-only dependency (e.g. `@resvg/resvg-js`); the alternative is to make the images by hand once per project.
 
 ## Utilities
 

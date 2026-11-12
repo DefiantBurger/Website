@@ -25,6 +25,7 @@ Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.18+ (the tes
 ./start-dev.sh   # backend on :5000, Vite dev server on :5173
 ./test.sh        # all tests and checks (--no-browser to skip the browser checks)
 ./format.sh      # format every file
+./gen-icons.sh   # regenerate PNG/ICO icons from frontend/public/favicon.svg
 ./deploy.sh      # deploy origin/main (runs the Deploy workflow via gh)
 ```
 
