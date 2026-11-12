@@ -57,6 +57,13 @@ def test_404_handler_returns_json(client):
 	assert res.get_json() == {'error': 'Not Found'}
 
 
+def test_oversized_body_returns_json_413(app, client):
+	app.config['MAX_CONTENT_LENGTH'] = 10  # Stand-in for the real ~81 MB cap.
+	res = client.post('/api/fileshare/upload/', data={'password': 'x' * 100})
+	assert res.status_code == 413
+	assert 'MB limit' in res.get_json()['error']
+
+
 @pytest.mark.parametrize(
 	('flask_env', 'allowed_origins'),
 	[('production', [None]), ('development', ['*', 'https://example.com'])],

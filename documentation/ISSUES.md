@@ -26,35 +26,10 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
 2. Expiry is request-driven; idle files linger until the next file-share request.
 3. **Possible:** "Download All" starts each download after an `await`, outside the click's user activation, so Chrome may prompt for or block multiple automatic downloads. Needs a manual check.
-4. **Minor:** An upload body between Flask's `MAX_CONTENT_LENGTH` (`MAX_FILE_BYTES` + 1 MiB, ~81.05 MB) and Nginx's `81M` (~84.9 MB) gets Werkzeug's HTML 413, not JSON, though the comment in `app/__init__.py` says otherwise. The frontend falls back to a status-based message, so users still see an error. An `@app.errorhandler(413)` returning `{'error': ...}` would fix it.
 
 ## Code Quality
 
 Refactors from a code-quality review (2026-11-10). Every item is **Cleanup** (no behavior change) unless it says otherwise. For each one: make the change as written, run `./test.sh --no-browser`, keep the existing tests passing (they pin the behavior), and delete the item here. Don't widen the scope; anything else you notice goes in a separate change. Messages shown to users and returned by the API stay word-for-word the same unless the item says they change.
-
-### Backend
-
-1. **Cleanup:** `app/views.py` mixes two error styles. `@views.errorhandler(ApiError)` already turns a raised `ApiError` into `{'error': message}` with its status code, but seven views still `return jsonify({'error': ...}), <code>` by hand: `fileshare_upload` (400), `fileshare_delete` (400), `fileshare_access` (400 and 404), `fileshare_list` (404), and `messageboard_post_message` (429 and 413). Replace each with `raise ApiError(<same message>, <same code>)`. Add one helper next to `_parse_coordinate` and use it in both `fileshare_delete` (inside the list comprehension) and `fileshare_access`, deleting their `try`/`except ValueError` blocks:
-
-   ```python
-   def _parse_index(value: str) -> int:
-   	try:
-   		return int(value)
-   	except ValueError:
-   		raise ApiError('Invalid occurrence index.') from None
-   ```
-
-   Also move the `uploaded_file is None` check out of `fileshare_upload` into `save_upload` (`app/fileshare.py`): type the parameter `FileStorage | None` and fold it into the existing filename check, `if uploaded_file is None or not (uploaded_file.filename or '').strip(): raise FileShareError('A file is required.')`. The view then reads `password = ...`, `with transfer_slot(): record = save_upload(request.files.get('file'), password)`, `return jsonify(record.to_json())`. `tests/test_views.py` and `tests/test_fileshare.py` match on the message texts and status codes.
-
-2. **Cleanup:** `app/fileshare.py` `save_upload()` builds a placeholder record with `occurrence_index=0`, then `replace()`s it, and its `metadata` dict re-lists every field of `FileShareRecord` by hand. Restructure the end of the function: keep `occurrence_index: int | None = None` before the `try`; inside the `try`, call `_write_new_payload` first, then build `record = FileShareRecord(label=label, occurrence_index=occurrence_index, ...)` with the real index (`now = _now_utc()` can move here too), then write the metadata as `{key: value for key, value in asdict(record).items() if key not in ('label', 'occurrence_index')}`; after the `try`, `return record`. Import `asdict` from `dataclasses`; `replace` becomes unused. The `except OSError` branch stays as is (it still needs the `is not None` check, since `_write_new_payload` can be what raised). Leave `_load_record` alone: its per-field coercion and defaults are deliberate validation of files on disk, not duplication.
-
-3. **Cleanup:** `app/messageboard.py`. (a) `RateLimiter.check_and_record` assigns `self._requests[key] = timestamps` on both branches. Assign once up front, `timestamps = self._requests[key] = [t for t in self._requests.get(key, []) if t > cutoff]`, then `if len(timestamps) >= self.max_requests: return False`, then `timestamps.append(current_time)`. The list is shared by reference, so the append is visible through the dict and the second assignment goes away. (b) `datetime.fromtimestamp(x, UTC).isoformat()` appears three times (`add_message` twice, `snapshot` once) and `current_time + self.ttl_seconds` twice. Add `def _iso(epoch: float) -> str: return datetime.fromtimestamp(epoch, UTC).isoformat()` next to `_now`, compute `expires_epoch = current_time + self.ttl_seconds` once in `add_message`, and use `_iso` in all three places (`created_dt`/`expires_dt` go away). `tests/test_messageboard.py` covers both.
-
-4. **Cleanup:** `app/__init__.py`. (a) The `with app.app_context():` around `from .views import views` does nothing: importing the blueprint needs no app (verified with `python -c "from app.views import views"`, which works with no app at all). Move the import to the top of the file next to `from .fileshare import MAX_FILE_BYTES` and call `app.register_blueprint(views, url_prefix='/')` directly. (b) The two `if app.config['SECRET_KEY'] is None:` checks read as one: `app.config['SECRET_KEY'] = app.config['SECRET_KEY'] or os.getenv('SECRET_KEY')` followed by `if not app.config['SECRET_KEY']: raise ValueError('SECRET_KEY environment variable is not set')`. Keep that message; `tests/test_app.py` matches it. This also rejects an empty string, which is right for a secret.
-
-5. **Cleanup:** `messageboard_post_message` in `app/views.py` accepts two body formats: JSON (`{"text": ...}`) and HTML form encoding (`text=...`), via a fallback to `request.form` guarded by `hasattr(data, 'get')`. Only the site's frontend posts to it, and it only sends JSON (`lib/messageboard/api.ts`); the owner confirmed nothing else uses the form path. Delete the fallback, the `hasattr` guard, and `test_post_via_form_data` in `tests/test_messageboard.py`, leaving `data = request.get_json(silent=True)` and `text = data.get('text') if isinstance(data, dict) else None`. A form-encoded post then gets the existing "Message text is required." 400 from `sanitize_message_text`, which is fine.
-
-6. **Cleanup:** `app/fileshare.py` `_existing_indices()` uses `path.name.split('.', 1)[0]`; that's `path.stem`. Every stored file has exactly one suffix (`.json` or `.payload`), and the dot-prefixed temp files never match the `<label>*` glob.
 
 ### Frontend
 

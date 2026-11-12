@@ -5,6 +5,7 @@ from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .fileshare import MAX_FILE_BYTES
+from .views import views
 
 
 def create_app(test_config: dict | None = None, instance_path: str | None = None):
@@ -25,9 +26,8 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 	app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_BYTES + 1024 * 1024
 
 	app.config.update(test_config or {})
-	if app.config['SECRET_KEY'] is None:
-		app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-	if app.config['SECRET_KEY'] is None:
+	app.config['SECRET_KEY'] = app.config['SECRET_KEY'] or os.getenv('SECRET_KEY')
+	if not app.config['SECRET_KEY']:
 		raise ValueError('SECRET_KEY environment variable is not set')
 
 	@app.errorhandler(404)
@@ -35,9 +35,11 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 		current_app.logger.warning(f'404 Not Found: {request.path!r} from {request.remote_addr}')
 		return jsonify({'error': 'Not Found'}), 404
 
-	with app.app_context():
-		from .views import views
+	# Werkzeug raises this before any view runs, so the blueprint's ApiError handler never sees it.
+	@app.errorhandler(413)
+	def request_too_large(e):
+		return jsonify({'error': f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.'}), 413
 
-		app.register_blueprint(views, url_prefix='/')
+	app.register_blueprint(views, url_prefix='/')
 
 	return app

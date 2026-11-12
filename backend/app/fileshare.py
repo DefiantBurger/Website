@@ -16,7 +16,7 @@ import os
 import threading
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -144,7 +144,7 @@ def _record_paths(label: str, occurrence_index: int = 1) -> tuple[Path, Path]:
 def _existing_indices(label: str) -> list[int]:
 	indices: set[int] = set()
 	for path in _storage_root().glob(f'{label}*'):
-		parsed = _parse_stem(path.name.split('.', 1)[0])
+		parsed = _parse_stem(path.stem)
 		if parsed is not None and parsed[0] == label:
 			indices.add(parsed[1])
 	return sorted(indices)
@@ -351,11 +351,11 @@ def _write_text_atomically(path: Path, text: str) -> None:
 		raise
 
 
-def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
+def save_upload(uploaded_file: FileStorage | None, password: str) -> FileShareRecord:
 	"""Encrypt and store a file at the key's next occurrence index, evicting old files if over quota."""
 	if not password.strip():
 		raise FileShareError('Access key is required.')
-	if uploaded_file.filename is None or not uploaded_file.filename.strip():
+	if uploaded_file is None or not (uploaded_file.filename or '').strip():
 		raise FileShareError('A file is required.')
 
 	plaintext = uploaded_file.read()
@@ -372,29 +372,24 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 			raise FileShareError('Not enough storage available; try again later.', 503)
 
 	label = build_label(password)
-	now = _now_utc()
-	record = FileShareRecord(
-		label=label,
-		occurrence_index=0,  # Set once the payload has claimed an index.
-		original_filename=_sanitize_original_filename(uploaded_file.filename),
-		size_bytes=len(plaintext),
-		uploaded_at=now.isoformat(),
-		expires_at=(now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
-		salt_b64=salt_b64,
-		nonce_b64=nonce_b64,
-	)
-	metadata = {
-		'original_filename': record.original_filename,
-		'size_bytes': record.size_bytes,
-		'uploaded_at': record.uploaded_at,
-		'expires_at': record.expires_at,
-		'salt_b64': record.salt_b64,
-		'nonce_b64': record.nonce_b64,
-	}
-
 	occurrence_index: int | None = None
 	try:
 		occurrence_index = _write_new_payload(label, ciphertext)
+		now = _now_utc()
+		record = FileShareRecord(
+			label=label,
+			occurrence_index=occurrence_index,
+			original_filename=_sanitize_original_filename(uploaded_file.filename),
+			size_bytes=len(plaintext),
+			uploaded_at=now.isoformat(),
+			expires_at=(now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
+			salt_b64=salt_b64,
+			nonce_b64=nonce_b64,
+		)
+		# Label and index are encoded in the filename, not stored.
+		metadata = {
+			k: v for k, v in asdict(record).items() if k not in ('label', 'occurrence_index')
+		}
 		meta_path, _ = _record_paths(label, occurrence_index)
 		_write_text_atomically(meta_path, json.dumps(metadata, indent=2, sort_keys=True))
 	except OSError as exc:
@@ -403,7 +398,7 @@ def save_upload(uploaded_file: FileStorage, password: str) -> FileShareRecord:
 		current_app.logger.exception('Failed to store fileshare upload')
 		raise FileShareError('Failed to store upload.', 500) from exc
 
-	return replace(record, occurrence_index=occurrence_index)
+	return record
 
 
 def delete_records(password: str, occurrence_indices: Iterable[int]) -> int:

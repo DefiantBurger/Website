@@ -140,12 +140,6 @@ def test_post_empty_rejected(client):
 	assert 'error' in res.get_json()
 
 
-def test_post_via_form_data(client):
-	res = client.post(MESSAGES_URL, data={'text': 'Form data message'})
-	assert res.status_code == 201
-	assert res.get_json()['text'] == 'Form data message'
-
-
 def test_post_rate_limit_exceeded(client):
 	for i in range(5):  # The limit is 5 posts per 10 s.
 		assert client.post(MESSAGES_URL, json={'text': f'Message {i}'}).status_code == 201

@@ -53,6 +53,10 @@ def _now(now: float | None) -> float:
 	return time.time() if now is None else now
 
 
+def _iso(epoch: float) -> str:
+	return datetime.fromtimestamp(epoch, UTC).isoformat()
+
+
 def _is_kept(char: str) -> bool:
 	return char in _KEPT_CHARS or unicodedata.category(char) not in _DROPPED_CATEGORIES
 
@@ -103,15 +107,12 @@ class RateLimiter:
 		cutoff = current_time - self.window_seconds
 
 		with self._lock:
-			timestamps = self._requests.get(key, [])
-			timestamps = [t for t in timestamps if t > cutoff]
-
+			timestamps = self._requests[key] = [
+				t for t in self._requests.get(key, []) if t > cutoff
+			]
 			if len(timestamps) >= self.max_requests:
-				self._requests[key] = timestamps
 				return False
-
 			timestamps.append(current_time)
-			self._requests[key] = timestamps
 
 			# Bound memory by dropping IPs with no recent requests once the map grows.
 			if len(self._requests) > 500:
@@ -155,15 +156,13 @@ class MessageBoardStore:
 			while len(self._messages) >= self.max_messages:
 				self._messages.pop(0)
 
-			created_dt = datetime.fromtimestamp(current_time, UTC)
-			expires_dt = datetime.fromtimestamp(current_time + self.ttl_seconds, UTC)
-
+			expires_epoch = current_time + self.ttl_seconds
 			record = BoardMessageRecord(
 				id=str(uuid.uuid4()),
 				text=text,
-				created_at=created_dt.isoformat(),
-				expires_at=expires_dt.isoformat(),
-				expires_at_epoch=current_time + self.ttl_seconds,
+				created_at=_iso(current_time),
+				expires_at=_iso(expires_epoch),
+				expires_at_epoch=expires_epoch,
 			)
 			self._messages.append(record)
 			return record
@@ -178,7 +177,7 @@ class MessageBoardStore:
 		return {
 			'messages': messages,
 			# Lets the client time expiry against the server's clock, not its own.
-			'serverTime': datetime.fromtimestamp(current_time, UTC).isoformat(),
+			'serverTime': _iso(current_time),
 			'retentionSeconds': int(self.ttl_seconds),
 			'maxMessageLength': MAX_MESSAGE_LENGTH,
 		}

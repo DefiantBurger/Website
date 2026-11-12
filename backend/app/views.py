@@ -75,6 +75,13 @@ def _parse_coordinate(raw: str) -> float | None:
 		return None
 
 
+def _parse_index(value: str) -> int:
+	try:
+		return int(value)
+	except ValueError:
+		raise ApiError('Invalid occurrence index.') from None
+
+
 def _cloudflare_geolocation() -> dict:
 	# Populated by Cloudflare's "Add visitor location headers" Managed Transform.
 	country = _cloudflare_header('CF-IPCountry')
@@ -124,14 +131,9 @@ def fileshare_status():
 @views.route('/api/fileshare/upload/', methods=['POST'])
 def fileshare_upload():
 	# Form fields: file, password. Always appends; the client deletes the old batch afterwards.
-	uploaded_file = request.files.get('file')
 	password = request.form.get('password', '')
-
-	if uploaded_file is None:
-		return jsonify({'error': 'A file is required.'}), 400
-
 	with transfer_slot():
-		record = save_upload(uploaded_file, password)
+		record = save_upload(request.files.get('file'), password)
 
 	return jsonify(record.to_json())
 
@@ -140,15 +142,11 @@ def fileshare_upload():
 def fileshare_delete():
 	# Form fields: password, occurrenceIndices (comma-separated).
 	password = request.form.get('password', '')
-	try:
-		occurrence_indices = [
-			int(part)
-			for part in request.form.get('occurrenceIndices', '').split(',')
-			if part.strip()
-		]
-	except ValueError:
-		return jsonify({'error': 'Invalid occurrence index.'}), 400
-
+	occurrence_indices = [
+		_parse_index(part)
+		for part in request.form.get('occurrenceIndices', '').split(',')
+		if part.strip()
+	]
 	return jsonify({'deletedCount': delete_records(password, occurrence_indices)})
 
 
@@ -156,16 +154,11 @@ def fileshare_delete():
 def fileshare_access():
 	# Form fields: password, occurrenceIndex (which of the key's files; default 1).
 	password = request.form.get('password', '')
-	occurrence_index_str = request.form.get('occurrenceIndex', '1')
-
-	try:
-		occurrence_index = int(occurrence_index_str)
-	except ValueError:
-		return jsonify({'error': 'Invalid occurrence index.'}), 400
+	occurrence_index = _parse_index(request.form.get('occurrenceIndex', '1'))
 
 	record = get_record_for_password(password, occurrence_index)
 	if record is None:
-		return jsonify({'error': 'No active file matched that password.'}), 404
+		raise ApiError('No active file matched that password.', 404)
 
 	release_slot = acquire_transfer_slot()
 
@@ -199,7 +192,7 @@ def fileshare_list():
 
 	records = get_all_records_for_password(password)
 	if not records:
-		return jsonify({'error': 'No active files matched that access key.'}), 404
+		raise ApiError('No active files matched that access key.', 404)
 
 	return jsonify({'files': [record.to_json() for record in records]})
 
@@ -249,17 +242,14 @@ def messageboard_post_message():
 
 	# Rate limit before validating so rejected posts still count toward the limit.
 	if not board_rate_limiter.check_and_record(raw_ip):
-		return jsonify({'error': 'You are posting too quickly. Please wait a few seconds.'}), 429
+		raise ApiError('You are posting too quickly. Please wait a few seconds.', 429)
 
 	# Measure the body itself: a chunked request has no Content-Length to check.
 	if len(request.get_data()) > 16384:
-		return jsonify({'error': 'Payload exceeds maximum allowed size.'}), 413
+		raise ApiError('Payload exceeds maximum allowed size.', 413)
 
 	data = request.get_json(silent=True)
-	if data is None:
-		data = request.form
-
-	text = data.get('text') if hasattr(data, 'get') else None
+	text = data.get('text') if isinstance(data, dict) else None
 
 	record = board_store.add_message(text, raw_ip)
 	return jsonify(record.to_json()), 201
