@@ -15,7 +15,7 @@ Write up the quantum transport simulation research as a project in `frontend/src
 
 ### Robotics hardware showcase (maybe)
 
-For the Wisconsin Robotics electrical work: export KiCad boards to SVG and show them in a viewer with toggleable layers (copper, silkscreen, etc.). Not decided yet.
+For the Wisconsin Robotics electrical work: export boards to SVG and show them in a viewer with toggleable layers (copper, silkscreen, etc.). Not decided yet.
 
 ## Site-wide
 

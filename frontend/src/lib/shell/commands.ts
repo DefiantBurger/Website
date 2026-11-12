@@ -66,7 +66,6 @@ const WHOAMI_LABELS = [
   'Browser',
   'Platform',
   'Timezone',
-  'Pages Viewed',
 ];
 
 function required(command: string, arg: string | undefined): string {
