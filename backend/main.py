@@ -6,6 +6,7 @@ from flask import request
 from waitress import serve
 
 from app import create_app
+from app.fileshare import start_expiry_sweeper
 
 load_dotenv()
 
@@ -34,5 +35,7 @@ if __name__ == '__main__':
 	if env == 'development':
 		app.run(port=port, debug=True)
 	elif env == 'production':
+		# Only here, not in create_app: tests and the dev reloader would start extra sweepers.
+		start_expiry_sweeper(app)
 		# Only nginx on the same VM should reach the app.
 		serve(app, host='127.0.0.1', port=port)

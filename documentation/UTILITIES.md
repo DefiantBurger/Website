@@ -73,9 +73,9 @@ Errors: `400` missing key/file or invalid index, `403` decryption failed, `404` 
 ### Behavior
 
 - **Lookup.** The storage label is HMAC-SHA256(access key) keyed with `SECRET_KEY`, so labels can't be brute-forced without the server secret. A key's files are `<label>.json`/`.payload`, `<label>__2.*`, and so on; each upload claims its index by creating the payload exclusively, so concurrent uploads never overwrite each other.
-- **Encryption.** scrypt (n=2¹⁴, r=8, p=1, random salt per file) derives an AES-256-GCM key from the access key.
-- **Limits.** 80 MB per file (under Cloudflare's 100 MB request limit), 1 GB total; the oldest files are evicted to make room, else `503`. At most 2 transfers run at once (`MAX_CONCURRENT_TRANSFERS`), because each holds ~3× the file size in RAM on a 1 GB VM; a download keeps its slot until the response is fully sent.
-- **Expiry** happens during file-share API requests, not on a schedule.
+- **Encryption.** scrypt (n=2¹⁴, r=8, p=1, random salt per file) derives an AES-256-GCM key from the access key. Files are encrypted and decrypted in 1 MiB chunks, streamed to and from disk, so a transfer's memory use doesn't grow with file size. Each chunk's nonce is its index plus a last-chunk flag, so truncated, extended, or reordered payloads fail to decrypt. A download checks the first chunk before responding; a bad later chunk ends the stream short of its `Content-Length`.
+- **Limits.** 80 MB per file (under Cloudflare's 100 MB request limit), 1 GB total; the oldest files are evicted to make room, else `503`. At most 3 transfers run at once (`MAX_CONCURRENT_TRANSFERS`), leaving one of Waitress's 4 threads for other requests; a download keeps its slot until the response is fully sent.
+- **Expiry.** File-share requests delete expired files, and in production a background thread (`start_expiry_sweeper`, started in `main.py`) also sweeps every minute, removing payloads left without metadata for longer than the retention period.
 - **Downloads** ignore the uploader's MIME type and send `nosniff`, so uploaded HTML can't run on the site's origin.
 - **UI batches.** The UI uploads one request per file, and a new batch replaces the key's previous files only after every upload succeeds; on failure it deletes what it already stored, so the previous batch survives (`lib/fileshare/replaceBatch.ts`). Indices keep counting up across batches.
 

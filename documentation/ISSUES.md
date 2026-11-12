@@ -13,13 +13,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
 2. **Minor:** `pnpm audit` reports two dev-only advisories with no in-range fix: minimatch 10 (moderate, via ESLint, which hasn't moved to minimatch 11) and deepmerge (low, via the Svelte Vite plugin, no patched release). Neither sees untrusted input.
 
-## Utilities
-
-### File Share
-
-1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
-2. Expiry is request-driven; idle files linger until the next file-share request.
-
 ## Appendix: Non-Issues
 
 These are deliberate. Don't report or "fix" them without revisiting the decision.

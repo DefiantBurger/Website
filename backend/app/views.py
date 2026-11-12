@@ -1,25 +1,24 @@
 from datetime import UTC, datetime
-from io import BytesIO
 from pathlib import Path
 
 from flask import (
 	Blueprint,
+	Response,
 	current_app,
 	jsonify,
 	request,
-	send_file,
 	send_from_directory,
 )
-from werkzeug.wsgi import ClosingIterator
+from werkzeug.http import dump_options_header
 
 from .errors import ApiError
 from .fileshare import (
 	acquire_transfer_slot,
-	decrypt_record_payload,
 	delete_records,
 	get_all_records_for_password,
 	get_record_for_password,
 	get_storage_status,
+	open_record_payload,
 	save_upload,
 	transfer_slot,
 )
@@ -160,29 +159,30 @@ def fileshare_access():
 	if record is None:
 		raise ApiError('No active file matched that password.', 404)
 
+	# Decryption runs while the body is sent, so the slot is held until the response closes.
 	release_slot = acquire_transfer_slot()
-
-	# The plaintext stays in memory until the server finishes sending it, so the
-	# slot is held until the response closes, not just through decryption.
 	try:
-		plaintext = decrypt_record_payload(record, password)
-		# Never echo the uploader-supplied MIME type: serving e.g. text/html from this
-		# origin would let an uploaded file run scripts if a browser rendered it.
-		response = send_file(
-			BytesIO(plaintext),
-			as_attachment=True,
-			download_name=record.original_filename,
-			mimetype='application/octet-stream',
-			max_age=0,
-		)
+		chunks = open_record_payload(record, password)
 	except BaseException:
 		release_slot()
 		raise
 
-	response.headers['X-Content-Type-Options'] = 'nosniff'
-	# send_file sets direct_passthrough, so the server gets the body iterable as-is and
-	# never calls response.close(); call_on_close would never fire. Wrap the body instead.
-	response.response = ClosingIterator(response.response, release_slot)
+	# Never echo the uploader-supplied MIME type: serving e.g. text/html from this
+	# origin would let an uploaded file run scripts if a browser rendered it.
+	response = Response(
+		chunks,
+		mimetype='application/octet-stream',
+		headers={
+			'Content-Disposition': dump_options_header(
+				'attachment', {'filename': record.original_filename}
+			),
+			# Lets the client detect a stream cut short by a corrupt later chunk.
+			'Content-Length': str(record.size_bytes),
+			'Cache-Control': 'no-store',
+			'X-Content-Type-Options': 'nosniff',
+		},
+	)
+	response.call_on_close(release_slot)
 	return response
 
 

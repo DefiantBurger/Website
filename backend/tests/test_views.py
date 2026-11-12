@@ -114,7 +114,9 @@ def test_fileshare_upload_and_download_flow(client):
 	res = _access(client, 'mypassword')
 	assert res.status_code == 200
 	assert res.data == content
-	assert 'attachment' in res.headers.get('Content-Disposition', '')
+	assert res.headers['Content-Disposition'] == 'attachment; filename=hello.txt'
+	assert res.headers['Content-Length'] == str(len(content))
+	assert res.headers['Cache-Control'] == 'no-store'
 
 
 def test_fileshare_replace_batch_flow(client):
@@ -146,7 +148,7 @@ def test_fileshare_delete_rejects_bad_input(client, data):
 def test_fileshare_access_decryption_error(client):
 	_upload(client)
 	with patch(
-		'app.views.decrypt_record_payload',
+		'app.views.open_record_payload',
 		side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
 	):
 		res = _access(client)
@@ -190,7 +192,7 @@ def test_fileshare_download_error_releases_slot(client):
 	with (
 		patch('app.fileshare._transfer_slots', slots),
 		patch(
-			'app.views.decrypt_record_payload',
+			'app.views.open_record_payload',
 			side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
 		),
 	):

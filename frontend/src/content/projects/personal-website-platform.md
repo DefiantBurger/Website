@@ -348,7 +348,6 @@ Observed strengths:
 Current constraints:
 
 - no horizontal scaling strategy,
-- the file share holds whole files in memory during transfer, so it caps concurrent transfers at two on a 1 GB VM,
 - scheduler edits live only in browser memory unless exported.
 
 These are acceptable for the current scope and are tracked as known issues.

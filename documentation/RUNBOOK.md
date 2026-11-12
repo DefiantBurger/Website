@@ -81,7 +81,7 @@ If `nginx -t` fails, the previous config is restored and Nginx keeps running. Th
 
 ### File-share upload returns 503
 
-- **"busy, try again"**: two transfers are already running (`MAX_CONCURRENT_TRANSFERS`). Retry shortly.
+- **"busy, try again"**: three transfers are already running (`MAX_CONCURRENT_TRANSFERS`). Retry shortly.
 - **"Not enough storage"**: eviction couldn't free room under the 1 GB cap. Check `GET /api/fileshare/status/`; wait for files to expire (10 minutes) or delete files from `/var/lib/personalwebsite/fileshare/` on the VM.
 
 ### File-share download returns 404

@@ -1,7 +1,9 @@
 import hashlib
 import json
+import os
 import re
 import threading
+import time
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -14,44 +16,62 @@ from werkzeug.datastructures import FileStorage
 from app import create_app, fileshare
 from app.fileshare import (
 	FileShareError,
-	FileShareRecord,
 	_b64decode,
 	_b64encode,
-	_decrypt_bytes,
+	_ciphertext_size,
+	_decrypt_chunks,
 	_derive_key,
-	_encrypt_bytes,
+	_encrypt_chunks,
 	_evict_oldest_records,
 	_parse_stem,
 	_parse_timestamp,
 	_record_paths,
+	_remove_orphan_payloads,
 	_sanitize_original_filename,
 	_sweep,
 	acquire_transfer_slot,
 	build_label,
-	decrypt_record_payload,
 	delete_records,
 	get_all_records_for_password,
 	get_record_for_password,
 	get_storage_status,
+	open_record_payload,
 	save_upload,
+	start_expiry_sweeper,
 )
+
+KEY = bytes(32)
 
 
 def _file(filename='sample.txt', content=b'hello', content_type='text/plain') -> FileStorage:
 	return FileStorage(stream=BytesIO(content), filename=filename, content_type=content_type)
 
 
-def _record(salt_b64, nonce_b64, size_bytes=10) -> FileShareRecord:
-	return FileShareRecord(
-		label='label',
-		occurrence_index=1,
-		original_filename='test.txt',
-		size_bytes=size_bytes,
-		uploaded_at='',
-		expires_at='',
-		salt_b64=salt_b64,
-		nonce_b64=nonce_b64,
-	)
+def _read(record, password) -> bytes:
+	chunks = open_record_payload(record, password)
+	try:
+		return b''.join(chunks)
+	finally:
+		chunks.close()
+
+
+def _encrypt(plaintext: bytes) -> bytes:
+	dest = BytesIO()
+	_encrypt_chunks(KEY, BytesIO(plaintext), dest)
+	return dest.getvalue()
+
+
+def _decrypt(tmp_path: Path, ciphertext: bytes, key: bytes = KEY) -> bytes:
+	path = tmp_path / 'payload'
+	path.write_bytes(ciphertext)
+	return b''.join(_decrypt_chunks(key, path))
+
+
+@pytest.fixture
+def tiny_chunks():
+	"""4-byte chunks so multi-chunk cases stay small."""
+	with patch('app.fileshare.CHUNK_BYTES', 4):
+		yield 4
 
 
 # Crypto and parsing (no app needed unless noted)
@@ -83,29 +103,59 @@ def test_derive_key_length():
 	assert len(_derive_key('password123', b'0123456789abcdef')) == 32
 
 
-def test_encrypt_and_decrypt_roundtrip():
-	data = b'Confidential payload text for testing.'
-	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes('my-secure-password', data)
-	assert ciphertext != data
-	record = _record(salt_b64, nonce_b64, len(data))
-	assert _decrypt_bytes('my-secure-password', record, ciphertext) == data
+@pytest.mark.parametrize('size', [0, 1, 3, 4, 5, 8, 9])
+def test_chunked_roundtrip(tmp_path, tiny_chunks, size):
+	data = os.urandom(size)
+	ciphertext = _encrypt(data)
+	assert len(ciphertext) == _ciphertext_size(size)
+	assert _decrypt(tmp_path, ciphertext) == data
 
 
-def test_decrypt_with_wrong_password_fails():
-	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes('correct-password', b'Secret bytes')
+def _tag_chunks(ciphertext: bytes, chunk_bytes: int) -> list[bytes]:
+	step = chunk_bytes + fileshare.TAG_BYTES
+	return [ciphertext[i : i + step] for i in range(0, len(ciphertext), step)]
+
+
+@pytest.mark.parametrize(
+	'tamper',
+	[
+		pytest.param(lambda c: c[:-1], id='dropped last chunk'),
+		pytest.param(lambda c: [*c, c[-1]], id='appended chunk'),
+		pytest.param(lambda c: [c[1], c[0], c[2]], id='swapped chunks'),
+		pytest.param(lambda c: [*c[:-1], c[-1][:-1]], id='truncated mid-chunk'),
+	],
+)
+def test_tampered_payload_fails(tmp_path, tiny_chunks, tamper):
+	chunks = _tag_chunks(_encrypt(b'abcdefghij'), tiny_chunks)
+	assert len(chunks) == 3
 	with pytest.raises(InvalidTag):
-		_decrypt_bytes('wrong-password', _record(salt_b64, nonce_b64), ciphertext)
+		_decrypt(tmp_path, b''.join(tamper(chunks)))
 
 
-def test_decrypt_missing_salt_or_nonce_is_forbidden(app_ctx):
+def test_decrypt_with_wrong_key_fails(tmp_path):
+	with pytest.raises(InvalidTag):
+		_decrypt(tmp_path, _encrypt(b'Secret bytes'), key=bytes([1]) * 32)
+
+
+def test_decrypt_missing_salt_is_forbidden(app_ctx):
 	record = save_upload(_file(), 'key')
 	meta_path, _ = _record_paths(record.label, record.occurrence_index)
 	meta = json.loads(meta_path.read_text(encoding='utf-8'))
-	del meta['salt_b64'], meta['nonce_b64']
+	del meta['salt_b64']
 	meta_path.write_text(json.dumps(meta), encoding='utf-8')
 
 	with pytest.raises(FileShareError) as exc_info:
-		decrypt_record_payload(get_record_for_password('key', 1), 'key')
+		open_record_payload(get_record_for_password('key', 1), 'key')
+	assert exc_info.value.status_code == 403
+
+
+def test_corrupt_first_chunk_is_forbidden(app_ctx):
+	record = save_upload(_file(content=b'payload'), 'key')
+	_, payload_path = _record_paths(record.label, record.occurrence_index)
+	payload_path.write_bytes(b'\x00' + payload_path.read_bytes()[1:])
+
+	with pytest.raises(FileShareError) as exc_info:
+		open_record_payload(record, 'key')
 	assert exc_info.value.status_code == 403
 
 
@@ -165,13 +215,20 @@ def test_save_upload_and_decrypt_record_success(app_ctx):
 	retrieved = get_record_for_password('password123', 1)
 	assert retrieved is not None
 	assert retrieved.label == record.label
-	assert decrypt_record_payload(retrieved, 'password123') == b'Secret data content'
+	assert _read(retrieved, 'password123') == b'Secret data content'
+
+
+def test_save_upload_streams_multiple_chunks(app_ctx, tiny_chunks):
+	record = save_upload(_file(content=b'0123456789'), 'chunky')
+	_, payload_path = _record_paths(record.label, record.occurrence_index)
+	assert payload_path.stat().st_size == _ciphertext_size(10)
+	assert _read(record, 'chunky') == b'0123456789'
 
 
 def test_save_upload_wrong_password_decrypt_fails(app_ctx):
 	record = save_upload(_file(content=b'Confidential'), 'correct-key')
 	with pytest.raises(FileShareError) as exc_info:
-		decrypt_record_payload(record, 'wrong-key')
+		open_record_payload(record, 'wrong-key')
 	assert exc_info.value.status_code == 403
 
 
@@ -188,7 +245,7 @@ def test_empty_file_reports_zero_bytes(app_ctx):
 
 	(listed,) = get_all_records_for_password('empty-key')
 	assert listed.size_bytes == 0
-	assert decrypt_record_payload(listed, 'empty-key') == b''
+	assert _read(listed, 'empty-key') == b''
 
 
 def test_save_upload_skips_index_claimed_concurrently(app_ctx):
@@ -204,8 +261,8 @@ def test_save_upload_skips_index_claimed_concurrently(app_ctx):
 		rec3 = save_upload(_file('c.txt', b'C'), 'race-key')
 
 	assert rec3.occurrence_index == 3
-	assert decrypt_record_payload(rec2, 'race-key') == b'B'
-	assert decrypt_record_payload(rec3, 'race-key') == b'C'
+	assert _read(rec2, 'race-key') == b'B'
+	assert _read(rec3, 'race-key') == b'C'
 
 
 def test_records_ordered_by_numeric_index(app_ctx):
@@ -280,13 +337,13 @@ def test_storage_status(app_ctx):
 	assert status['usedBytes'] > 0
 
 
-def test_decrypt_record_payload_file_missing(app_ctx):
+def test_open_record_payload_file_missing(app_ctx):
 	record = save_upload(_file('doc.txt', b'12345'), 'test-key-missing')
 	_, payload_path = _record_paths(record.label, record.occurrence_index)
 	payload_path.unlink()
 
 	with pytest.raises(FileShareError) as exc_info:
-		decrypt_record_payload(record, 'test-key-missing')
+		_read(record, 'test-key-missing')
 	assert exc_info.value.status_code == 404
 
 
@@ -324,3 +381,35 @@ def test_transfer_slot_release_is_idempotent():
 		release()
 		release()  # A second call must not over-release the BoundedSemaphore.
 		acquire_transfer_slot()()
+
+
+def test_remove_orphan_payloads_spares_recent_and_complete(app_ctx):
+	kept = save_upload(_file('kept.txt', b'kept'), 'kept-key')
+	orphan = save_upload(_file('orphan.txt', b'orphan'), 'orphan-key')
+	in_progress = save_upload(_file('new.txt', b'new'), 'new-key')
+	for record in (orphan, in_progress):
+		_record_paths(record.label, record.occurrence_index)[0].unlink()
+	old = time.time() - fileshare.RETENTION_SECONDS - 1
+	os.utime(_record_paths(orphan.label, orphan.occurrence_index)[1], (old, old))
+
+	assert _remove_orphan_payloads(datetime.now(UTC)) == 1
+	assert not _record_paths(orphan.label, orphan.occurrence_index)[1].exists()
+	assert _record_paths(in_progress.label, in_progress.occurrence_index)[1].exists()
+	assert get_record_for_password('kept-key', 1) == kept
+
+
+def test_expiry_sweeper_removes_expired_files_without_requests(app):
+	with app.app_context(), patch('app.fileshare.RETENTION_SECONDS', 0):
+		record = save_upload(_file(), 'idle-key')
+		meta_path, payload_path = _record_paths(record.label, record.occurrence_index)
+
+	with patch('app.fileshare.SWEEP_INTERVAL_SECONDS', 0.01):
+		stop = start_expiry_sweeper(app)
+	try:
+		deadline = time.monotonic() + 2
+		while payload_path.exists() and time.monotonic() < deadline:
+			time.sleep(0.01)
+	finally:
+		stop.set()
+	assert not meta_path.exists()
+	assert not payload_path.exists()

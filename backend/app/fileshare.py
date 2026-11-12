@@ -1,7 +1,7 @@
 """Temporary encrypted file storage keyed by an access key.
 
 Each file is a pair in `<instance>/fileshare/`: `<label>.json` (metadata) and
-`<label>.payload` (AES-GCM ciphertext). Further files under the same key use
+`<label>.payload` (AES-GCM ciphertext in chunks). Further files under the same key use
 `<label>__2`, `<label>__3`, ... The label is an HMAC of the access key, so the
 key itself is never stored.
 """
@@ -18,13 +18,16 @@ from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
+from itertools import chain
 from pathlib import Path
+from typing import BinaryIO
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-from flask import current_app
+from flask import Flask, current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
+from werkzeug.wsgi import ClosingIterator
 
 from .errors import ApiError
 
@@ -36,14 +39,16 @@ STORAGE_DIR_NAME = 'fileshare'
 META_SUFFIX = '.json'
 PAYLOAD_SUFFIX = '.payload'
 SALT_BYTES = 16
-NONCE_BYTES = 12
+CHUNK_BYTES = 1024 * 1024
+TAG_BYTES = 16
 KDF_LENGTH = 32
 KDF_N = 2**14
 KDF_R = 8
 KDF_P = 1
-# Each transfer holds roughly 3x the file size in memory (plaintext + ciphertext +
-# buffers), so this keeps two 80 MB transfers within the VM's 1 GB of RAM.
-MAX_CONCURRENT_TRANSFERS = 2
+# Transfers stream in chunks, so CPU is the limit; staying under Waitress's 4 threads
+# keeps one free for other requests.
+MAX_CONCURRENT_TRANSFERS = 3
+SWEEP_INTERVAL_SECONDS = 60
 MAX_INDEX_CLAIM_ATTEMPTS = 10
 
 _transfer_slots = threading.BoundedSemaphore(MAX_CONCURRENT_TRANSFERS)
@@ -62,10 +67,9 @@ class FileShareRecord:
 	uploaded_at: str
 	expires_at: str
 	salt_b64: str
-	nonce_b64: str
 
 	def to_json(self) -> dict:
-		# The public fields only; salt and nonce stay server-side.
+		# The public fields only; the salt stays server-side.
 		return {
 			'occurrenceIndex': self.occurrence_index,
 			'originalFilename': self.original_filename,
@@ -194,7 +198,6 @@ def _load_record(meta_path: Path) -> FileShareRecord | None:
 		uploaded_at=str(payload.get('uploaded_at') or ''),
 		expires_at=str(payload.get('expires_at') or ''),
 		salt_b64=str(payload.get('salt_b64') or ''),
-		nonce_b64=str(payload.get('nonce_b64') or ''),
 	)
 
 
@@ -244,6 +247,43 @@ def _sweep(now: datetime | None = None) -> tuple[list[FileShareRecord], int]:
 	return active, deleted_count
 
 
+def _remove_orphan_payloads(now: datetime) -> int:
+	"""Delete payloads left without metadata (e.g. by a crash mid-upload); returns how many."""
+	# The age check spares uploads still writing their payload, whose metadata comes last.
+	cutoff = (now - timedelta(seconds=RETENTION_SECONDS)).timestamp()
+	removed = 0
+	for payload_path in _storage_root().glob(f'*{PAYLOAD_SUFFIX}'):
+		try:
+			if (
+				payload_path.with_suffix(META_SUFFIX).exists()
+				or payload_path.stat().st_mtime > cutoff
+			):
+				continue
+		except FileNotFoundError:
+			continue
+		payload_path.unlink(missing_ok=True)
+		removed += 1
+	return removed
+
+
+def start_expiry_sweeper(app: Flask) -> threading.Event:
+	"""Sweep expired files on a daemon thread so idle files don't linger; set the returned event to stop it."""
+	stop = threading.Event()
+
+	def run() -> None:
+		while not stop.wait(SWEEP_INTERVAL_SECONDS):
+			with app.app_context():
+				try:
+					_sweep()
+					_remove_orphan_payloads(_now_utc())
+				except Exception:
+					# One bad pass must not end the thread for the life of the process.
+					app.logger.exception('File share sweep failed')
+
+	threading.Thread(target=run, name='fileshare-sweeper', daemon=True).start()
+	return stop
+
+
 def get_storage_status() -> dict[str, int | bool]:
 	records, _ = _sweep()
 	return {
@@ -265,19 +305,41 @@ def get_record_for_password(password: str, occurrence_index: int) -> FileShareRe
 	return next((r for r in records if r.occurrence_index == occurrence_index), None)
 
 
-def _encrypt_bytes(password: str, plaintext: bytes) -> tuple[bytes, str, str]:
-	salt = os.urandom(SALT_BYTES)
-	nonce = os.urandom(NONCE_BYTES)
-	key = _derive_key(password, salt)
-	ciphertext = AESGCM(key).encrypt(nonce, plaintext, None)
-	return ciphertext, _b64encode(salt), _b64encode(nonce)
+def _chunk_nonce(index: int, last: bool) -> bytes:
+	# A counter suffices since each file's random salt gives it its own key. The
+	# last-chunk flag makes truncated or extended payloads fail authentication.
+	return index.to_bytes(11, 'big') + bytes([last])
 
 
-def _decrypt_bytes(password: str, record: FileShareRecord, ciphertext: bytes) -> bytes:
-	salt = _b64decode(record.salt_b64)
-	nonce = _b64decode(record.nonce_b64)
-	key = _derive_key(password, salt)
-	return AESGCM(key).decrypt(nonce, ciphertext, None)
+def _read_chunks(source: BinaryIO, size: int) -> Iterator[tuple[bytes, bool]]:
+	"""Fixed-size chunks flagged with whether each is last; an empty source yields one empty last chunk."""
+	chunk = source.read(size)
+	while True:
+		next_chunk = source.read(size)
+		yield chunk, not next_chunk
+		if not next_chunk:
+			return
+		chunk = next_chunk
+
+
+def _ciphertext_size(plaintext_size: int) -> int:
+	chunk_count = max(1, (plaintext_size + CHUNK_BYTES - 1) // CHUNK_BYTES)
+	return plaintext_size + chunk_count * TAG_BYTES
+
+
+def _encrypt_chunks(key: bytes, source: BinaryIO, dest: BinaryIO) -> None:
+	aead = AESGCM(key)
+	dest.writelines(
+		aead.encrypt(_chunk_nonce(index, last), chunk, None)
+		for index, (chunk, last) in enumerate(_read_chunks(source, CHUNK_BYTES))
+	)
+
+
+def _decrypt_chunks(key: bytes, path: Path) -> Iterator[bytes]:
+	aead = AESGCM(key)
+	with path.open('rb') as handle:
+		for index, (chunk, last) in enumerate(_read_chunks(handle, CHUNK_BYTES + TAG_BYTES)):
+			yield aead.decrypt(_chunk_nonce(index, last), chunk, None)
 
 
 def _sanitize_original_filename(filename: str) -> str:
@@ -315,8 +377,8 @@ def _evict_oldest_records(records: list[FileShareRecord], required_free_bytes: i
 	return freed_bytes
 
 
-def _write_new_payload(label: str, ciphertext: bytes) -> int:
-	"""Store the payload at the label's next free index and return that index.
+def _write_new_payload(label: str, write: Callable[[BinaryIO], None]) -> int:
+	"""Create the payload at the label's next free index, fill it with `write`, and return that index.
 
 	Mode 'x' makes claiming an index atomic: if a concurrent upload under the same key
 	took it first, move on to the next index instead of overwriting that file.
@@ -330,7 +392,7 @@ def _write_new_payload(label: str, ciphertext: bytes) -> int:
 			continue
 		try:
 			with handle:
-				handle.write(ciphertext)
+				write(handle)
 		except BaseException:
 			payload_path.unlink(missing_ok=True)
 			raise
@@ -358,33 +420,38 @@ def save_upload(uploaded_file: FileStorage | None, password: str) -> FileShareRe
 	if uploaded_file is None or not (uploaded_file.filename or '').strip():
 		raise FileShareError('A file is required.')
 
-	plaintext = uploaded_file.read()
-	if len(plaintext) > MAX_FILE_BYTES:
+	# Werkzeug has already spooled the upload to disk, so measure it without reading it.
+	source = uploaded_file.stream
+	size_bytes = source.seek(0, os.SEEK_END)
+	source.seek(0)
+	if size_bytes > MAX_FILE_BYTES:
 		raise FileShareError(f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.', 413)
 
-	ciphertext, salt_b64, nonce_b64 = _encrypt_bytes(password, plaintext)
 	records, _ = _sweep()
 	used_bytes = sum(_payload_size(record) for record in records)
-	required_free_bytes = used_bytes + len(ciphertext) - MAX_TOTAL_STORAGE_BYTES
+	required_free_bytes = used_bytes + _ciphertext_size(size_bytes) - MAX_TOTAL_STORAGE_BYTES
 	if required_free_bytes >= 0:
 		freed_bytes = _evict_oldest_records(records, required_free_bytes + 1)
 		if freed_bytes <= required_free_bytes:
 			raise FileShareError('Not enough storage available; try again later.', 503)
 
+	salt = os.urandom(SALT_BYTES)
+	key = _derive_key(password, salt)
 	label = build_label(password)
 	occurrence_index: int | None = None
 	try:
-		occurrence_index = _write_new_payload(label, ciphertext)
+		occurrence_index = _write_new_payload(
+			label, lambda handle: _encrypt_chunks(key, source, handle)
+		)
 		now = _now_utc()
 		record = FileShareRecord(
 			label=label,
 			occurrence_index=occurrence_index,
 			original_filename=_sanitize_original_filename(uploaded_file.filename),
-			size_bytes=len(plaintext),
+			size_bytes=size_bytes,
 			uploaded_at=now.isoformat(),
 			expires_at=(now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
-			salt_b64=salt_b64,
-			nonce_b64=nonce_b64,
+			salt_b64=_b64encode(salt),
 		)
 		# Label and index are encoded in the filename, not stored.
 		metadata = {
@@ -413,14 +480,20 @@ def delete_records(password: str, occurrence_indices: Iterable[int]) -> int:
 	return len(targets)
 
 
-def decrypt_record_payload(record: FileShareRecord, password: str) -> bytes:
+def open_record_payload(record: FileShareRecord, password: str) -> Iterator[bytes]:
+	"""The decrypted file as chunks, closing the payload when the iterator is closed.
+
+	The first chunk is decrypted here so a missing or corrupt file still gets an error
+	response; a later bad chunk can only end the stream early.
+	"""
 	_, payload_path = _record_paths(record.label, record.occurrence_index)
-	# Read first rather than checking exists(): a sweep or eviction can delete it in between.
+	# Catch the failed open rather than checking exists(): a sweep can delete it in between.
 	try:
-		ciphertext = payload_path.read_bytes()
+		chunks = _decrypt_chunks(_derive_key(password, _b64decode(record.salt_b64)), payload_path)
+		first = next(chunks)
 	except FileNotFoundError:
 		raise FileShareError('The requested file is no longer available.', 404) from None
-	try:
-		return _decrypt_bytes(password, record, ciphertext)
 	except Exception as exc:
 		raise FileShareError('Incorrect access key or corrupted file.', 403) from exc
+	# chain() has no close(), so close the generator (and its file) explicitly.
+	return ClosingIterator(chain([first], chunks), chunks.close)

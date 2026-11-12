@@ -87,7 +87,7 @@ Show a progress bar while uploading. `fetch` can't report upload progress, so th
 **Encrypt in the browser** so the server only ever stores ciphertext and can't read uploaded files.
 
 - Today the server uses the access key both to find a batch (HMAC label) and to encrypt it. With browser encryption, the browser derives two separate values from the access key (e.g. HKDF): a lookup token sent to the server, and an AES-GCM key that never leaves the browser. Otherwise the server still sees what it needs to decrypt.
-- Encrypt in fixed-size chunks with a nonce per chunk. That's the same design as the memory fix in Issues (File Share #1), so the two should be built together.
+- Reuse the server's chunk format (1 MiB chunks, nonce = chunk index + last-chunk flag; see [Utilities](./UTILITIES.md#file-share)) so large files never need to fit in memory.
 - File names should be encrypted too, or the server still learns something about the files.
 - WebCrypto (`crypto.subtle`) covers all of this without dependencies.
 
