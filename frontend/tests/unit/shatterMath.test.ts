@@ -8,7 +8,7 @@ import {
   step,
   voronoi,
   type Point,
-} from '../../src/lib/shell/shatter.ts';
+} from '../../src/lib/shell/shatterMath.ts';
 
 /** Deterministic PRNG (mulberry32) so failures reproduce. */
 function seeded(seed: number): () => number {

@@ -320,7 +320,7 @@ textarea {
   }
 }
 
-/* `sudo` shatter overlay (lib/shell/detonate.ts): above the shell (150), below the skip link (200). */
+/* `sudo` shatter overlay (lib/shell/shatter.ts): above the shell (150), below the skip link (200). */
 .shatter {
   position: fixed;
   inset: 0;
