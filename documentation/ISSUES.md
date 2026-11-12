@@ -11,7 +11,7 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ## Infrastructure
 
 1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
-2. **Minor:** `pnpm audit` reports three advisories with no in-range fix: KaTeX 0.16.47 (low, pinned to `^0.16` by Mermaid 11), and minimatch 10 (moderate, via ESLint) and deepmerge (low, via the Svelte Vite plugin, no patched release), which are both dev-only. Mermaid 12 would clear KaTeX.
+2. **Minor:** `pnpm audit` reports two dev-only advisories with no in-range fix: minimatch 10 (moderate, via ESLint, which hasn't moved to minimatch 11) and deepmerge (low, via the Svelte Vite plugin, no patched release). Neither sees untrusted input.
 
 ## Utilities
 
