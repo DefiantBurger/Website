@@ -50,8 +50,8 @@ GitHub Actions are pinned by commit SHA in `.github/workflows/` and `.github/act
 
 | File | Role |
 | --- | --- |
-| `main.py` | Loads `.env`, builds the app, logs each request, starts the dev server or Waitress based on `FLASK_ENV`. |
-| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at `MAX_FILE_BYTES` + 1 MiB (~81 MB), trusts Nginx's `X-Forwarded-For`/`-Proto` (`ProxyFix`), enables CORS in development, registers the `views` blueprint, returns JSON 404s. |
+| `main.py` | Loads `.env`, builds the app, and starts the dev server or Waitress based on `FLASK_ENV`. In production it also logs each request (Waitress has no access log) and starts the file-share expiry sweeper. |
+| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at `MAX_FILE_BYTES` + 1 MiB (~81 MB), trusts Nginx's `X-Forwarded-For`/`-Proto` (`ProxyFix`), enables CORS in development, registers the `views` blueprint, returns JSON 404s and 413s. |
 | `app/views.py` | All routes and the client-IP/Cloudflare-header helpers. Turns any `ApiError` into a JSON `{error}` response. |
 | `app/errors.py` | `ApiError(message, status_code)`, the base for `FileShareError` and `MessageBoardError`. |
 | `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
@@ -76,7 +76,7 @@ Data: `app/static/json/course_data.json` and `my_courses.json` (scheduler catalo
 
 `App.svelte` renders `<PageMeta>` (the `<title>` with the site-name suffix, and the meta description) from the current route's `meta`, plus the canonical link. A route without `meta` renders its own `<PageMeta>`, as project pages do once their content loads.
 
-On client-side navigation, `App.svelte` moves focus to `<main id="main">` and announces the new `document.title` through a polite live region. A skip link also targets `#main`.
+On client-side navigation, `App.svelte` moves focus to `<main id="main">` (unless the shell is open, so a `cd` keeps focus in its input) and announces the new `document.title` through a polite live region. A skip link also targets `#main`.
 
 ### Interactive Shell
 
@@ -100,6 +100,7 @@ A terminal panel docked to the bottom of every page, opened with `` ` `` or `/` 
 - `lib/components/Footer.svelte`: build commit and date (`__BUILD_SHA__`/`__BUILD_DATE__`, from `define` in `vite.config.ts`; CI's `GITHUB_SHA`, else `git rev-parse HEAD`), and uptime from `/api/site-info/`, which links to the status page (a plain "status" link if uptime is unavailable).
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`).
 - `lib/components/PageHeader.svelte`: page title, optional description, and an `actions` snippet.
+- `lib/components/Panel.svelte`: a titled `.terminal-box` section (or `<form>` via `element`); `compact` makes a smaller nested panel with an `h3`.
 - `lib/components/LinkCard.svelte`: a card whose whole area links somewhere (Home, Projects, Utilities). Body content goes in its `children` snippet.
 - `lib/components/ExternalLink.svelte`: a link that opens in a new tab with a consistent `rel` and a screen-reader "(opens in new tab)" note. Use it for every `target="_blank"` link.
 - `lib/components/StatusMessage.svelte`: loading/error/success messages. It's a live region that fills in ~100 ms after mounting, because screen readers ignore content a live region is inserted with. `FormMessages.svelte` shows a form's error and success messages together.
@@ -141,10 +142,10 @@ All routes end in a trailing slash; requests without one get a `308`. Errors are
 title: "Readable title"        # default: slug in Title Case
 slug: "url-slug"               # default: file name without .md
 summary: "Short card summary"
-priority: 20                   # integer; higher sorts first
+priority: 20                   # integer, default 0; higher sorts first (ties by slug)
 tags: ["Tag1", "Tag2"]
-repo: "https://..."
-demo: "https://..."            # empty string to omit
+repo: "https://..."            # omit or leave empty for no link
+demo: "https://..."            # omit or leave empty for no link
 published: true                # default: true; set false to hide
 ---
 ```

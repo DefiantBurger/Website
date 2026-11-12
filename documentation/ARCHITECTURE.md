@@ -36,7 +36,7 @@ flowchart LR
 - `backend/`: Flask app (`app/`), scheduler data (`app/static/json/`), tests.
 - `deployment/`: Terraform, VM startup script, release deploy script, systemd and Nginx templates.
 - `.github/workflows/`: `test.yaml` and the manual `deploy.yaml` ([Deployment](./DEPLOYMENT.md#deploying-changes)).
-- Root scripts: `start-dev.sh`, `test.sh`, `format.sh`, `deploy.sh` ([Implementation](./IMPLEMENTATION.md)).
+- Root scripts: `start-dev.sh`, `test.sh`, `format.sh`, `gen-icons.sh`, `deploy.sh` ([Implementation](./IMPLEMENTATION.md)).
 
 ## Runtime Flows
 

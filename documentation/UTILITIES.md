@@ -90,7 +90,7 @@ Anonymous board where messages expire 60 seconds after posting.
 
 A message is `{id, text, createdAt, expiresAt}`. Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` rate limit.
 
-- **Sanitizing.** NFC-normalizes, turns tabs into spaces, and drops control, format (zero-width, bidi overrides), private-use, and unassigned characters, except the joiner and tag characters emoji sequences need. Markup is stored as typed; the frontend renders text, never HTML. Runs of 3+ newlines collapse to 2.
+- **Sanitizing.** Normalizes line endings to `\n`, turns tabs into spaces, NFC-normalizes, and drops control, format (zero-width, bidi overrides), surrogate, private-use, unassigned, and line/paragraph-separator characters, except the joiner and tag characters emoji sequences need. Markup is stored as typed; the frontend renders text, never HTML. Runs of 3+ newlines collapse to 2.
 - **Storage.** In-process memory behind a lock: at most 200 messages (oldest evicted), expired ones purged on every read and write, all lost on restart.
 - **Rate limit.** 5 posts per 10 s per client IP (sliding window), checked before validation, so rejected posts count too.
 - **Page.** Polls every 5 s while the tab is visible (and right away when it becomes visible again), and after posting. Each card counts down and disappears when it expires. Expiry is timed from `serverTime`, so a wrong local clock doesn't hide or keep messages (`lib/messageboard/board.ts`). Messages are never rendered with `{@html}`.

@@ -57,11 +57,11 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
 
 - **`cloudflared`** (systemd, `DynamicUser`, `--no-autoupdate`; updated by `unattended-upgrades` instead, and `cloudflared-restart.path` restarts it when the binary changes) holds the tunnel and forwards to Nginx.
 - **Nginx** listens only on `127.0.0.1:80` (Cloudflare terminates TLS; no origin certificate). It serves `current/frontend/dist` and proxies `/api/` to `127.0.0.1:5000` (`backend_port`).
-  - Trailing-slash paths get a `301` to the path without the slash.
+  - Page paths with a trailing slash get a `301` to the path without it. (API paths are the reverse: Flask `308`s requests missing the slash.)
   - No SPA fallback: the build writes `<route>/index.html` for every route, so other paths return a real `404` whose body is the SPA shell, and the app renders its not-found page.
   - HTML is `Cache-Control: no-cache`; hashed `/assets/` are cached for a year, and a missing one gets a `404` (never the page shell with a `200`).
   - gzip for HTML, JSON, CSS, JS, and SVG, including API responses (the course catalog is ~3 MB raw).
-  - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
+  - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10 (`/api/fileshare/` with `nodelay`; other `/api/` delays requests past 5 instead), answered with `429`. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
   - Security headers: HSTS (with `includeSubDomains`, so every subdomain, `status` included, must serve HTTPS), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce it, browse each page with the console open, fix or allow what it reports, then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
 - `/.well-known/security.txt` is built from `frontend/site-files/security.txt` (see [Implementation](./IMPLEMENTATION.md)). Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
 - **`flaskapp`** (systemd, `FLASK_ENV=production`, `PORT=backend_port`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
@@ -98,7 +98,7 @@ Both workflows set up uv, pnpm, and Node through `.github/actions/setup`, and al
 
 - ***Test*** (`test.yaml`, on PRs and non-docs pushes to `main`): backend `ruff check`, `ruff format --check`, and `pytest --cov=app` (coverage to Codecov); frontend `lint`, `format:check`, `check`, `test`, and `build`. Lint and format problems only warn.
 - ***Deploy*** (`deploy.yaml`, manual, `main` only; doesn't rerun tests):
-  1. **package:** build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`, export hash-pinned requirements (`uv export --frozen --no-dev`), and upload the tarball as artifact `release-<sha>`.
+  1. **package:** build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`, export hash-pinned requirements (`uv export --frozen --no-dev --no-emit-project`), and upload the tarball as artifact `release-<sha>`.
   2. **deploy** (environment `production`, serialized): authenticate through WIF, stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`, then `curl` the public `/api/health/`, the home page, and its entry script.
   3. **publish** (same job, only if the smoke test passed): copy the tarball to `gs://<release bucket>/latest.tar.gz` with the commit SHA and checksum as object metadata (`git-sha`, `sha256`). `GCS_RELEASE_BUCKET` in `deploy.yaml` must match the `release_bucket` Terraform output.
 
