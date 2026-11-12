@@ -107,21 +107,15 @@ function buildCourseIdsByName(
   coursesById: Record<string, { id: string; name: string; semester: string }>,
   semesterToIndex: Record<string, number>,
 ): Record<string, string[]> {
-  const grouped: Record<string, string[]> = {};
-
-  for (const course of Object.values(coursesById)) {
-    (grouped[course.name] ??= []).push(course.id);
-  }
-
-  for (const ids of Object.values(grouped)) {
-    ids.sort(
-      (a, b) =>
-        indexOf(semesterToIndex, coursesById[a].semester) -
-        indexOf(semesterToIndex, coursesById[b].semester),
-    );
-  }
-
-  return grouped;
+  const bySemester = (course: { semester: string }) => indexOf(semesterToIndex, course.semester);
+  return Object.fromEntries(
+    Object.entries(Object.groupBy(Object.values(coursesById), (course) => course.name)).map(
+      ([name, courses = []]) => [
+        name,
+        courses.toSorted((a, b) => bySemester(a) - bySemester(b)).map((course) => course.id),
+      ],
+    ),
+  );
 }
 
 /**

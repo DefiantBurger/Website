@@ -1,7 +1,7 @@
 {
   "extends": "@tsconfig/svelte/tsconfig.json",
   "compilerOptions": {
-    "target": "es2023",
+    "target": "es2024",
     "module": "esnext",
     "types": ["svelte", "vite/client"],
     "noEmit": true,

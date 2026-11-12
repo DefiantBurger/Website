@@ -225,20 +225,18 @@ export function renameSemester(schedule: ScheduleState, from: string, to: string
 export function repeatPositions(
   schedule: ScheduleState,
 ): Record<string, { position: number; total: number }> {
-  const idsByName: Record<string, string[]> = {};
-  for (const semester of boardColumns(schedule)) {
-    for (const id of schedule.columnCourseIds[semester] ?? []) {
-      const course = schedule.coursesById[id];
-      if (course) {
-        (idsByName[course.name] ??= []).push(id);
-      }
-    }
-  }
+  const boardCourses = boardColumns(schedule).flatMap((semester) =>
+    (schedule.columnCourseIds[semester] ?? [])
+      .map((id) => schedule.coursesById[id])
+      .filter((course) => !!course),
+  );
 
   const positions: Record<string, { position: number; total: number }> = {};
-  for (const ids of Object.values(idsByName)) {
-    if (ids.length > 1) {
-      ids.forEach((id, index) => (positions[id] = { position: index + 1, total: ids.length }));
+  for (const courses of Object.values(Object.groupBy(boardCourses, (course) => course.name))) {
+    if (courses && courses.length > 1) {
+      courses.forEach(
+        (course, index) => (positions[course.id] = { position: index + 1, total: courses.length }),
+      );
     }
   }
   return positions;

@@ -8,7 +8,7 @@
     href: pathFor(key),
   }));
 
-  const featuredProjects: { title: string; description: string; slug?: string }[] = [
+  const featuredProjects: { title: string; description: string; slug: string }[] = [
     {
       title: 'Personal Website',
       slug: 'personal-website-platform',
@@ -16,8 +16,10 @@
         'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.',
     },
     {
-      title: 'Project 2',
-      description: 'Description coming soon...',
+      title: 'J-Ball Basketball',
+      slug: 'j-ball-basketball',
+      description:
+        'A client website for a high school basketball league, with schedules, standings, signups, and an admin area.',
     },
   ];
 
@@ -55,8 +57,8 @@
       <LinkCard
         title={project.title}
         headingLevel={3}
-        href={project.slug ? pathFor('projectDetail', { slug: project.slug }) : pathFor('projects')}
-        cta={project.slug ? 'View Project' : 'View More'}
+        href={pathFor('projectDetail', { slug: project.slug })}
+        cta="View Project"
       >
         <p>{project.description}</p>
       </LinkCard>

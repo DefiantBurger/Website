@@ -10,7 +10,7 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ### General
 
-1. **Minor:** `Home.svelte` still features a placeholder card ("Project 2", "Description coming soon...") on the live site, though `j-ball-basketball` exists. The page also links About, Utilities, and Contact three times on one screen (nav, header links, Quick Links).
+1. **Minor:** `Home.svelte` links About, Utilities, and Contact three times on one screen (nav, header links, Quick Links).
 
 ## Infrastructure
 
@@ -23,15 +23,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 1. Whole files are held in memory during transfer. Encrypting in fixed-size chunks (e.g. AES-GCM per 1 MB with per-chunk nonces, streamed to disk) would keep memory flat and allow raising the concurrency cap.
 2. Expiry is request-driven; idle files linger until the next file-share request.
-3. **Possible:** "Download All" starts each download after an `await`, outside the click's user activation, so Chrome may prompt for or block multiple automatic downloads. Needs a manual check.
-
-## Code Quality
-
-Refactors from a code-quality review (2026-11-10). Every item is **Cleanup** (no behavior change) unless it says otherwise. For each one: make the change as written, run `./test.sh --no-browser`, keep the existing tests passing (they pin the behavior), and delete the item here. Don't widen the scope; anything else you notice goes in a separate change. Messages shown to users and returned by the API stay word-for-word the same unless the item says they change.
-
-### Frontend
-
-1. **Cleanup (owner approved ES2024):** two hand-rolled groupings can use `Object.groupBy`. Set `"target": "es2024"` in `frontend/tsconfig.json` (the `lib` default follows `target`, and the base `@tsconfig/svelte` sets neither; `tsconfig.node.json` stays on ES2023). Then: (a) `lib/scheduler/logic.ts` `buildCourseIdsByName()`: `const bySemester = (course: { semester: string }) => indexOf(semesterToIndex, course.semester);` then `return Object.fromEntries(Object.entries(Object.groupBy(Object.values(coursesById), (course) => course.name)).map(([name, courses = []]) => [name, courses.toSorted((a, b) => bySemester(a) - bySemester(b)).map((course) => course.id)]));`. `Object.groupBy` returns `Partial<Record<string, T[]>>`, hence the `= []` default in the destructuring. (b) `lib/scheduler/schedule.ts` `repeatPositions()`: build the board-ordered course list first, `boardColumns(schedule).flatMap((semester) => (schedule.columnCourseIds[semester] ?? []).map((id) => schedule.coursesById[id]).filter((course) => !!course))`, group it with `Object.groupBy(..., (course) => course.name)`, and fill `positions` from every group with more than one entry as now. Runtime note: Vite doesn't polyfill `Object.groupBy`, so Safari before 17.4 and Chrome before 117 would throw on the scheduler page; the owner accepted that. `scheduleGraph` and `repeatPositions` tests in `scheduler.test.ts` pin the results.
 
 ## Appendix: Non-Issues
 
@@ -57,4 +48,5 @@ These are deliberate. Don't report or "fix" them without revisiting the decision
 
 - Uploads need no login, so anyone can upload, and about a dozen 80 MB uploads evict everyone's files. The service is for quick, casual sharing, not permanent storage. Files become inaccessible after 10 minutes, which makes hosting malware on it unrealistic.
 - The upload cap is set in both Nginx (`81M`) and `MAX_FILE_BYTES`. Nginx's config only reaches the VM through the startup script, so sharing one Terraform value would mean replacing the VM to change it. `test_app.py` fails if Flask's limit stops fitting under Nginx's.
+- Chrome asks before "Download All" saves several files, since each download starts after an `await`. Users expect multiple downloads there, so the prompt is fine.
 - Access keys have no minimum length, and `/api/fileshare/list/` does only a fast HMAC before returning filenames, so Nginx's per-IP rate limit is the only limit on guessing. A correct guess also lets someone replace those files. A file is only as secure as the password its owner chooses.
