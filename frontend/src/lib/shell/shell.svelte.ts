@@ -7,7 +7,7 @@ import { loadProject, projects } from '../projects/content';
 import { navigate, router } from '../router.svelte';
 import { theme } from '../theme.svelte';
 import { complete, runCommand, type ShellHost } from './commands';
-import { detonate } from './shatter';
+import { shatter } from './shatter';
 import { buildFilesystem } from './filesystem';
 
 export type ShellLine = { text: string; kind: 'input' | 'output' | 'error' };
@@ -46,7 +46,11 @@ class ShellState {
         browser: readBrowser(),
         visit: getInteractionSnapshot(),
       }),
-      detonate: () => void detonate(() => this.clear()),
+      shatter: () =>
+        void shatter(() => {
+          this.clear();
+          this.close();
+        }),
     };
   }
 

@@ -8,7 +8,7 @@ let running = false;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Runs the effect; `onReboot` fires when the visitor dismisses the crash screen. */
-export async function detonate(onReboot: () => void): Promise<void> {
+export async function shatter(onReboot: () => void): Promise<void> {
   const app = document.getElementById('app');
   if (running || !app) {
     return;
@@ -23,7 +23,7 @@ export async function detonate(onReboot: () => void): Promise<void> {
     await new Promise(requestAnimationFrame);
     // Reduced motion skips straight to the crash screen.
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      await shatter(app, overlay);
+      await breakApart(app, overlay);
     }
     const message = document.createElement('p');
     message.className = 'shatter-message';
@@ -43,7 +43,7 @@ export async function detonate(onReboot: () => void): Promise<void> {
   }
 }
 
-async function shatter(app: HTMLElement, overlay: HTMLElement): Promise<void> {
+async function breakApart(app: HTMLElement, overlay: HTMLElement): Promise<void> {
   const width = document.documentElement.clientWidth;
   const height = window.innerHeight;
   const { cells } = voronoi(width, height, width < 600 ? 14 : 24, Math.random);

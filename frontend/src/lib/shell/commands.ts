@@ -38,8 +38,8 @@ export type ShellHost = {
   /** A write-up's searchable text, one block (paragraph, heading, list item) per line. */
   pageLines: (slug: string) => Promise<string[]>;
   visitor: () => Promise<Visitor>;
-  /** Starts the `sudo` shatter effect (which clears the shell when it ends); returns right away. */
-  detonate: () => void;
+  /** Starts the `sudo` shatter effect (which clears and closes the shell when it ends); returns right away. */
+  shatter: () => void;
 };
 
 type Command = {
@@ -208,7 +208,7 @@ export const commands: Record<string, Command> = {
     description: 'Run a command as root',
     hidden: true,
     run: (_arg, host) => {
-      host.detonate();
+      host.shatter();
       return [];
     },
   },

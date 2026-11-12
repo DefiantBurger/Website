@@ -87,7 +87,7 @@ function fakeHost(cwd: string, theme: 'light' | 'dark' = 'light') {
     pageLines: async (slug) => PAGE_LINES[slug] ?? [],
     visitorData: { context, browser, visit },
     visitor: async () => host.visitorData,
-    detonate: () => calls.push('detonate'),
+    shatter: () => calls.push('shatter'),
   };
   return host;
 }
@@ -222,11 +222,11 @@ describe('commands', () => {
     assert.ok(!help.some((line) => line.startsWith('sudo')));
   });
 
-  test('sudo detonates, with or without a command', async () => {
+  test('sudo shatters the page, with or without a command', async () => {
     const host = fakeHost('/');
     assert.deepEqual(await runCommand('sudo rm -rf /', host), []);
     assert.deepEqual(await runCommand('sudo', host), []);
-    assert.deepEqual(host.calls, ['detonate', 'detonate']);
+    assert.deepEqual(host.calls, ['shatter', 'shatter']);
   });
 
   test('unknown commands', async () => {
