@@ -7,6 +7,7 @@ import { loadProject, projects } from '../projects/content';
 import { navigate, router } from '../router.svelte';
 import { theme } from '../theme.svelte';
 import { complete, runCommand, type ShellHost } from './commands';
+import { detonate } from './detonate';
 import { buildFilesystem } from './filesystem';
 
 export type ShellLine = { text: string; kind: 'input' | 'output' | 'error' };
@@ -37,7 +38,7 @@ class ShellState {
       navigate,
       setTheme: (value) => theme.set(value),
       openUrl: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
-      clear: () => (this.lines = []),
+      clear: () => this.clear(),
       close: () => this.close(),
       pageLines,
       visitor: async () => ({
@@ -45,7 +46,12 @@ class ShellState {
         browser: readBrowser(),
         visit: getInteractionSnapshot(),
       }),
+      detonate: () => void detonate(() => this.clear()),
     };
+  }
+
+  clear(): void {
+    this.lines = [];
   }
 
   open(): void {

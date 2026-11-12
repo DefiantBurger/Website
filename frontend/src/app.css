@@ -320,6 +320,48 @@ textarea {
   }
 }
 
+/* `sudo` shatter overlay (lib/shell/detonate.ts): above the shell (150), below the skip link (200). */
+.shatter {
+  position: fixed;
+  inset: 0;
+  z-index: 160;
+  overflow: hidden;
+  background: var(--color-bg-dark);
+  transition: opacity 0.4s;
+}
+
+.shatter-shard,
+.shatter-page {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Also makes the shard the containing block for the cloned fixed shell. */
+.shatter-shard {
+  will-change: transform;
+}
+
+/* Clones would otherwise replay the page's entrance fade. */
+.shatter-shard * {
+  animation: none !important;
+  transition: none !important;
+}
+
+.shatter-message {
+  padding: 1.5rem 1rem;
+  white-space: pre-wrap;
+}
+
+.shatter-message span {
+  color: var(--color-text-muted);
+}
+
+.shatter-message span::after {
+  content: '_';
+  animation: blink 1s steps(1) infinite;
+}
+
 /* Honor reduced-motion everywhere: loading blink, page fade, hover lifts. */
 @media (prefers-reduced-motion: reduce) {
   *,

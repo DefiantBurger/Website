@@ -19,10 +19,6 @@ For the Wisconsin Robotics electrical work: export KiCad boards to SVG and show 
 
 ## Site-wide
 
-### Shell: `sudo` easter egg
-
-`sudo <anything>` prints `[sudo] password for visitor:` and `visitor is not in the sudoers file. This incident will be reported.`, then the page "breaks": a screen shake, then each block in `<main>` tumbles off the bottom with a random rotation and delay (inline custom properties), and everything snaps back on `animationend`. Trigger it through a new `ShellHost` method (`detonate()`) so the command stays pure and testable. Don't move the shell itself, honor `prefers-reduced-motion` (the text is the whole joke there), and use `--color-*` only.
-
 ### Footer with live site info
 
 Add a footer, and add the Status link there (`STATUS_PAGE_URL` in `site.ts`; it left the navbar when the shell button took its place). It belongs with the other site info, not with page navigation.

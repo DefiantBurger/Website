@@ -38,11 +38,15 @@ export type ShellHost = {
   /** A write-up's searchable text, one block (paragraph, heading, list item) per line. */
   pageLines: (slug: string) => Promise<string[]>;
   visitor: () => Promise<Visitor>;
+  /** Starts the `sudo` shatter effect (which clears the shell when it ends); returns right away. */
+  detonate: () => void;
 };
 
 type Command = {
   usage: string;
   description: string;
+  /** Left out of `help`. */
+  hidden?: boolean;
   run: (arg: string | undefined, host: ShellHost) => string[] | Promise<string[]>;
 };
 
@@ -85,7 +89,9 @@ export const commands: Record<string, Command> = {
     usage: 'help',
     description: 'List commands',
     run: () =>
-      Object.values(commands).map((command) => `${command.usage.padEnd(20)}${command.description}`),
+      Object.values(commands)
+        .filter((command) => !command.hidden)
+        .map((command) => `${command.usage.padEnd(20)}${command.description}`),
   },
   ls: {
     usage: 'ls [path]',
@@ -196,6 +202,15 @@ export const commands: Record<string, Command> = {
     usage: 'history',
     description: 'Show the commands run this session',
     run: (_arg, host) => host.history.map((c, i) => `${String(i + 1).padStart(3)}  ${c}`),
+  },
+  sudo: {
+    usage: 'sudo [command]',
+    description: 'Run a command as root',
+    hidden: true,
+    run: (_arg, host) => {
+      host.detonate();
+      return [];
+    },
   },
   exit: {
     usage: 'exit',

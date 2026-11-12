@@ -87,6 +87,7 @@ function fakeHost(cwd: string, theme: 'light' | 'dark' = 'light') {
     pageLines: async (slug) => PAGE_LINES[slug] ?? [],
     visitorData: { context, browser, visit },
     visitor: async () => host.visitorData,
+    detonate: () => calls.push('detonate'),
   };
   return host;
 }
@@ -216,7 +217,16 @@ describe('commands', () => {
     await runCommand('exit', host);
     assert.deepEqual(host.calls, ['clear', 'close']);
     const help = await runCommand('help', host);
-    assert.equal(help.length, complete('', host).candidates.length);
+    // Every command but the hidden sudo.
+    assert.equal(help.length, complete('', host).candidates.length - 1);
+    assert.ok(!help.some((line) => line.startsWith('sudo')));
+  });
+
+  test('sudo detonates, with or without a command', async () => {
+    const host = fakeHost('/');
+    assert.deepEqual(await runCommand('sudo rm -rf /', host), []);
+    assert.deepEqual(await runCommand('sudo', host), []);
+    assert.deepEqual(host.calls, ['detonate', 'detonate']);
   });
 
   test('unknown commands', async () => {
