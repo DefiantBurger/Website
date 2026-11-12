@@ -307,9 +307,6 @@
   @media (max-width: 768px) {
     .hero {
       grid-template-columns: 1fr;
-    }
-
-    .hero {
       padding: 1rem;
     }
   }

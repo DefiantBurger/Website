@@ -39,19 +39,13 @@
   let selectedFileIndex = $state(1);
 
   // Limits come from the backend, so the page can't drift from it; '—' until loaded.
-  const stats = $derived(
-    status
-      ? [
-          ['Active files', String(status.activeFileCount)],
-          ['Retention', formatDuration(status.retentionSeconds)],
-          ['Per-file cap', formatBytes(status.maxFileBytes)],
-          [
-            'Storage used',
-            `${formatBytes(status.usedBytes)} / ${formatBytes(status.maxTotalBytes)}`,
-          ],
-        ]
-      : ['Active files', 'Retention', 'Per-file cap', 'Storage used'].map((label) => [label, '—']),
-  );
+  const STAT_ROWS: [label: string, value: (status: FileShareStatus) => string][] = [
+    ['Active files', (s) => String(s.activeFileCount)],
+    ['Retention', (s) => formatDuration(s.retentionSeconds)],
+    ['Per-file cap', (s) => formatBytes(s.maxFileBytes)],
+    ['Storage used', (s) => `${formatBytes(s.usedBytes)} / ${formatBytes(s.maxTotalBytes)}`],
+  ];
+  const stats = $derived(STAT_ROWS.map(([label, value]) => [label, status ? value(status) : '—']));
 
   const limitsIntro = $derived(
     status
@@ -143,57 +137,32 @@
     });
   }
 
-  async function downloadFile(key: string, file: FileShareRecord): Promise<void> {
-    saveBlob(await downloadFileShare(key, file.occurrenceIndex), file.originalFilename);
-  }
-
-  async function handleDownload(): Promise<void> {
-    const key = requireAccessKey('Enter the access key to retrieve the file.');
-    if (!key) {
-      return;
-    }
-    const selectedFile = accessFiles.find((f) => f.occurrenceIndex === selectedFileIndex);
-    if (!selectedFile) {
-      access.fail('No files available for download.');
-      return;
-    }
-
-    await access.run(async () => {
-      await downloadFile(key, selectedFile);
-      access.success = `Started download for ${selectedFile.originalFilename}.`;
-    });
-  }
-
-  async function handleDownloadAll(): Promise<void> {
+  async function startDownloads(files: FileShareRecord[]): Promise<void> {
     const key = requireAccessKey('Enter the access key to retrieve files.');
     if (!key) {
       return;
     }
-    if (accessFiles.length === 0) {
+    if (files.length === 0) {
       access.fail('No files available for download.');
       return;
     }
 
     await access.run(async () => {
-      let succeeded = 0;
       const failures: string[] = [];
-      for (const file of accessFiles) {
+      for (const file of files) {
         try {
-          await downloadFile(key, file);
-          succeeded += 1;
+          saveBlob(await downloadFileShare(key, file.occurrenceIndex), file.originalFilename);
         } catch (error) {
           failures.push(`- ${file.originalFilename}: ${errorMessage(error, 'Download failed.')}`);
         }
       }
 
-      const summaryHeader = `${succeeded} succeeded, ${failures.length} failed`;
-      if (failures.length === 0) {
-        access.success = `${summaryHeader}.`;
-        return;
-      }
-      access.error = `${summaryHeader}:\n${failures.join('\n')}`;
+      const succeeded = files.length - failures.length;
       if (succeeded > 0) {
-        access.success = `Started ${succeeded} download(s).`;
+        access.success = `Started ${succeeded} download${succeeded === 1 ? '' : 's'}.`;
+      }
+      if (failures.length > 0) {
+        access.error = `${succeeded} succeeded, ${failures.length} failed:\n${failures.join('\n')}`;
       }
     });
   }
@@ -294,10 +263,17 @@
             {/each}
           </select>
         </label>
-        <button type="button" onclick={handleDownload} disabled={access.busy}>
+        <button
+          type="button"
+          onclick={() =>
+            startDownloads(
+              accessFiles.filter((file) => file.occurrenceIndex === selectedFileIndex),
+            )}
+          disabled={access.busy}
+        >
           {access.busy ? 'Fetching...' : 'Download'}
         </button>
-        <button type="button" onclick={handleDownloadAll} disabled={access.busy}>
+        <button type="button" onclick={() => startDownloads(accessFiles)} disabled={access.busy}>
           {access.busy ? 'Fetching...' : 'Download All'}
         </button>
       </div>

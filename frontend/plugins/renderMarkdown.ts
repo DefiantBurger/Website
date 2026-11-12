@@ -24,16 +24,13 @@ function rehypeMermaid(counter: { transformed: number }) {
       tree,
       'element',
       (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
-        if (!parent?.children || index === undefined) {
-          return;
-        }
-
-        if (node.tagName !== 'pre') {
-          return;
-        }
-
         const code = node.children?.[0];
-        if (!code || code.tagName !== 'code') {
+        if (
+          !parent?.children ||
+          index === undefined ||
+          node.tagName !== 'pre' ||
+          code?.tagName !== 'code'
+        ) {
           return;
         }
 

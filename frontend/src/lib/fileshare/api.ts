@@ -17,10 +17,6 @@ export interface FileShareRecord {
   expiresAt: string;
 }
 
-export interface FileShareListResult {
-  files: FileShareRecord[];
-}
-
 function postForm(fields: Record<string, string | Blob>): RequestInit {
   const body = new FormData();
   for (const [name, value] of Object.entries(fields)) {
@@ -79,7 +75,7 @@ async function readFile(blob: Blob, name: string): Promise<ArrayBuffer> {
   }
 }
 
-export async function deleteFileShareFiles(password: string, indices: number[]): Promise<void> {
+async function deleteFileShareFiles(password: string, indices: number[]): Promise<void> {
   await apiFetch(
     '/api/fileshare/delete/',
     postForm({ password, occurrenceIndices: indices.join(',') }),
@@ -94,6 +90,6 @@ export async function downloadFileShare(password: string, occurrenceIndex: numbe
   return response.blob();
 }
 
-export function listFileShareFiles(password: string): Promise<FileShareListResult> {
-  return apiJson<FileShareListResult>('/api/fileshare/list/', postForm({ password }));
+export function listFileShareFiles(password: string): Promise<{ files: FileShareRecord[] }> {
+  return apiJson<{ files: FileShareRecord[] }>('/api/fileshare/list/', postForm({ password }));
 }

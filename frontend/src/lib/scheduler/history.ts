@@ -6,7 +6,7 @@ export interface History<T> {
   future: T[];
 }
 
-export const HISTORY_LIMIT = 100;
+const HISTORY_LIMIT = 100;
 
 export function createHistory<T>(present: T): History<T> {
   return { past: [], present, future: [] };

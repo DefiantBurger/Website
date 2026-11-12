@@ -3,7 +3,7 @@ import { fetchWithTimeout, type TimedRequestInit } from './fetchTimeout';
 
 // Without VITE_BACKEND_URL, dev talks to the local Flask server and production
 // builds use the page's own origin (never the visitor's localhost).
-export const BACKEND_BASE_URL =
+const BACKEND_BASE_URL =
   (import.meta.env.VITE_BACKEND_URL as string | undefined) ??
   (import.meta.env.DEV ? 'http://localhost:5000' : '');
 
@@ -24,8 +24,11 @@ export class ApiError extends Error {
   }
 }
 
+const contentTypeOf = (response: Response) =>
+  response.headers.get('content-type')?.toLowerCase() ?? '';
+
 async function readErrorMessage(response: Response): Promise<string> {
-  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  const contentType = contentTypeOf(response);
   if (contentType.includes('application/json')) {
     try {
       const payload = (await response.json()) as { error?: string };
@@ -63,7 +66,7 @@ export async function apiFetch(path: string, init?: TimedRequestInit): Promise<R
  */
 export async function apiJson<T>(path: string, init?: TimedRequestInit): Promise<T> {
   const response = await apiFetch(path, init);
-  const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
+  const contentType = contentTypeOf(response);
   if (!contentType.includes('application/json')) {
     const preview = (await response.text()).slice(0, 120).replace(/\s+/g, ' ');
     throw new Error(
