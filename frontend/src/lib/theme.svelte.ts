@@ -21,12 +21,16 @@ class ThemeState {
   }
 
   toggle(): void {
-    this.current = this.current === 'dark' ? 'light' : 'dark';
+    this.set(this.current === 'dark' ? 'light' : 'dark');
+  }
+
+  set(theme: Theme): void {
+    this.current = theme;
     document.documentElement.dataset.theme = this.current;
     try {
       localStorage.setItem('theme', this.current);
     } catch {
-      // Not persisted; the toggle still applies for this visit.
+      // Not persisted; the theme still applies for this visit.
     }
   }
 }

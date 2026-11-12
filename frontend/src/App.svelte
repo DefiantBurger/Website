@@ -3,8 +3,10 @@
 
   import Nav from './lib/components/Nav.svelte';
   import PageMeta from './lib/components/PageMeta.svelte';
+  import Shell from './lib/components/Shell.svelte';
   import { initRouter, router } from './lib/router.svelte';
   import { notFoundRoute, routes } from './lib/routes';
+  import { shell } from './lib/shell/shell.svelte';
   import { SITE_ORIGIN } from './lib/site';
 
   initRouter(routes, notFoundRoute);
@@ -26,7 +28,10 @@
     }
     // Wait for <svelte:head> to update the title.
     void tick().then(() => {
-      mainElement.focus({ preventScroll: true });
+      // A `cd` from the shell must not pull focus out of its input.
+      if (!shell.isOpen) {
+        mainElement.focus({ preventScroll: true });
+      }
       announcement = document.title;
     });
   });
@@ -51,6 +56,7 @@
   bind:this={mainElement}
   class="container"
   class:container-wide={router.route?.layout?.wide}
+  class:shell-open={shell.isOpen}
 >
   <!-- Keyed so every navigation (including between projects) mounts a fresh page. -->
   {#key router.path}
@@ -59,11 +65,17 @@
     </div>
   {/key}
 </main>
+<Shell />
 <div class="sr-only" aria-live="polite" aria-atomic="true">{announcement}</div>
 
 <style>
   main {
     flex: 1;
+  }
+
+  /* Lets the end of the page scroll above the docked shell. */
+  main.shell-open {
+    margin-bottom: var(--shell-height);
   }
 
   /* Focus lands here on navigation and via the skip link; it isn't a control. */

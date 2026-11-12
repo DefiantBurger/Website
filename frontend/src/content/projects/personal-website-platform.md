@@ -99,6 +99,7 @@ This split keeps backend logic simple while still enabling complex interaction i
 - Loading/error states for API-backed pages
 - Utility-specific interaction models and state
 - Theme persistence and the global visual system
+- An interactive shell (`ls`, `cd`, `cat`, `grep`, tab completion) docked over every page, built from the same route table
 
 #### Routing
 

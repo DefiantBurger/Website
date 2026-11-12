@@ -1,9 +1,8 @@
 <script lang="ts">
   import { pathFor, routeDefinitions, SITE_NAME } from '../routeDefinitions';
   import { router } from '../router.svelte';
-  import { STATUS_PAGE_URL } from '../site';
+  import { shell } from '../shell/shell.svelte';
   import { theme } from '../theme.svelte';
-  import ExternalLink from './ExternalLink.svelte';
 
   // Home's tab title is just the site name, so its label is written out here.
   const links = [
@@ -52,8 +51,14 @@
     </ul>
 
     <div class="nav-actions">
-      <ExternalLink class="status-link" href={STATUS_PAGE_URL}>Status</ExternalLink>
-      <button type="button" class="theme-toggle" onclick={() => theme.toggle()}>
+      <button
+        type="button"
+        class="nav-button"
+        aria-label="Shell"
+        aria-expanded={shell.isOpen}
+        onclick={() => shell.toggle()}>&gt;_</button
+      >
+      <button type="button" class="nav-button" onclick={() => theme.toggle()}>
         {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
       </button>
     </div>
@@ -110,16 +115,7 @@
     flex-shrink: 0;
   }
 
-  .nav-actions :global(.status-link) {
-    font-size: 0.8rem;
-    border-bottom: 1px solid transparent;
-  }
-
-  .nav-actions :global(.status-link:hover) {
-    border-bottom: 1px solid var(--color-text-primary);
-  }
-
-  .theme-toggle {
+  .nav-button {
     font-size: 0.8rem;
     padding: 0.4rem 0.7rem;
     white-space: nowrap;

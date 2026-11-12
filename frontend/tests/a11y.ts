@@ -48,6 +48,10 @@ async function scan(
 
   for (const path of paths) {
     await page.goto(`${BASE_URL}${path}`, { waitUntil: 'networkidle' });
+    // The shell is only in the DOM while open; scan it once, on the home page.
+    if (path === '/') {
+      await page.keyboard.press('`');
+    }
     await page.waitForTimeout(SETTLE_MS);
     await page.addScriptTag({ path: AXE_PATH });
     // Options go over as a JSON string: Playwright infers a serialized type for

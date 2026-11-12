@@ -123,6 +123,21 @@ const siteChecks: Check[] = [
         await page.getByRole('button', { name: 'Light Mode' }).waitFor();
       }),
   },
+  {
+    name: 'shell opens with backtick and cd navigates',
+    run: (browser) =>
+      withPage(browser, async (page) => {
+        await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle' });
+        await page.keyboard.press('`');
+        const input = page.getByRole('textbox', { name: 'Command' });
+        await input.fill('cd about');
+        await input.press('Enter');
+        await page.waitForURL(`${BASE_URL}/about`);
+        assert.equal(await page.locator('h1').first().textContent(), 'About Me');
+        await input.press('Escape');
+        await input.waitFor({ state: 'detached' });
+      }),
+  },
 ];
 
 async function main(): Promise<void> {

@@ -39,7 +39,7 @@ flowchart LR
 
 ## Runtime Flows
 
-- **Navigation.** The router maps the URL to a page; pages that need data fetch it on mount. Unknown paths, including unknown project slugs, render a 404 page with a closest-match suggestion.
+- **Navigation.** The router maps the URL to a page; pages that need data fetch it on mount. Unknown paths, including unknown project slugs, render a 404 page with a closest-match suggestion. The interactive shell navigates through the same router.
 - **Utilities.** Each utility page calls its `/api/<utility>/` endpoints. Scheduler logic runs entirely in the browser; File Share and Message Board state lives on the backend ([Utilities](./UTILITIES.md)).
 - **Project content.** Write-ups are rendered to sanitized HTML at build time and loaded per project as a JS chunk; no API call is involved, so content ships with the next deploy ([Implementation](./IMPLEMENTATION.md#project-rendering)).
 

@@ -28,6 +28,8 @@
   --color-success-opacity-05: rgba(133, 199, 154, 0.05);
 
   --font-mono: 'Courier New', 'Courier', monospace;
+  /* Shared by Shell.svelte (panel height) and App.svelte (room left below the page). */
+  --shell-height: min(40vh, 20rem);
   /* Faint row/section separator; resolves per theme through the color variable. */
   --divider: 1px dashed var(--color-primary-opacity-30);
 }

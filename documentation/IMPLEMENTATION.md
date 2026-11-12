@@ -30,8 +30,8 @@ cd frontend && pnpm a11y                 # axe-core scan
 - **Config:** Ruff in `backend/pyproject.toml`; Prettier and ESLint in `frontend/.prettierrc.json` and `frontend/eslint.config.js` (`eslint-config-prettier` keeps them from conflicting). Prettier covers all of `frontend/` except `dist/` and the lockfile, project Markdown included.
 - **Backend tests** (`backend/tests/`) get a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage.
 - **Unit tests** (`frontend/tests/unit/*.test.ts`) use Node's built-in runner and cover pure logic only: code using runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep testable logic in plain `.ts` modules. `tests/unit/resolve-ts.ts` lets Node resolve the source's extensionless imports. A test marked `{ todo }` documents a known bug without failing the suite.
-- **`pnpm smoke`** loads every route and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, and theme persistence.
-- **`pnpm a11y`** runs axe-core (WCAG 2.2 A/AA plus best practices) on every route, one project page, and two 404 paths (an unknown page and an unknown project), in both themes at desktop and phone width. Nothing is excluded, Mermaid diagrams included. Screen-reader flow, focus handling, and drag-and-drop still need a manual check.
+- **`pnpm smoke`** loads every route and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, theme persistence, and opening the shell to run `cd`.
+- **`pnpm a11y`** runs axe-core (WCAG 2.2 A/AA plus best practices) on every route, one project page, and two 404 paths (an unknown page and an unknown project), in both themes at desktop and phone width, with the shell open on the home page. Nothing is excluded, Mermaid diagrams included. Screen-reader flow, focus handling, and drag-and-drop still need a manual check.
 - Both browser scripts need the dev servers running, drive the installed Google Chrome through `playwright-core` (or run `pnpm exec playwright-core install chromium`), and accept `TEST_BASE_URL` to target another host.
 - **CI** (`test.yaml`) runs everything except the browser checks. Lint and format problems only warn.
 
@@ -77,6 +77,14 @@ Data: `app/static/json/course_data.json` and `my_courses.json` (scheduler catalo
 
 On client-side navigation, `App.svelte` moves focus to `<main id="main">` and announces the new `document.title` through a polite live region. A skip link also targets `#main`.
 
+### Interactive Shell
+
+A terminal panel docked to the bottom of every page, opened with `` ` `` or `/` (outside text fields) or the nav's `>_` button, and closed with `Esc`, `exit`, or the button. `help` lists the commands. It isn't modal: `cd` navigates the page underneath through the router while the shell stays open, and closing returns focus to whatever opened it.
+
+- `lib/shell/filesystem.ts` builds the virtual filesystem from `routeDefinitions` plus the published projects, one entry per page, so new pages show up on their own.
+- `lib/shell/commands.ts` holds the commands as pure functions over a `ShellHost`, unit-tested with a fake host. `grep` and `whoami` get their data through the host. `grep` searches only the project write-ups, since the static pages' text lives in Svelte components, not in data.
+- `lib/shell/shell.svelte.ts` keeps the state (open, scrollback, history; they survive closing the panel) and builds the real host. `lib/components/Shell.svelte` is the panel and the global hotkey.
+
 ### Accessibility Conventions
 
 - Secondary text uses `--color-text-muted`, not `opacity`, so it keeps 4.5:1 contrast in both themes.
@@ -86,7 +94,7 @@ On client-side navigation, `App.svelte` moves focus to `<main id="main">` and an
 
 ### Shared Code
 
-- `lib/components/Nav.svelte`: navigation, the status page link, and the theme toggle.
+- `lib/components/Nav.svelte`: navigation, the shell button, and the theme toggle.
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`).
 - `lib/components/PageHeader.svelte`: page title, optional description, and an `actions` snippet.
 - `lib/components/LinkCard.svelte`: a card whose whole area links somewhere (Home, Projects, Utilities). Body content goes in its `children` snippet.

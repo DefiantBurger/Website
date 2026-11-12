@@ -19,42 +19,13 @@ For the Wisconsin Robotics electrical work: export KiCad boards to SVG and show 
 
 ## Site-wide
 
-### Interactive shell
+### Shell: `sudo` easter egg
 
-A terminal prompt that opens over any page and drives the site with commands. It fits the terminal look, and it adds a keyboard way to get around the site.
-
-**Opening and closing**
-
-- `` ` `` or `/` opens it (ignored while typing in an input). `Esc` or `exit` closes it and returns focus to where it was.
-- A visible `>_` button in the nav, for phones and for people who don't know the shortcut.
-- Opens as a panel docked to the bottom of the page. A full-screen overlay is the alternative, but docked keeps the page visible, so `cd` can change the page underneath while the shell stays open.
-
-**Commands (first pass)**
-
-| Command | Does |
-| --- | --- |
-| `help` | List commands |
-| `ls [path]` | List pages under a path (`ls projects` lists write-ups by slug) |
-| `cd <path>` | Navigate (`cd ..`, `cd ~`, relative and absolute paths) |
-| `pwd` | Current route |
-| `cat <page>` | Print a short text summary (`cat about`, `cat projects/<slug>` prints the summary from frontmatter) |
-| `open <slug>` | Open a project's demo/repo link |
-| `theme [light\|dark]` | Toggle or set the theme |
-| `clear`, `history`, `exit` | The usual |
-
-Ideas for later: `whoami` (pulls from About You), `grep <term>` across project write-ups, `sudo` easter egg.
-
-**Implementation notes**
-
-- Build the virtual filesystem from `routeDefinitions` and the published project list, not a hand-written copy, so new pages show up automatically. `pathFor(key, params)` and each route's `meta` cover what the shell needs.
-- Navigate through the existing router, not `location.href`.
-- Tab completion on commands and paths; up/down arrows for history (session only).
-- Keep the parser and filesystem in plain `.ts` modules so they can be unit tested with `node:test`.
-- Accessibility: an output region with `role="log"`, a labeled input, focus kept inside the shell while it's open, and nothing that's only reachable through it.
+`sudo <anything>` prints `[sudo] password for visitor:` and `visitor is not in the sudoers file. This incident will be reported.`, then the page "breaks": a screen shake, then each block in `<main>` tumbles off the bottom with a random rotation and delay (inline custom properties), and everything snaps back on `animationend`. Trigger it through a new `ShellHost` method (`detonate()`) so the command stays pure and testable. Don't move the shell itself, honor `prefers-reduced-motion` (the text is the whole joke there), and use `--color-*` only.
 
 ### Footer with live site info
 
-Add a footer, and move the Status link there from the navbar. It belongs with the other site info, not with page navigation.
+Add a footer, and add the Status link there (`STATUS_PAGE_URL` in `site.ts`; it left the navbar when the shell button took its place). It belongs with the other site info, not with page navigation.
 
 - **Last deploy:** git short SHA and build date, injected at build time with Vite `define`. The SHA can link to the commit on GitHub. Only the date and SHA need to be shown.
 - **Uptime:** either the backend process uptime (add it to `/api/health/` or a new endpoint), or the uptime percentage from Better Stack. Better Stack is the more honest number, but it needs an API token kept on the backend, and the result should be cached so each page view doesn't call Better Stack.
