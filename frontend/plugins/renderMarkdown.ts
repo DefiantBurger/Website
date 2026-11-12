@@ -1,7 +1,9 @@
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import remarkRehype from 'remark-rehype';
+import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize';
@@ -61,6 +63,40 @@ function rehypeMermaid(counter: { transformed: number }) {
   };
 }
 
+const scrollRegion = (label: string) => ({ tabIndex: 0, role: 'region', ariaLabel: label });
+
+/**
+ * Wide tables and display equations scroll horizontally on phones, so make each
+ * scroll box keyboard-focusable. Tables get a wrapper: a role on the table itself
+ * would hide its table semantics.
+ */
+function rehypeScrollRegions() {
+  return function transformer(tree: HastNode) {
+    let tables = 0;
+    let equations = 0;
+    visit(
+      tree,
+      'element',
+      (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
+        const classNames = node.properties?.className;
+        if (Array.isArray(classNames) && classNames.includes('katex-display')) {
+          equations += 1;
+          Object.assign(node.properties ?? {}, scrollRegion(`Equation ${equations}`));
+        } else if (node.tagName === 'table' && parent?.children && index !== undefined) {
+          tables += 1;
+          parent.children[index] = {
+            type: 'element',
+            tagName: 'div',
+            properties: { className: ['table-scroll'], ...scrollRegion(`Table ${tables}`) },
+            children: [node],
+          };
+          return 'skip';
+        }
+      },
+    );
+  };
+}
+
 // Default GitHub-style schema, plus the Mermaid div and language classes on code blocks.
 const sanitizeSchema: SanitizeSchema = {
   ...defaultSchema,
@@ -79,9 +115,13 @@ export async function renderProjectMarkdown(markdown: string): Promise<string> {
   const rendered = await unified()
     .use(remarkParse)
     .use(remarkGfm)
+    .use(remarkMath)
     .use(remarkRehype)
     .use(rehypeMermaid, counter)
     .use(rehypeSanitize, sanitizeSchema)
+    // After sanitize: KaTeX's output is trusted, and sanitize would strip its inline styles.
+    .use(rehypeKatex, { strict: 'error' })
+    .use(rehypeScrollRegions)
     .use(rehypeSlug, { prefix: 'user-content-' }) // after sanitize so anchor hrefs match ids
     .use(rehypeAutolinkHeadings, {
       behavior: 'append',
@@ -102,6 +142,10 @@ export async function renderProjectMarkdown(markdown: string): Promise<string> {
   const mermaidDivs = html.match(/<div class="mermaid">/g)?.length ?? 0;
   if (html.includes('class="language-mermaid"') || mermaidDivs < counter.transformed) {
     throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
+  }
+  // rehype-katex renders bad LaTeX as red source text instead of throwing.
+  if (html.includes('katex-error')) {
+    throw new Error('renderMarkdown: invalid LaTeX in a math block');
   }
   return html;
 }

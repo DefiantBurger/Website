@@ -11,10 +11,10 @@
         'A minimal terminal aesthetic website built with Flask and Svelte, hosted on GCP.',
     },
     {
-      title: 'J-Ball Basketball',
-      slug: 'j-ball-basketball',
+      title: 'Quantum Scattering Research',
+      slug: 'quantum-scattering-research',
       description:
-        'A client website for a high school basketball league, with schedules, standings, signups, and an admin area.',
+        'A split-operator Schrödinger solver with total-field/scattered-field sources, generating data for neural networks that solve the inverse scattering problem.',
     },
   ];
 

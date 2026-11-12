@@ -25,7 +25,7 @@ flowchart LR
 
 | Layer | Components |
 | --- | --- |
-| Frontend | Svelte 5, TypeScript, Vite, custom History API router, unified/remark/rehype Markdown pipeline (build time), Mermaid |
+| Frontend | Svelte 5, TypeScript, Vite, custom History API router, unified/remark/rehype Markdown pipeline with KaTeX math (build time), Mermaid |
 | Backend | Flask app factory + one blueprint, Waitress in production, Flask-CORS (development only), `cryptography` for file-share encryption |
 | Infrastructure | Terraform, GCE e2-micro (Debian 12), Nginx, systemd, Cloudflare DNS + Tunnel + Managed Transforms, Google Secret Manager, Cloud Storage (release bucket) |
 | CI/CD | GitHub Actions (test; manual package + deploy over IAP SSH with Workload Identity Federation) |

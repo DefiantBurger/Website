@@ -15,6 +15,11 @@
   async function loadPage() {
     const project = await loadProject(slug);
     recordProjectView(slug);
+    // Math is typeset at build time, but its CSS would double the global stylesheet,
+    // so only pages with math load it. Awaited because unstyled KaTeX shows each equation twice.
+    if (project.html.includes('class="katex')) {
+      await import('katex/dist/katex.min.css');
+    }
     return project;
   }
 
@@ -159,6 +164,23 @@
     padding: 0;
   }
 
+  /* Long equations scroll on their own instead of widening the page. The scroll box
+     clips vertically too, and tall glyphs (fractions, exponents) extend a few px past
+     KaTeX's line box, so trade KaTeX's 1em margin for padding the glyphs can use. */
+  .project-content :global(.katex-display) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin-block: 0;
+    padding-block: 1em;
+  }
+
+  .project-content :global(blockquote) {
+    border-left: 3px solid var(--color-text-primary);
+    padding: 0.6rem 0.9rem;
+    background: var(--color-primary-opacity-10);
+    margin-bottom: 1rem;
+  }
+
   .project-content :global(ul),
   .project-content :global(ol) {
     margin-left: 1.2rem;
@@ -173,10 +195,22 @@
     margin-left: 1.5rem;
   }
 
+  /* Build-time wrapper (renderMarkdown.ts): a wide table scrolls here instead of widening the page. */
+  .project-content :global(.table-scroll) {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+
   .project-content :global(table) {
     border-collapse: collapse;
     width: 100%;
-    margin-bottom: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    /* KaTeX's default 1.21em makes most display equations wider than a phone. */
+    .project-content :global(.katex-display > .katex) {
+      font-size: 1em;
+    }
   }
 
   .project-content :global(th),

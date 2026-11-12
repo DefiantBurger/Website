@@ -4,11 +4,11 @@ Features and improvements worth building, none of them started. Bugs and tech de
 
 ## Content
 
-### Research write-up with interactive demos
+### Interactive demos in the research write-up
 
-Write up the quantum transport simulation research as a project in `frontend/src/content/projects/`, with interactive demos embedded in the text instead of on a separate page.
+`quantum-scattering-research.md` marks each future demo with a "coming soon" blockquote naming an id (`wavepacket-2d`, `boundary-conditions`, `tfsf`, `inverse-problem`, `som-vs-fdtd`, `wigner`). Replace those with live demos embedded in the text.
 
-- **Embedding:** project Markdown is rendered to HTML at build time (`plugins/projects.ts`), so it can't contain Svelte components today. One option is a placeholder block (e.g. `<div data-demo="wavepacket"></div>`) that `ProjectDetail.svelte` finds after rendering and mounts a component into. That keeps the Markdown plain, and the demo code is only loaded on pages that use it.
+- **Embedding:** project Markdown is rendered to HTML at build time (`plugins/projects.ts`), so it can't contain Svelte components today. One option is a placeholder block (e.g. `<div data-demo="wavepacket"></div>`) that `ProjectDetail.svelte` finds after rendering and mounts a component into. That keeps the Markdown plain, and the demo code is only loaded on pages that use it. Raw HTML is dropped by `remark-rehype` and `data-*` attributes by the sanitizer (`plugins/renderMarkdown.ts`), so this needs either a custom Markdown syntax turned into the div by a plugin (like the Mermaid one) or an allowance in the sanitize schema.
 - **First demo:** a 1D Gaussian wavepacket hitting a potential barrier, drawn on a canvas, with sliders for barrier height/width and packet energy, so tunneling and reflection play out live. The split-step Fourier method is simple and stable (it needs a small FFT, which is easy to write by hand rather than add as a dependency). Crank–Nicolson is the alternative if a tridiagonal solve is easier to reason about.
 - Show transmission/reflection probability next to the analytic result, so the demo also checks itself.
 - Colors from `--color-*` variables (read them with `getComputedStyle`, since a canvas can't use CSS variables directly), and redraw when the theme changes.

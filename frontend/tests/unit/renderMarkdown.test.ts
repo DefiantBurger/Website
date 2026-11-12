@@ -1,6 +1,7 @@
 // Project write-ups are rendered to HTML and inserted with {@html}, so the
 // sanitizer is the XSS boundary. These pin down what must never get through.
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 
 import { renderProjectMarkdown } from '../../plugins/renderMarkdown.ts';
@@ -55,6 +56,44 @@ describe('rendering', () => {
 
   test('supports GitHub-flavored tables', async () => {
     const html = await render('| a | b |\n| - | - |\n| 1 | 2 |');
-    assert.match(html, /<table>/);
+    // Wrapped in a focusable scroll box so keyboard users can scroll a wide table.
+    assert.match(
+      html,
+      /<div class="table-scroll" tabindex="0" role="region" aria-label="Table 1"><table>/,
+    );
+  });
+});
+
+describe('math', () => {
+  test('renders inline and display LaTeX with KaTeX', async () => {
+    const html = await render('Inline $E = mc^2$.\n\n$$\n\\psi = e^{ikx}\n$$');
+    assert.match(html, /<span class="katex">/);
+    // Focusable so keyboard users can scroll a wide equation.
+    assert.match(
+      html,
+      /<span class="katex-display" tabindex="0" role="region" aria-label="Equation 1">/,
+    );
+    assert.doesNotMatch(html, /language-math/);
+  });
+
+  // The page loads our katex's CSS, but rehype-katex renders with its own katex.
+  // Class names change between versions (0.19 renamed `.base`), so a mismatch breaks layout silently.
+  test('the katex CSS matches the version that renders the HTML', () => {
+    const require = createRequire(import.meta.url);
+    const ours = require('katex/package.json') as { version: string };
+    const fromRehype = createRequire(require.resolve('rehype-katex'));
+    const theirs = fromRehype('katex/package.json') as { version: string };
+    assert.equal(ours.version, theirs.version);
+  });
+
+  test('fails on invalid LaTeX instead of shipping an error box', async () => {
+    await assert.rejects(render('$\\frac{1}{$'), /invalid LaTeX/);
+  });
+
+  // KaTeX runs after the sanitizer, so its own `trust: false` default is what blocks links.
+  test('does not emit links from \\href', async () => {
+    const html = await render('$\\href{javascript:alert(1)}{x}$');
+    // The source survives as plain text in the MathML annotation; only a real link would matter.
+    assert.doesNotMatch(html, /<a\b|href=/i);
   });
 });

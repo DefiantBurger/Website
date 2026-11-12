@@ -2,7 +2,7 @@
 title: 'Personal Website Platform'
 slug: 'personal-website-platform'
 summary: 'A full-stack personal site platform with a Svelte frontend, Flask APIs, Terraform-provisioned GCP hosting behind a Cloudflare Tunnel, and GitHub Actions CI and deploys. Serves Markdown write-ups rendered at build time and several interactive utilities, and demonstrates end-to-end ownership from infrastructure to UX.'
-priority: 20
+priority: 30
 tags:
   - 'Svelte'
   - 'Flask'
@@ -269,12 +269,13 @@ Content flow:
 
 The rendering pipeline:
 
-1. Parse Markdown with GitHub Flavored Markdown (GFM) support: tables, task lists, and so on.
+1. Parse Markdown with GitHub Flavored Markdown (GFM) support (tables, task lists, and so on) and `$`/`$$` LaTeX math.
 2. Convert Mermaid code fences into placeholder `<div>`s.
 3. Sanitize the HTML against an allowlist, so content files can't inject markup.
-4. Generate heading IDs and anchor links.
-5. In the browser: mount the pre-rendered HTML.
-6. Load Mermaid only if the page has a diagram, and render diagrams in the current theme.
+4. Typeset math with KaTeX, so equations ship as HTML with no math JavaScript in the browser.
+5. Generate heading IDs and anchor links.
+6. In the browser: mount the pre-rendered HTML.
+7. Load Mermaid only if the page has a diagram, and render diagrams in the current theme.
 
 ### Reliability Lessons
 
