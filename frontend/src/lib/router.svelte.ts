@@ -5,7 +5,7 @@ import type { Component } from 'svelte';
 
 import { recordRouteVisit } from './aboutYou/interactionStore';
 import type { RouteDefinition } from './routeDefinitions';
-import { matchPattern, normalizePath } from './routeMatching';
+import { matchPattern, normalizePath, splitPath } from './routeMatching';
 
 /** Layout options a page declares with `export const layout` in `<script module>`. */
 export type PageLayout = {
@@ -122,8 +122,8 @@ export function initRouter(routeTable: Route[], notFound: Route) {
 
 /** Client-side navigation: pushes a history entry and renders the matching page. */
 export function navigate(path: string) {
-  const canonicalPath = normalizePath(path);
-  const suffix = path.slice(path.split(/[?#]/)[0].length);
+  const [pathname, suffix] = splitPath(path);
+  const canonicalPath = normalizePath(pathname);
 
   if (
     window.location.pathname !== canonicalPath ||

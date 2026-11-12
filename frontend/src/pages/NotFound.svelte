@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { closest } from 'fastest-levenshtein';
   import { router } from '../lib/router.svelte';
   import { pathFor, staticRoutePaths } from '../lib/routeDefinitions';
+  import { suggestPath } from '../lib/routeMatching';
 
-  const suggestedRoute = $derived(closest(router.path, staticRoutePaths()));
+  const suggestedRoute = $derived(suggestPath(router.path, staticRoutePaths()));
 </script>
 
 <section class="not-found terminal-box">

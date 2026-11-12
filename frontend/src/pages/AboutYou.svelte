@@ -172,11 +172,7 @@
 
   <div class="map-column">
     {#if geo && hasCoordinates(geo)}
-      <LocationMap
-        latitude={geo.latitude as number}
-        longitude={geo.longitude as number}
-        label={placeName}
-      />
+      <LocationMap latitude={geo.latitude} longitude={geo.longitude} label={placeName} />
     {:else}
       <div class="map-placeholder">
         {serverSnapshot.busy ? 'Loading map...' : 'No coordinates to map.'}

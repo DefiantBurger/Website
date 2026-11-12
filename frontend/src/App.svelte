@@ -5,6 +5,7 @@
   import PageMeta from './lib/components/PageMeta.svelte';
   import { initRouter, router } from './lib/router.svelte';
   import { notFoundRoute, routes } from './lib/routes';
+  import { SITE_ORIGIN } from './lib/site';
 
   initRouter(routes, notFoundRoute);
 
@@ -33,7 +34,7 @@
 
 <svelte:head>
   {#if router.route && router.route !== notFoundRoute}
-    <link rel="canonical" href="{window.location.origin}{router.path}" />
+    <link rel="canonical" href="{SITE_ORIGIN}{router.path}" />
   {/if}
 </svelte:head>
 

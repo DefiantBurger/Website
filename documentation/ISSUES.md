@@ -11,8 +11,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ### General
 
 1. **Minor:** `Home.svelte` still features a placeholder card ("Project 2", "Description coming soon...") on the live site, though `j-ball-basketball` exists. The page also links About, Utilities, and Contact three times on one screen (nav, header links, Quick Links).
-2. **Minor:** The 404 page always shows "Did you mean ...?", since `closest()` returns the nearest path however far it is (e.g. `/zzzzzz` suggests some unrelated page). A distance cutoff would fix it.
-3. **Minor:** `App.svelte` builds the canonical link from `window.location.origin`, while the build (`plugins/routeHtml.ts`) uses `SITE_ORIGIN`. They only agree because Cloudflare redirects other hosts; use `SITE_ORIGIN` in both.
 
 ## Infrastructure
 
@@ -47,23 +45,9 @@ Refactors from a code-quality review (2026-11-10). Every item is **Cleanup** (no
    const stats = $derived(STAT_ROWS.map(([label, value]) => [label, status ? value(status) : '—']));
    ```
 
-3. **Cleanup:** use type guards instead of casts. (a) `lib/aboutYou/facts.ts` `hasCoordinates()` returns `boolean`, so `pages/AboutYou.svelte` needs `geo.latitude as number` and `geo.longitude as number` when rendering `LocationMap`. Add `type Geolocation = RequestContextSnapshot['geolocation'];` and change the signature to `export function hasCoordinates(geo: Geolocation): geo is Geolocation & { latitude: number; longitude: number }` (same body), then drop both casts; TypeScript narrows inside `{#if geo && hasCoordinates(geo)}`. (b) `lib/scheduler/components/CourseDetails.svelte` builds `overlaps` with a `scheduledId` and the template then looks the course up again in `{@const scheduled = ...}`. Store the course instead: `scheduled: store.overlapPartners(course.id).map((id) => store.schedule.coursesById[id]).find((partner) => partner?.name === name)`, use `overlap.scheduled` in the template, and delete the `{@const}`.
+3. **Cleanup (owner approved ES2024):** two hand-rolled groupings can use `Object.groupBy`. Set `"target": "es2024"` in `frontend/tsconfig.json` (the `lib` default follows `target`, and the base `@tsconfig/svelte` sets neither; `tsconfig.node.json` stays on ES2023). Then: (a) `lib/scheduler/logic.ts` `buildCourseIdsByName()`: `const bySemester = (course: { semester: string }) => indexOf(semesterToIndex, course.semester);` then `return Object.fromEntries(Object.entries(Object.groupBy(Object.values(coursesById), (course) => course.name)).map(([name, courses = []]) => [name, courses.toSorted((a, b) => bySemester(a) - bySemester(b)).map((course) => course.id)]));`. `Object.groupBy` returns `Partial<Record<string, T[]>>`, hence the `= []` default in the destructuring. (b) `lib/scheduler/schedule.ts` `repeatPositions()`: build the board-ordered course list first, `boardColumns(schedule).flatMap((semester) => (schedule.columnCourseIds[semester] ?? []).map((id) => schedule.coursesById[id]).filter((course) => !!course))`, group it with `Object.groupBy(..., (course) => course.name)`, and fill `positions` from every group with more than one entry as now. Runtime note: Vite doesn't polyfill `Object.groupBy`, so Safari before 17.4 and Chrome before 117 would throw on the scheduler page; the owner accepted that. `scheduleGraph` and `repeatPositions` tests in `scheduler.test.ts` pin the results.
 
-4. **Cleanup:** `lib/router.svelte.ts` `navigate()` recovers the query/hash with `path.slice(path.split(/[?#]/)[0].length)`, and `normalizePath` in `lib/routeMatching.ts` splits the same way. Add to `routeMatching.ts`:
-
-   ```ts
-   /** `/a/b?x#y` -> `['/a/b', '?x#y']`. */
-   export function splitPath(path: string): [pathname: string, suffix: string] {
-     const end = path.search(/[?#]/);
-     return end < 0 ? [path, ''] : [path.slice(0, end), path.slice(end)];
-   }
-   ```
-
-   Use it in `normalizePath` (`const [pathname] = splitPath(path);`) and in `navigate` (`const [pathname, suffix] = splitPath(path); const canonicalPath = normalizePath(pathname);`). Add a `splitPath` case to `tests/unit/routeMatching.test.ts` (no query, query only, hash only, both).
-
-5. **Cleanup (owner approved ES2024):** two hand-rolled groupings can use `Object.groupBy`. Set `"target": "es2024"` in `frontend/tsconfig.json` (the `lib` default follows `target`, and the base `@tsconfig/svelte` sets neither; `tsconfig.node.json` stays on ES2023). Then: (a) `lib/scheduler/logic.ts` `buildCourseIdsByName()`: `const bySemester = (course: { semester: string }) => indexOf(semesterToIndex, course.semester);` then `return Object.fromEntries(Object.entries(Object.groupBy(Object.values(coursesById), (course) => course.name)).map(([name, courses = []]) => [name, courses.toSorted((a, b) => bySemester(a) - bySemester(b)).map((course) => course.id)]));`. `Object.groupBy` returns `Partial<Record<string, T[]>>`, hence the `= []` default in the destructuring. (b) `lib/scheduler/schedule.ts` `repeatPositions()`: build the board-ordered course list first, `boardColumns(schedule).flatMap((semester) => (schedule.columnCourseIds[semester] ?? []).map((id) => schedule.coursesById[id]).filter((course) => !!course))`, group it with `Object.groupBy(..., (course) => course.name)`, and fill `positions` from every group with more than one entry as now. Runtime note: Vite doesn't polyfill `Object.groupBy`, so Safari before 17.4 and Chrome before 117 would throw on the scheduler page; the owner accepted that. `scheduleGraph` and `repeatPositions` tests in `scheduler.test.ts` pin the results.
-
-6. **Cleanup:** one-line items.
+4. **Cleanup:** one-line items.
     - `lib/api.ts` computes `response.headers.get('content-type')?.toLowerCase() ?? ''` in both `readErrorMessage` and `apiJson`; add `const contentTypeOf = (response: Response) => response.headers.get('content-type')?.toLowerCase() ?? '';` and call it from both.
     - `plugins/renderMarkdown.ts` `rehypeMermaid`'s visitor is four sequential early returns; fold them into one: `const code = node.children?.[0]; if (!parent?.children || index === undefined || node.tagName !== 'pre' || code?.tagName !== 'code') { return; }`.
     - `pages/AboutYou.svelte` has two separate `.hero { ... }` rules inside the same `@media (max-width: 768px)` block; merge them.

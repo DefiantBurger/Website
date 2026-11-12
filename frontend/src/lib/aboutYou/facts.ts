@@ -201,7 +201,11 @@ export function visitFacts(browser: BrowserInfo, visit: InteractionState): Fact[
   ];
 }
 
-export function hasCoordinates(geo: RequestContextSnapshot['geolocation']): boolean {
+type Geolocation = RequestContextSnapshot['geolocation'];
+
+export function hasCoordinates(
+  geo: Geolocation,
+): geo is Geolocation & { latitude: number; longitude: number } {
   return typeof geo.latitude === 'number' && typeof geo.longitude === 'number';
 }
 

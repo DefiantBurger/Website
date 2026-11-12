@@ -2,7 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { pathFor, routeDefinitions, staticRoutePaths } from '../../src/lib/routeDefinitions.ts';
-import { matchPattern, normalizePath } from '../../src/lib/routeMatching.ts';
+import {
+  matchPattern,
+  normalizePath,
+  splitPath,
+  suggestPath,
+} from '../../src/lib/routeMatching.ts';
 
 describe('normalizePath', () => {
   test('strips query, hash, and trailing slashes', () => {
@@ -19,6 +24,33 @@ describe('normalizePath', () => {
     assert.equal(normalizePath('/'), '/');
     assert.equal(normalizePath('//'), '/');
     assert.equal(normalizePath('/?q=1'), '/');
+  });
+});
+
+describe('splitPath', () => {
+  test('separates the pathname from any query and hash', () => {
+    assert.deepEqual(splitPath('/about'), ['/about', '']);
+    assert.deepEqual(splitPath('/about?x=1'), ['/about', '?x=1']);
+    assert.deepEqual(splitPath('/about#top'), ['/about', '#top']);
+    assert.deepEqual(splitPath('/about?x=1#top'), ['/about', '?x=1#top']);
+  });
+});
+
+describe('suggestPath', () => {
+  const candidates = ['/', '/about', '/contact', '/utilities/scheduler'];
+
+  test('suggests a close match for a typo', () => {
+    assert.equal(suggestPath('/abuot', candidates), '/about');
+    assert.equal(suggestPath('/utilities/schedular', candidates), '/utilities/scheduler');
+  });
+
+  test('suggests nothing when every candidate is far off', () => {
+    assert.equal(suggestPath('/zzzzzz', candidates), null);
+    assert.equal(suggestPath('/completely/unrelated/page', candidates), null);
+  });
+
+  test('handles an empty candidate list', () => {
+    assert.equal(suggestPath('/about', []), null);
   });
 });
 

@@ -16,9 +16,10 @@
     course
       ? (store.creditOverlapIndex[course.name] ?? []).map((name) => ({
           name,
-          scheduledId: store
+          scheduled: store
             .overlapPartners(course.id)
-            .find((id) => store.schedule.coursesById[id]?.name === name),
+            .map((id) => store.schedule.coursesById[id])
+            .find((partner) => partner?.name === name),
         }))
       : [],
   );
@@ -123,11 +124,8 @@
       <p class="overlaps">
         <span class="label">No credit with both this and:</span>
         {#each overlaps as overlap, index (overlap.name)}
-          {@const scheduled = overlap.scheduledId
-            ? store.schedule.coursesById[overlap.scheduledId]
-            : undefined}
-          {#if scheduled}<span class="in-plan"
-              >{overlap.name} (in plan, {formatSemester(scheduled.semester)})</span
+          {#if overlap.scheduled}<span class="in-plan"
+              >{overlap.name} (in plan, {formatSemester(overlap.scheduled.semester)})</span
             >{:else}{overlap.name}{/if}{index < overlaps.length - 1 ? ', ' : ''}
         {/each}
       </p>
