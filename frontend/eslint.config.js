@@ -14,7 +14,15 @@ export default ts.config(
   prettier,
   ...svelte.configs.prettier,
   {
-    languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    languageOptions: {
+      // Build info injected by `define` in vite.config.ts.
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        __BUILD_SHA__: 'readonly',
+        __BUILD_DATE__: 'readonly',
+      },
+    },
     rules: {
       // A leading underscore marks a deliberately unused binding.
       '@typescript-eslint/no-unused-vars': [

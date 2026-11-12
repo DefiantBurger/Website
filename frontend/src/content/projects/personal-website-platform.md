@@ -204,7 +204,7 @@ After a passing smoke test, the workflow also copies the release to the private 
 
 #### Monitoring
 
-Better Stack monitors uptime externally, and a public status page is linked from the site's nav bar.
+Better Stack monitors uptime externally. The site footer links its public status page and shows the last 30 days' uptime, which the backend computes from that page and caches.
 
 #### Operational Benefits
 

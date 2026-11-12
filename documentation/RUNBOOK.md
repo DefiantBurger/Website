@@ -4,7 +4,7 @@ For deploys and VM access, see [Deployment](./DEPLOYMENT.md#deploying-changes).
 
 ## Verify Service Health
 
-Uptime is monitored externally by Better Stack (free plan), with a public status page at <https://status.josephcicalese.com/> (linked from the nav bar). Check it first; it shows when an outage started.
+Uptime is monitored externally by Better Stack (free plan), with a public status page at <https://status.josephcicalese.com/> (linked from the site footer). Check it first; it shows when an outage started.
 
 ```bash
 curl -I https://josephcicalese.com
@@ -91,3 +91,7 @@ The key is wrong, the files expired (10 minutes), the VM was replaced, or someon
 ### Site shows Cloudflare error 1033
 
 `cloudflared` isn't connected. Check `systemctl status cloudflared` and its journal. Right after a VM replacement, the startup script may still be running (`/var/log/startup-script.log`). A replaced VM also serves 502 until its startup script installs the last published release (`Now serving` in the log), or until a deploy if that failed.
+
+### Footer shows no uptime
+
+`/api/site-info/` returned `"uptime": null`: the VM couldn't reach `https://status.josephcicalese.com/index.json`, or Better Stack changed its (undocumented) shape. `sudo journalctl -u flaskapp | grep -i uptime` shows the error; the backend retries every 2 minutes. If the shape changed, update `compute_uptime` in `backend/app/uptime.py`.

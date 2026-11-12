@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
 
+  import Footer from './lib/components/Footer.svelte';
   import Nav from './lib/components/Nav.svelte';
   import PageMeta from './lib/components/PageMeta.svelte';
   import Shell from './lib/components/Shell.svelte';
@@ -56,7 +57,6 @@
   bind:this={mainElement}
   class="container"
   class:container-wide={router.route?.layout?.wide}
-  class:shell-open={shell.isOpen}
 >
   <!-- Keyed so every navigation (including between projects) mounts a fresh page. -->
   {#key router.path}
@@ -65,17 +65,13 @@
     </div>
   {/key}
 </main>
+<Footer />
 <Shell />
 <div class="sr-only" aria-live="polite" aria-atomic="true">{announcement}</div>
 
 <style>
   main {
     flex: 1;
-  }
-
-  /* Lets the end of the page scroll above the docked shell. */
-  main.shell-open {
-    margin-bottom: var(--shell-height);
   }
 
   /* Focus lands here on navigation and via the skip link; it isn't a control. */

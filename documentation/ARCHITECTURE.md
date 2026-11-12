@@ -18,6 +18,7 @@ flowchart LR
     Flask --> Files[Scheduler JSON]
     Flask --> Disk[File share: encrypted files on local disk]
     Flask --> Mem[Message board: in-memory store]
+    Flask -.->|footer uptime, cached| BS[Better Stack status page]
 ```
 
 ## Stack
@@ -51,7 +52,8 @@ flowchart LR
 4. **Untrusted content.** Project Markdown is sanitized at build time; message-board text has control and invisible characters stripped and is rendered as plain text; file-share downloads are always `application/octet-stream`.
 5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output.
 6. **Deploys.** Only GitHub Actions jobs on `main` in the `production` environment can get credentials, through Workload Identity Federation (no stored keys). The deployer reaches the VM only over IAP SSH as a non-admin OS Login user; its one root action is the deploy script, which checks the release checksum and installs only hash-pinned wheels. After a passing smoke test it also writes the release to a private Cloud Storage bucket that only it can write and only the VM can read.
-7. **Least privilege on the VM.** Releases are root-owned and read-only to `flaskapp`, which runs under systemd sandboxing and can write only `/var/lib/personalwebsite`.
+7. **Outbound calls.** The only one the backend makes is to the public Better Stack status page (`/api/site-info/`), with no credentials. Its result is cached, so visitors can't make the VM call out per request.
+8. **Least privilege on the VM.** Releases are root-owned and read-only to `flaskapp`, which runs under systemd sandboxing and can write only `/var/lib/personalwebsite`.
 
 ## Tradeoffs
 

@@ -11,6 +11,7 @@ from flask import (
 )
 from werkzeug.http import dump_options_header
 
+from . import uptime
 from .errors import ApiError
 from .fileshare import (
 	acquire_transfer_slot,
@@ -110,6 +111,14 @@ def _cloudflare_geolocation() -> dict:
 def health():
 	"""Liveness check used by the deploy script and the CI smoke test."""
 	return jsonify({'status': 'ok'})
+
+
+@views.route('/api/site-info/', methods=['GET'])
+def site_info():
+	"""Footer data. Kept apart from /api/health/ so deploy checks never depend on Better Stack."""
+	response = jsonify({'uptime': uptime.uptime_cache.get()})
+	response.headers['Cache-Control'] = 'public, max-age=300'
+	return response
 
 
 @views.route('/api/scheduler/course-data/', methods=['GET'])

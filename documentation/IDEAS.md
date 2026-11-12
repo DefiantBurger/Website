@@ -19,14 +19,6 @@ For the Wisconsin Robotics electrical work: export KiCad boards to SVG and show 
 
 ## Site-wide
 
-### Footer with live site info
-
-Add a footer, and add the Status link there (`STATUS_PAGE_URL` in `site.ts`; it left the navbar when the shell button took its place). It belongs with the other site info, not with page navigation.
-
-- **Last deploy:** git short SHA and build date, injected at build time with Vite `define`. The SHA can link to the commit on GitHub. Only the date and SHA need to be shown.
-- **Uptime:** either the backend process uptime (add it to `/api/health/` or a new endpoint), or the uptime percentage from Better Stack. Better Stack is the more honest number, but it needs an API token kept on the backend, and the result should be cached so each page view doesn't call Better Stack.
-- Keep it coarse: no memory, load, or other VM details.
-
 ### Prerendering
 
 The build already writes `<route>/index.html` for every route (`plugins/routeHtml.ts`) with that page's head tags, but the body is the same empty shell plus a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`.

@@ -56,6 +56,7 @@ GitHub Actions are pinned by commit SHA in `.github/workflows/` and `.github/act
 | `app/errors.py` | `ApiError(message, status_code)`, the base for `FileShareError` and `MessageBoardError`. |
 | `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
 | `app/messageboard.py` | Message sanitizing, in-memory store, rate limiter. |
+| `app/uptime.py` | Footer uptime: fetches the public status page's `index.json` (undocumented, no token), sums the last 30 days of downtime, caches 15 min (2 min after a failure, keeping the last good value). |
 
 Data: `app/static/json/course_data.json` and `my_courses.json` (scheduler catalog and default plan). File-share uploads go to `instance/fileshare/` locally (gitignored) and under `PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite` in production.
 
@@ -96,6 +97,7 @@ A terminal panel docked to the bottom of every page, opened with `` ` `` or `/` 
 ### Shared Code
 
 - `lib/components/Nav.svelte`: navigation, the shell button, and the theme toggle.
+- `lib/components/Footer.svelte`: build commit and date (`__BUILD_SHA__`/`__BUILD_DATE__`, from `define` in `vite.config.ts`; CI's `GITHUB_SHA`, else `git rev-parse HEAD`), and uptime from `/api/site-info/`, which links to the status page (a plain "status" link if uptime is unavailable).
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`).
 - `lib/components/PageHeader.svelte`: page title, optional description, and an `actions` snippet.
 - `lib/components/LinkCard.svelte`: a card whose whole area links somewhere (Home, Projects, Utilities). Body content goes in its `children` snippet.
@@ -126,6 +128,7 @@ All routes end in a trailing slash; requests without one get a `308`. Errors are
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/health/` | `{"status": "ok"}`; used by deploy health checks |
+| GET | `/api/site-info/` | `{"uptime": {"percent", "days"} \| null}` for the footer; `days` counts only monitored days in the 30-day window |
 | GET | `/api/about-you/request-context/` | Request metadata for About You |
 | GET | `/api/scheduler/...` | Scheduler data ([Utilities](./UTILITIES.md#class-scheduler)) |
 | GET, POST | `/api/fileshare/...` | File share ([Utilities](./UTILITIES.md#file-share)) |

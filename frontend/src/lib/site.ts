@@ -6,4 +6,5 @@ export const STATUS_PAGE_URL = `https://status.${new URL(SITE_ORIGIN).host}/`;
 export const OWNER_NAME = 'Joseph Cicalese';
 export const EMAIL = 'joseph.cicalese@gmail.com';
 export const GITHUB_URL = 'https://github.com/DefiantBurger';
+export const REPO_URL = `${GITHUB_URL}/Website`;
 export const LINKEDIN_URL = 'https://www.linkedin.com/in/joseph-cicalese/';
