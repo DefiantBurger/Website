@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { mount, unmount } from 'svelte';
   import { router } from '../lib/router.svelte';
   import { theme } from '../lib/theme.svelte';
   import { loadProject } from '../lib/projects/content';
@@ -8,6 +9,8 @@
   import TagList from '../lib/components/TagList.svelte';
   import PageMeta from '../lib/components/PageMeta.svelte';
   import { pathFor, PROJECT_FALLBACK_DESCRIPTION } from '../lib/routeDefinitions';
+  import { isDemoId } from '../lib/demos/ids';
+  import { DEMOS } from '../lib/demos/registry';
 
   // App remounts this page on every path change, so the slug is fixed per instance.
   const slug = router.params.slug;
@@ -73,6 +76,36 @@
     }
   }
 
+  /** Attachment: mount each interactive demo into its build-time placeholder (renderMarkdown.ts). */
+  function mountDemos(article: HTMLElement) {
+    const mounted: ReturnType<typeof mount>[] = [];
+    let destroyed = false;
+    for (const node of article.querySelectorAll<HTMLElement>('.project-demo')) {
+      const id = node.dataset.demo ?? '';
+      if (!isDemoId(id)) {
+        continue;
+      }
+      DEMOS[id]()
+        .then(({ default: Demo }) => {
+          if (destroyed) {
+            return;
+          }
+          node.textContent = '';
+          mounted.push(mount(Demo, { target: node }));
+        })
+        .catch((demoError) => {
+          console.error(`Demo ${id} failed to load`, demoError);
+          node.textContent = "Couldn't load this demo. Try refreshing the page.";
+        });
+    }
+    return () => {
+      destroyed = true;
+      for (const demo of mounted) {
+        void unmount(demo);
+      }
+    };
+  }
+
   /** Stop wide diagrams from shrinking past legibility; the `.mermaid` box scrolls instead. */
   function keepDiagramsReadable(nodes: HTMLElement[]) {
     for (const [index, node] of nodes.entries()) {
@@ -112,7 +145,7 @@
     </div>
   </header>
 
-  <article class="project-content terminal-box" {@attach renderMermaid}>
+  <article class="project-content terminal-box" {@attach renderMermaid} {@attach mountDemos}>
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- build-time Markdown, sanitized by rehype-sanitize -->
     {@html project.html}
   </article>
@@ -232,6 +265,19 @@
   .project-content :global(.mermaid svg) {
     display: block;
     margin-inline: auto;
+  }
+
+  /* Reserved so the page doesn't jump when the demo mounts. Kept below every demo's
+     real height at that width, or a gap would stay underneath it. */
+  .project-content :global(.project-demo) {
+    min-height: 32rem;
+  }
+
+  @media (max-width: 520px) {
+    /* Demos stack their panels below this width, so they are much taller. */
+    .project-content :global(.project-demo) {
+      min-height: 52rem;
+    }
   }
 
   .project-content :global(.heading-anchor) {

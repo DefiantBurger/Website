@@ -23,7 +23,11 @@ The core of the work is a 2D time-dependent Schrödinger solver I wrote from scr
 
 I presented this work as a poster, _Neural Networks for the Inverse Scattering Problem in Quantum Mechanics_, at the ECE SPARK (Summer Program for Advanced Research & Knowledge) poster session in August 2026.
 
-> **Interactive demo coming soon** (`wavepacket-2d`): a Gaussian wave packet hitting a scatterer in 2D, with real-space and k-space views side by side.
+```demo
+wavepacket-2d
+```
+
+This runs the same split-operator method described below, live in your browser on a 128×128 grid. On the right is the packet in momentum (k) space. While the packet flies freely, that view doesn't change at all, even though the packet spreads out in real space. When it hits the scatterer, momentum spreads out around the dashed ring $|\mathbf{k}| = k_0$: the scattering is elastic, so energy is conserved and the scattered wave keeps the incoming speed while changing direction. Shrinking the packet width $\sigma$ makes the momentum blob wider, which is the uncertainty principle at work.
 
 ## Why This Problem
 

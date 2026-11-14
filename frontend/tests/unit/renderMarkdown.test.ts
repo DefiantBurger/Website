@@ -97,3 +97,20 @@ describe('math', () => {
     assert.doesNotMatch(html, /<a\b|href=/i);
   });
 });
+
+describe('demos', () => {
+  test('turns a demo fence into a placeholder div', async () => {
+    const html = await render('```demo\nwavepacket-2d\n```');
+    assert.match(html, /<div class="project-demo" data-demo="wavepacket-2d">/);
+    assert.doesNotMatch(html, /language-demo/);
+  });
+
+  test('fails the build on an unknown demo id', async () => {
+    await assert.rejects(render('```demo\nnot-a-demo\n```'), /unknown demo/);
+  });
+
+  test('raw HTML cannot fake a demo placeholder', async () => {
+    const html = await render('<div class="project-demo" data-demo="wavepacket-2d">x</div>');
+    assert.doesNotMatch(html, /project-demo/);
+  });
+});

@@ -9,14 +9,35 @@ import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import rehypeSanitize, { defaultSchema, type Options as SanitizeSchema } from 'rehype-sanitize';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
+import { isDemoId } from '../src/lib/demos/ids.ts';
 
 // Just the hast fields this plugin reads; @types/hast is only a transitive dependency.
 interface HastNode {
   type: string;
   tagName?: string;
   value?: string;
-  properties?: { className?: unknown };
+  properties?: { className?: unknown; dataDemo?: string };
   children?: HastNode[];
+}
+
+/** The text of a ```<language> fence if `node` is one, else undefined. */
+function fenceText(node: HastNode, language: string): string | undefined {
+  const code = node.children?.[0];
+  if (node.tagName !== 'pre' || code?.tagName !== 'code') {
+    return undefined;
+  }
+  const classNames = code.properties?.className ?? [];
+  const languageClass = `language-${language}`;
+  const matches = Array.isArray(classNames)
+    ? classNames.includes(languageClass)
+    : classNames === languageClass;
+  if (!matches) {
+    return undefined;
+  }
+  return (code.children ?? [])
+    .map((child) => (child.type === 'text' ? child.value : ''))
+    .join('')
+    .trim();
 }
 
 /** Replace ```mermaid code blocks with <div class="mermaid"> so Mermaid can render them after mount. */
@@ -26,29 +47,10 @@ function rehypeMermaid(counter: { transformed: number }) {
       tree,
       'element',
       (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
-        const code = node.children?.[0];
-        if (
-          !parent?.children ||
-          index === undefined ||
-          node.tagName !== 'pre' ||
-          code?.tagName !== 'code'
-        ) {
+        const codeText = fenceText(node, 'mermaid');
+        if (codeText === undefined || !parent?.children || index === undefined) {
           return;
         }
-
-        const classNames = code.properties?.className ?? [];
-        const hasMermaidClass = Array.isArray(classNames)
-          ? classNames.includes('language-mermaid')
-          : classNames === 'language-mermaid';
-
-        if (!hasMermaidClass) {
-          return;
-        }
-
-        const codeText = (code.children ?? [])
-          .map((child) => (child.type === 'text' ? child.value : ''))
-          .join('')
-          .trim();
 
         parent.children[index] = {
           type: 'element',
@@ -58,6 +60,35 @@ function rehypeMermaid(counter: { transformed: number }) {
         };
 
         counter.transformed += 1;
+      },
+    );
+  };
+}
+
+/**
+ * Replace ```demo blocks (body: a demo id) with a placeholder div that
+ * ProjectDetail.svelte mounts the interactive demo into.
+ */
+function rehypeDemos() {
+  return function transformer(tree: HastNode) {
+    visit(
+      tree,
+      'element',
+      (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
+        const id = fenceText(node, 'demo');
+        if (id === undefined || !parent?.children || index === undefined) {
+          return;
+        }
+        if (!isDemoId(id)) {
+          throw new Error(`renderMarkdown: unknown demo "${id}"`);
+        }
+
+        parent.children[index] = {
+          type: 'element',
+          tagName: 'div',
+          properties: { className: ['project-demo'], dataDemo: id },
+          children: [{ type: 'text', value: 'Loading interactive demo...' }],
+        };
       },
     );
   };
@@ -97,13 +128,17 @@ function rehypeScrollRegions() {
   };
 }
 
-// Default GitHub-style schema, plus the Mermaid div and language classes on code blocks.
+// Default GitHub-style schema, plus the Mermaid and demo divs and language classes on code blocks.
 const sanitizeSchema: SanitizeSchema = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), 'div'],
   attributes: {
     ...defaultSchema.attributes,
-    div: [...(defaultSchema.attributes?.div ?? []), ['className', 'mermaid']],
+    div: [
+      ...(defaultSchema.attributes?.div ?? []),
+      ['className', 'mermaid', 'project-demo'],
+      'dataDemo',
+    ],
     code: [...(defaultSchema.attributes?.code ?? []), ['className']],
     pre: [...(defaultSchema.attributes?.pre ?? []), ['className']],
   },
@@ -118,6 +153,7 @@ export async function renderProjectMarkdown(markdown: string): Promise<string> {
     .use(remarkMath)
     .use(remarkRehype)
     .use(rehypeMermaid, counter)
+    .use(rehypeDemos)
     .use(rehypeSanitize, sanitizeSchema)
     // After sanitize: KaTeX's output is trusted, and sanitize would strip its inline styles.
     .use(rehypeKatex, { strict: 'error' })
