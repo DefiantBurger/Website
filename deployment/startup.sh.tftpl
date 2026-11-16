@@ -71,15 +71,26 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	apt-get install -yq cloudflared
 
 	# Lists append to Debian's 50unattended-upgrades (security only), adding point releases and cloudflared.
-	# Reboots only when a package needs one (kernel, libc); the VM clock is UTC.
+	# Reboots only when a package needs one (e.g. libc); the VM clock is UTC.
+	# Kernels come only from the pinned boot image: an auto-installed kernel once crashed the VM on every boot.
 	cat > /etc/apt/apt.conf.d/52personalwebsite <<'EOF'
 Unattended-Upgrade::Origins-Pattern {
 	"origin=Debian,codename=$${distro_codename},label=Debian";
 	"site=pkg.cloudflare.com";
 };
+Unattended-Upgrade::Package-Blacklist {
+	"linux-image-";
+};
 Unattended-Upgrade::Automatic-Reboot "true";
-Unattended-Upgrade::Automatic-Reboot-Time "09:00";
+Unattended-Upgrade::Automatic-Reboot-Time "09:17";
 EOF
+
+	# Reboot 10 s after a kernel oops instead of hanging with the filesystem locked until someone notices.
+	cat > /etc/sysctl.d/99-panic-on-oops.conf <<'EOF'
+kernel.panic_on_oops=1
+kernel.panic=10
+EOF
+	sysctl -p /etc/sysctl.d/99-panic-on-oops.conf
 
 	# quic-go (used by cloudflared) wants ~7 MiB UDP buffers; the Debian default caps them at 208 KiB.
 	cat > /etc/sysctl.d/99-cloudflared.conf <<'EOF'

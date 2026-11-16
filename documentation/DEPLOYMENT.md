@@ -44,7 +44,7 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 `startup.sh.tftpl` runs as root on every boot (logged to `/var/log/startup-script.log`). On the first boot only, it:
 
 1. Installs Python 3.11, Nginx, curl, and `cloudflared` (with raised UDP buffers for QUIC).
-2. Configures `unattended-upgrades` (`/etc/apt/apt.conf.d/52personalwebsite`) to also install Debian point releases and `cloudflared`, and to reboot at 09:00 UTC when an update needs it.
+2. Configures `unattended-upgrades` (`/etc/apt/apt.conf.d/52personalwebsite`) to also install Debian point releases and `cloudflared`, but never kernels (`linux-image-*`; see [Kernel updates](#kernel-updates)), and to reboot at 09:17 UTC when an update needs it. It also sets `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung.
 3. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
 4. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
 5. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
@@ -91,6 +91,14 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 | VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM, which then reinstalls the last published release. |
 | Nginx config without downtime | Edit `nginx.conf.tftpl`, then [update it in place](./RUNBOOK.md#update-the-nginx-config-in-place). |
 | Roll back | [Runbook](./RUNBOOK.md#roll-back-a-release). |
+
+### Kernel updates
+
+The kernel comes only from the boot image pinned in `main.tf`, since an automatically installed kernel once crashed the VM on every boot (see [Issues](./ISSUES.md)). To update it, every month or two or for a kernel security fix:
+
+1. Find the newest image: `gcloud compute images describe-from-family debian-12 --project debian-cloud --format='value(name)'`.
+2. Set it in `main.tf`, then `./tf.sh apply` (replaces the VM).
+3. Watch the serial log (`serial_port_1_output` in Logs Explorer) for at least 30 minutes. If the kernel oopses, the VM reboots in a loop; pin the previous image and apply again.
 
 ### Pipeline
 
