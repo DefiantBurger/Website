@@ -20,7 +20,7 @@
     recordProjectView(slug);
     // Math is typeset at build time, but its CSS would double the global stylesheet,
     // so only pages with math load it. Awaited because unstyled KaTeX shows each equation twice.
-    if (project.html.includes('class="katex')) {
+    if (project.hasMath) {
       await import('katex/dist/katex.min.css');
     }
     return project;

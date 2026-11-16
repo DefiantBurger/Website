@@ -15,10 +15,7 @@ export type ShellLine = { text: string; kind: 'input' | 'output' | 'error' };
 /** A write-up's title and summary, then each block of its body as its own line. */
 async function pageLines(slug: string): Promise<string[]> {
   const project = await loadProject(slug);
-  const doc = new DOMParser().parseFromString(project.html, 'text/html');
-  const blocks = doc.querySelectorAll('h1, h2, h3, h4, p, li, pre, td');
-  const text = Array.from(blocks, (block) => block.textContent?.trim() ?? '');
-  return [project.title, project.summary, ...text];
+  return [project.title, project.summary, ...project.lines];
 }
 
 class ShellState {

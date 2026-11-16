@@ -9,4 +9,7 @@ export interface ProjectSummary {
 
 export interface ProjectDetail extends ProjectSummary {
   html: string;
+  /** Plain text for the shell's grep, one block per line. */
+  lines: string[];
+  hasMath: boolean;
 }

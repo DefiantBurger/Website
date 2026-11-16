@@ -1,10 +1,10 @@
 // Site color theme: persisted in localStorage and applied as <html data-theme>.
-export type Theme = 'dark' | 'light';
+import { isTheme, type Theme } from './themes';
 
 function readStoredTheme(): Theme {
   try {
     const stored = localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark') {
+    if (isTheme(stored)) {
       return stored;
     }
   } catch {

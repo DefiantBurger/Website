@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 
 import { renderProjectMarkdown } from '../../plugins/renderMarkdown.ts';
 
-const render = renderProjectMarkdown;
+const render = async (markdown: string) => (await renderProjectMarkdown(markdown)).html;
 
 describe('sanitization', () => {
   test('drops script tags', async () => {
@@ -95,6 +95,20 @@ describe('math', () => {
     const html = await render('$\\href{javascript:alert(1)}{x}$');
     // The source survives as plain text in the MathML annotation; only a real link would matter.
     assert.doesNotMatch(html, /<a\b|href=/i);
+  });
+});
+
+describe('grep lines', () => {
+  test('one line per block, with math as LaTeX once and no heading anchors', async () => {
+    const { lines, hasMath } = await renderProjectMarkdown(
+      '## Overview\n\nUse $\\hbar$ here.\n\n- one\n  - two\n\n```py\nx = 1\n\ny = 2\n```\n\n```mermaid\ngraph TD; A-->B\n```',
+    );
+    assert.deepEqual(lines, ['Overview', 'Use \\hbar here.', 'one', 'two', 'x = 1', 'y = 2']);
+    assert.equal(hasMath, true);
+  });
+
+  test('hasMath is false without math', async () => {
+    assert.equal((await renderProjectMarkdown('No math, just `code`.')).hasMath, false);
   });
 });
 

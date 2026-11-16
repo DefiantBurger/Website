@@ -3,6 +3,7 @@
 import {
   browserFacts,
   deviceFacts,
+  FACT_LABELS,
   preferenceFacts,
   serverFacts,
   visitFacts,
@@ -12,10 +13,8 @@ import {
 import type { InteractionState } from '../aboutYou/interactionStore';
 import { pathFor } from '../routeDefinitions';
 import { suggestPath } from '../routeMatching';
+import { isTheme, type Theme } from '../themes';
 import { children, displayName, find, resolvePath, type ShellEntry } from './filesystem';
-
-// Not imported from theme.svelte.ts: tsc for tests has no DOM types. svelte-check catches drift.
-type Theme = 'dark' | 'light';
 
 /** What About You knows about the visitor; `context` is null when the API call failed. */
 export type Visitor = {
@@ -57,15 +56,15 @@ function excerpt(line: string, term: string): string {
   return `${start > 0 ? '…' : ''}${text}${start + 120 < line.length ? '…' : ''}`;
 }
 
-// Fact labels from lib/aboutYou/facts.ts; `Timezone` matches the server's copy first.
+// `timezone` matches the server's copy first.
 const WHOAMI_LABELS = [
-  'IP Address',
-  'City',
-  'Region',
-  'Country',
-  'Browser',
-  'Platform',
-  'Timezone',
+  FACT_LABELS.ip,
+  FACT_LABELS.city,
+  FACT_LABELS.region,
+  FACT_LABELS.country,
+  FACT_LABELS.browser,
+  FACT_LABELS.platform,
+  FACT_LABELS.timezone,
 ];
 
 function required(command: string, arg: string | undefined): string {
@@ -182,7 +181,7 @@ export const commands: Record<string, Command> = {
     description: 'Toggle or set the theme',
     run: (arg, host) => {
       const next = arg ?? (host.theme === 'dark' ? 'light' : 'dark');
-      if (next !== 'light' && next !== 'dark') {
+      if (!isTheme(next)) {
         throw new Error('theme: expected light or dark');
       }
       host.setTheme(next);
@@ -223,7 +222,8 @@ export const commands: Record<string, Command> = {
 
 /** Runs one input line and resolves to its output lines; rejects on any error. */
 export async function runCommand(input: string, host: ShellHost): Promise<string[]> {
-  const [name, ...rest] = input.trim().split(/\s+/);
+  const line = input.trim();
+  const name = line.split(/\s/, 1)[0];
   // hasOwn so `constructor` doesn't hit Object.prototype.
   if (!Object.hasOwn(commands, name)) {
     const suggestion = suggestPath(name, Object.keys(commands));
@@ -231,7 +231,8 @@ export async function runCommand(input: string, host: ShellHost): Promise<string
       `command not found: ${name}${suggestion ? ` (did you mean ${suggestion}?)` : ''}`,
     );
   }
-  return commands[name].run(rest.join(' ') || undefined, host);
+  // The raw rest of the line, so `grep` can match runs of spaces.
+  return commands[name].run(line.slice(name.length).trim() || undefined, host);
 }
 
 export type Completion = { input: string; candidates: string[] };

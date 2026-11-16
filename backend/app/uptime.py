@@ -94,6 +94,8 @@ class UptimeCache:
 	def _refresh(self) -> None:
 		try:
 			value = compute_uptime(self._fetch(), datetime.now(UTC))
+		# Broad on purpose: compute_uptime trusts the undocumented payload's shape, so any
+		# change to it (or a network error) lands here and the footer just hides the number.
 		except Exception:
 			logger.warning('Could not load uptime from the status page', exc_info=True)
 			value = None

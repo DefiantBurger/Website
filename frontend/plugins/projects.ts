@@ -112,8 +112,10 @@ export function projectsPlugin(dir: string): Plugin {
         if (!project) {
           this.error(`projects: no published project "${slug}"`);
         }
-        const html = await renderProjectMarkdown(project.markdown);
-        const detail: ProjectDetail = { ...toSummary(project), html };
+        const detail: ProjectDetail = {
+          ...toSummary(project),
+          ...(await renderProjectMarkdown(project.markdown)),
+        };
         return `export default ${JSON.stringify(detail)};`;
       }
     },

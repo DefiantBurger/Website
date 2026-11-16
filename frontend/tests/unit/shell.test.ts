@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+
+import { parseProject } from '../../plugins/projects.ts';
+import { renderProjectMarkdown } from '../../plugins/renderMarkdown.ts';
 
 import type { BrowserInfo, RequestContextSnapshot } from '../../src/lib/aboutYou/facts.ts';
 import type { InteractionState } from '../../src/lib/aboutYou/interactionStore.ts';
@@ -33,7 +37,7 @@ const fs = buildFilesystem([
 
 const PAGE_LINES: Record<string, string[]> = {
   alpha: ['Alpha', 'A'],
-  beta: ['Beta', 'B', 'Built with Svelte and a tiny router.'],
+  beta: ['Beta', 'B', 'Built with Svelte and a tiny router.', 'Two  spaces'],
 };
 
 const context: RequestContextSnapshot = {
@@ -174,6 +178,28 @@ describe('commands', () => {
     assert.ok((await runCommand('grep alpha', fakeHost('/')))[0].startsWith('/projects/alpha: '));
     await assert.rejects(runCommand('grep zzzz', fakeHost('/')), /no matches/);
     await assert.rejects(runCommand('grep', fakeHost('/')), /missing operand/);
+  });
+
+  test('grep keeps runs of spaces in the term', async () => {
+    assert.equal((await runCommand('grep two  spaces', fakeHost('/'))).length, 1);
+    await assert.rejects(runCommand('grep two spaces', fakeHost('/')), /no matches/);
+  });
+
+  test('grep over a real write-up prints each equation once, as LaTeX', async () => {
+    const file = new URL(
+      '../../src/content/projects/quantum-scattering-research.md',
+      import.meta.url,
+    );
+    const project = parseProject('q.md', readFileSync(file, 'utf8'));
+    const { lines } = await renderProjectMarkdown(project.markdown);
+    const host = fakeHost('/');
+    host.pageLines = async (slug) => (slug === 'alpha' ? lines : []);
+    const matches = await runCommand('grep hbar', host);
+    assert.ok(matches.length > 0);
+    // KaTeX's MathML and HTML copies would add a Unicode ℏ next to the source.
+    for (const match of matches) {
+      assert.doesNotMatch(match, /ℏ/);
+    }
   });
 
   test('grep cuts long lines to an excerpt', async () => {

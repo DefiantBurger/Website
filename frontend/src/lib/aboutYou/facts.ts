@@ -126,6 +126,17 @@ export function toDisplayValue(value: unknown): string {
   return String(value);
 }
 
+// Labels the shell's `whoami` looks up, so renaming one here can't silently drop its line.
+export const FACT_LABELS = {
+  ip: 'IP Address',
+  city: 'City',
+  region: 'Region',
+  country: 'Country',
+  browser: 'Browser',
+  platform: 'Platform',
+  timezone: 'Timezone',
+} as const;
+
 export function fact(label: string, value: unknown, note?: string): Fact {
   const display = toDisplayValue(value);
   return { label, value: display, note, muted: display === UNAVAILABLE };
@@ -152,7 +163,7 @@ export function countryName(code: string | undefined): string {
 
 export function deviceFacts(browser: BrowserInfo): Fact[] {
   return [
-    fact('Platform', browser.os),
+    fact(FACT_LABELS.platform, browser.os),
     fact('Screen', browser.screen),
     fact('Window', browser.viewport),
     fact('Pixel Ratio', browser.pixelRatio),
@@ -168,7 +179,7 @@ export function deviceFacts(browser: BrowserInfo): Fact[] {
 
 export function browserFacts(browser: BrowserInfo): Fact[] {
   return [
-    fact('Browser', browser.name),
+    fact(FACT_LABELS.browser, browser.name),
     fact('User Agent', browser.userAgent, 'Raw browser user-agent string.'),
     fact(
       'Client Hint Brands',
@@ -185,7 +196,7 @@ export function browserFacts(browser: BrowserInfo): Fact[] {
 export function preferenceFacts(browser: BrowserInfo): Fact[] {
   return [
     fact('Languages', browser.languages),
-    fact('Timezone', browser.timezone),
+    fact(FACT_LABELS.timezone, browser.timezone),
     fact('Color Scheme', browser.prefersDark ? 'Dark' : 'Light'),
     fact('Reduced Motion', browser.prefersReducedMotion ? 'Reduce' : 'No preference'),
   ];
@@ -217,15 +228,15 @@ export function serverFacts(context: RequestContextSnapshot): Fact[] {
       : null;
 
   return [
-    fact('IP Address', network.clientIp, `Source: ${network.ipSource}`),
+    fact(FACT_LABELS.ip, network.clientIp, `Source: ${network.ipSource}`),
     fact('Via Proxy', network.hasForwardedHeaders ? 'Yes (forwarded headers)' : 'No'),
     ...(geolocation.available
       ? [
-          fact('Country', countryName(geolocation.country)),
-          fact('Region', geolocation.region),
-          fact('City', geolocation.city),
+          fact(FACT_LABELS.country, countryName(geolocation.country)),
+          fact(FACT_LABELS.region, geolocation.region),
+          fact(FACT_LABELS.city, geolocation.city),
           fact('Postal Code', geolocation.postal),
-          fact('Timezone', geolocation.timezone),
+          fact(FACT_LABELS.timezone, geolocation.timezone),
           fact(
             'Coordinates',
             coordinates,

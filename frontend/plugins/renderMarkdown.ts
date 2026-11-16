@@ -20,18 +20,26 @@ interface HastNode {
   children?: HastNode[];
 }
 
+export interface RenderedMarkdown {
+  html: string;
+  /** Plain text for the shell's grep: one line per block (heading, paragraph, list item, code line). */
+  lines: string[];
+  hasMath: boolean;
+}
+
+function hasClass(node: HastNode, name: string): boolean {
+  const classNames = node.properties?.className;
+  return Array.isArray(classNames) ? classNames.includes(name) : classNames === name;
+}
+
 /** The text of a ```<language> fence if `node` is one, else undefined. */
 function fenceText(node: HastNode, language: string): string | undefined {
   const code = node.children?.[0];
-  if (node.tagName !== 'pre' || code?.tagName !== 'code') {
-    return undefined;
-  }
-  const classNames = code.properties?.className ?? [];
-  const languageClass = `language-${language}`;
-  const matches = Array.isArray(classNames)
-    ? classNames.includes(languageClass)
-    : classNames === languageClass;
-  if (!matches) {
+  if (
+    node.tagName !== 'pre' ||
+    code?.tagName !== 'code' ||
+    !hasClass(code, `language-${language}`)
+  ) {
     return undefined;
   }
   return (code.children ?? [])
@@ -94,6 +102,70 @@ function rehypeDemos() {
   };
 }
 
+// Blocks that become grep lines; one nested in another (a list in a list item) is its own line.
+const TEXT_BLOCKS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'pre', 'td', 'th']);
+const isTextBlock = (node: HastNode) =>
+  node.type === 'element' && TEXT_BLOCKS.has(node.tagName ?? '');
+
+/** `node`'s text minus nested text blocks, which are queued on `nested` instead. */
+function ownText(node: HastNode, nested: HastNode[]): string {
+  if (node.type === 'text') {
+    return node.value ?? '';
+  }
+  if (node.tagName === 'br') {
+    return ' ';
+  }
+  return (node.children ?? [])
+    .map((child) => (isTextBlock(child) ? (nested.push(child), ' ') : ownText(child, nested)))
+    .join('');
+}
+
+/**
+ * Collect the grep lines and note whether there's math. Runs before KaTeX and the
+ * heading anchors, so an equation appears once, as LaTeX, and headings have no `#`.
+ */
+function rehypeCollectText(out: Omit<RenderedMarkdown, 'html'>) {
+  return function transformer(tree: HastNode) {
+    const emit = (block: HastNode) => {
+      const nested: HastNode[] = [];
+      const text = ownText(block, nested);
+      // Code keeps its line breaks; prose becomes one line per block.
+      const lines = block.tagName === 'pre' ? text.split('\n') : [text.replace(/\s+/g, ' ')];
+      out.lines.push(...lines.map((line) => line.trim()).filter(Boolean));
+      nested.forEach(emit);
+    };
+    const walk = (node: HastNode): void =>
+      isTextBlock(node) ? emit(node) : node.children?.forEach(walk);
+    walk(tree);
+    visit(tree, 'element', (node: HastNode) => {
+      out.hasMath ||= hasClass(node, 'language-math');
+    });
+  };
+}
+
+/** Fail the build on output that would render wrong, rather than ship it. */
+function rehypeCheckOutput(mermaid: { transformed: number }) {
+  return function transformer(tree: HastNode) {
+    let mermaidDivs = 0;
+    visit(tree, 'element', (node: HastNode) => {
+      // A fence that wasn't transformed, or a div that lost its class, shows up as raw source.
+      if (hasClass(node, 'language-mermaid')) {
+        throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
+      }
+      if (node.tagName === 'div' && hasClass(node, 'mermaid')) {
+        mermaidDivs += 1;
+      }
+      // rehype-katex renders bad LaTeX as red source text instead of throwing.
+      if (hasClass(node, 'katex-error')) {
+        throw new Error('renderMarkdown: invalid LaTeX in a math block');
+      }
+    });
+    if (mermaidDivs < mermaid.transformed) {
+      throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
+    }
+  };
+}
+
 const scrollRegion = (label: string) => ({ tabIndex: 0, role: 'region', ariaLabel: label });
 
 /**
@@ -109,8 +181,7 @@ function rehypeScrollRegions() {
       tree,
       'element',
       (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
-        const classNames = node.properties?.className;
-        if (Array.isArray(classNames) && classNames.includes('katex-display')) {
+        if (hasClass(node, 'katex-display')) {
           equations += 1;
           Object.assign(node.properties ?? {}, scrollRegion(`Equation ${equations}`));
         } else if (node.tagName === 'table' && parent?.children && index !== undefined) {
@@ -144,8 +215,9 @@ const sanitizeSchema: SanitizeSchema = {
   },
 };
 
-export async function renderProjectMarkdown(markdown: string): Promise<string> {
+export async function renderProjectMarkdown(markdown: string): Promise<RenderedMarkdown> {
   const counter = { transformed: 0 };
+  const text = { lines: [] as string[], hasMath: false };
 
   const rendered = await unified()
     .use(remarkParse)
@@ -155,6 +227,7 @@ export async function renderProjectMarkdown(markdown: string): Promise<string> {
     .use(rehypeMermaid, counter)
     .use(rehypeDemos)
     .use(rehypeSanitize, sanitizeSchema)
+    .use(rehypeCollectText, text)
     // After sanitize: KaTeX's output is trusted, and sanitize would strip its inline styles.
     .use(rehypeKatex, { strict: 'error' })
     .use(rehypeScrollRegions)
@@ -170,18 +243,9 @@ export async function renderProjectMarkdown(markdown: string): Promise<string> {
         value: '#',
       },
     })
+    .use(rehypeCheckOutput, counter)
     .use(rehypeStringify)
     .process(markdown);
 
-  const html = String(rendered);
-  // Fail the build rather than ship a diagram that shows up as raw source.
-  const mermaidDivs = html.match(/<div class="mermaid">/g)?.length ?? 0;
-  if (html.includes('class="language-mermaid"') || mermaidDivs < counter.transformed) {
-    throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
-  }
-  // rehype-katex renders bad LaTeX as red source text instead of throwing.
-  if (html.includes('katex-error')) {
-    throw new Error('renderMarkdown: invalid LaTeX in a math block');
-  }
-  return html;
+  return { html: String(rendered), ...text };
 }
