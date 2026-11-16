@@ -5,7 +5,7 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 ## Infrastructure
 
 1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
-2. **Minor:** `pnpm audit` reports two dev-only advisories with no in-range fix: minimatch 10 (moderate, via ESLint, which hasn't moved to minimatch 11) and deepmerge (low, via the Svelte Vite plugin, no patched release). Neither sees untrusted input.
+2. **Minor:** `pnpm audit` reports three advisories with no in-range fix: minimatch 10 (moderate, via ESLint, which hasn't moved to minimatch 11), deepmerge (low, via the Svelte Vite plugin, no patched release), and KaTeX (low, prototype pollution, fixed in 0.18.2, outside `^0.16`). None sees untrusted input: the first two are dev tooling, and KaTeX runs only at build time on the project write-ups (the browser gets just its CSS). The KaTeX bump needs checking that `rehype-katex` accepts 0.18 and the math renders the same.
 
 ## Appendix: Non-Issues
 
