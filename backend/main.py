@@ -42,5 +42,6 @@ if __name__ == '__main__':
 	elif env == 'production':
 		# Only here, not in create_app: tests and the dev reloader would start extra sweepers.
 		start_expiry_sweeper(app)
-		# Only nginx on the same VM should reach the app.
-		serve(app, host='127.0.0.1', port=port)
+		# Only nginx on the same VM should reach the app. Waitress strips X-Forwarded-*
+		# by default, which would leave ProxyFix (create_app) with nothing to read.
+		serve(app, host='127.0.0.1', port=port, clear_untrusted_proxy_headers=False)
