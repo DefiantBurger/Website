@@ -24,6 +24,8 @@ sudo tail -n 100 /var/log/startup-script.log
 
 Then load `/`, `/projects`, and each `/utilities/*` page in a browser.
 
+If the VM is hung or SSH fails, read its serial console, which carries kernel and journald output. Google captures it outside the guest and copies it to Cloud Logging, kept for 30 days: in Logs Explorer, query `logName="projects/<project>/logs/serial_port_1_output"`. For the live buffer, run `gcloud compute instances get-serial-port-output flask-vm --zone <zone>`.
+
 ## Update Project Content
 
 1. Edit or add `frontend/src/content/projects/<slug>.md` ([frontmatter](./IMPLEMENTATION.md#project-frontmatter)).

@@ -3,6 +3,7 @@ import os
 
 from dotenv import load_dotenv
 from flask import request
+from flask.logging import default_handler
 from waitress import serve
 
 from app import create_app
@@ -19,6 +20,10 @@ app = create_app(instance_path=os.getenv('PERSONALWEBSITE_INSTANCE_PATH'))
 # Waitress writes no access log, so production logs each request itself. The dev
 # server already prints one line per request, so this would only duplicate it.
 if env == 'production':
+	# One root handler for everything; Flask's own handler plus the root handler waitress
+	# adds would print each `app.*` record twice. journald supplies timestamps.
+	logging.basicConfig(format='%(levelname)s %(name)s: %(message)s')
+	app.logger.removeHandler(default_handler)
 	# Flask's logger inherits the root WARNING level, which would drop these lines.
 	app.logger.setLevel(logging.INFO)
 

@@ -69,6 +69,9 @@ resource "google_compute_instance" "default" {
     enable-oslogin = "TRUE"
     # Publishes host keys so gcloud can verify them instead of trusting on first use.
     enable-guest-attributes = "TRUE"
+    # Copies serial port 1 (kernel + journald console output) to Cloud Logging from
+    # outside the guest, so logs survive a hung VM. Volume is far below the free tier.
+    serial-port-logging-enable = "TRUE"
   }
 
   metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
