@@ -3,7 +3,6 @@
 
   import { apiJson } from '../api';
   import { commitInfo, formatUptime, type Uptime } from '../footer';
-  import { shell } from '../shell/shell.svelte';
   import { REPO_URL, STATUS_PAGE_URL } from '../site';
   import ExternalLink from './ExternalLink.svelte';
 
@@ -18,7 +17,7 @@
   });
 </script>
 
-<footer class="footer" class:shell-open={shell.isOpen}>
+<footer class="footer">
   <ul class="footer-items">
     <li>
       <span class="label">build</span>
@@ -50,11 +49,6 @@
     border-top: var(--divider);
     padding: 1rem 2rem;
     font-size: 0.8rem;
-  }
-
-  /* Lets the footer scroll above the docked shell. */
-  .footer.shell-open {
-    margin-bottom: var(--shell-height);
   }
 
   .footer-items {

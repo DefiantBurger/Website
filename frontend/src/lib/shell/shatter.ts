@@ -21,6 +21,8 @@ export async function shatter(onReboot: () => void): Promise<void> {
     // One frame so the echoed `> sudo` renders before it's cloned, and so the
     // Enter keydown that ran the command is over before nextInteraction listens.
     await new Promise(requestAnimationFrame);
+    // Covers the page only once breakApart has filled it with shards: no paint happens until fall().
+    document.body.append(overlay);
     // Reduced motion skips straight to the crash screen.
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
       await breakApart(app, overlay);
@@ -32,7 +34,6 @@ export async function shatter(onReboot: () => void): Promise<void> {
     hint.textContent = 'press any key to reboot';
     message.append(hint);
     overlay.append(message);
-    document.body.append(overlay);
     await nextInteraction();
     onReboot();
     overlay.style.opacity = '0';
@@ -71,7 +72,6 @@ async function breakApart(app: HTMLElement, overlay: HTMLElement): Promise<void>
     overlay.append(piece);
     return { shard, piece, page };
   });
-  document.body.append(overlay);
   // Gutting blocks above the viewport shortened the copy, so scroll it less by however much the anchor moved.
   let scrollY = window.scrollY;
   const anchor = pieces[0]?.page.querySelector(`[${ANCHOR}]`);

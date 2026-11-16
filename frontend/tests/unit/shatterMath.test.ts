@@ -3,6 +3,7 @@ import { describe, test } from 'node:test';
 
 import {
   area,
+  edges,
   isGone,
   makeShards,
   step,
@@ -21,9 +22,10 @@ function seeded(seed: number): () => number {
 }
 
 function isConvex(polygon: Point[]): boolean {
-  const signs = polygon.map((p, i) => {
-    const q = polygon[(i + 1) % polygon.length];
-    const r = polygon[(i + 2) % polygon.length];
+  // Each side paired with the next one; the sign of their cross product is the turn direction.
+  const sides = edges(polygon);
+  const signs = sides.map(([p, q], i) => {
+    const r = sides[(i + 1) % sides.length][1];
     return Math.sign((q.x - p.x) * (r.y - q.y) - (q.y - p.y) * (r.x - q.x));
   });
   return signs.every((s) => s >= 0) || signs.every((s) => s <= 0);
@@ -32,15 +34,14 @@ function isConvex(polygon: Point[]): boolean {
 /** Ray casting; fine for the convex cells here. */
 function contains(polygon: Point[], point: Point): boolean {
   let inside = false;
-  polygon.forEach((p, i) => {
-    const q = polygon[(i + 1) % polygon.length];
+  for (const [p, q] of edges(polygon)) {
     if (p.y > point.y !== q.y > point.y) {
       const x = p.x + ((point.y - p.y) / (q.y - p.y)) * (q.x - p.x);
       if (point.x < x) {
         inside = !inside;
       }
     }
-  });
+  }
   return inside;
 }
 

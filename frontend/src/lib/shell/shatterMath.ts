@@ -18,6 +18,11 @@ export type Shard = {
   delay: number;
 };
 
+/** Each side of `polygon` as [start, end], including the closing side back to the first vertex. */
+export function edges(polygon: Point[]): [Point, Point][] {
+  return polygon.map((p, i) => [p, polygon[(i + 1) % polygon.length]]);
+}
+
 /** The part of `polygon` closer to `a` than to `b` (one Sutherland–Hodgman pass). */
 function clipCloser(polygon: Point[], a: Point, b: Point): Point[] {
   const nx = b.x - a.x;
@@ -25,8 +30,7 @@ function clipCloser(polygon: Point[], a: Point, b: Point): Point[] {
   const offset = (nx * (a.x + b.x) + ny * (a.y + b.y)) / 2;
   const side = (p: Point) => nx * p.x + ny * p.y - offset;
   const out: Point[] = [];
-  polygon.forEach((p, i) => {
-    const q = polygon[(i + 1) % polygon.length];
+  for (const [p, q] of edges(polygon)) {
     const sp = side(p);
     const sq = side(q);
     if (sp <= 0) {
@@ -36,7 +40,7 @@ function clipCloser(polygon: Point[], a: Point, b: Point): Point[] {
       const t = sp / (sp - sq);
       out.push({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
     }
-  });
+  }
   return out;
 }
 
@@ -72,23 +76,17 @@ export function voronoi(
 
 /** Signed area; positive for clockwise polygons in screen coordinates. */
 export function area(polygon: Point[]): number {
-  let sum = 0;
-  polygon.forEach((p, i) => {
-    const q = polygon[(i + 1) % polygon.length];
-    sum += p.x * q.y - q.x * p.y;
-  });
-  return sum / 2;
+  return edges(polygon).reduce((sum, [p, q]) => sum + p.x * q.y - q.x * p.y, 0) / 2;
 }
 
 function centroid(polygon: Point[]): Point {
   let x = 0;
   let y = 0;
-  polygon.forEach((p, i) => {
-    const q = polygon[(i + 1) % polygon.length];
+  for (const [p, q] of edges(polygon)) {
     const cross = p.x * q.y - q.x * p.y;
     x += (p.x + q.x) * cross;
     y += (p.y + q.y) * cross;
-  });
+  }
   const a6 = area(polygon) * 6;
   return { x: x / a6, y: y / a6 };
 }

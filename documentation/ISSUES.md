@@ -2,11 +2,6 @@
 
 Items are confirmed issues unless labelled **High** (priority), **Likely**, **Possible** (needs review), or **Minor**. **Cleanup** marks dead or redundant code whose removal shouldn't change behavior. Deliberate behavior that can look like a bug is listed in the [appendix](#appendix-non-issues).
 
-## Frontend
-
-1. **Cleanup:** `lib/shell/shatterMath.ts` repeats the polygon edge loop (`p` with `polygon[(i + 1) % n]`) in `clipCloser`, `area`, and `centroid`, and `shatterMath.test.ts` twice more; an `edges(polygon)` helper would replace all five. `shatter.ts` also appends the overlay twice (harmless, since `append` moves the node).
-2. **Cleanup:** `Shell.svelte` keeps the history-recall cursor and draft as component state while the history list lives in the store (works only because the component never unmounts), and keys its `{#each}` by index, which is the same as no key. `Footer.svelte` also knows about the shell (its `shell-open` margin); the App or Shell could own the bottom spacing instead.
-
 ## Infrastructure
 
 1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.

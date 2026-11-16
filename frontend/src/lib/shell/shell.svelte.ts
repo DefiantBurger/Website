@@ -9,6 +9,7 @@ import { theme } from '../theme.svelte';
 import { complete, runCommand, type ShellHost } from './commands';
 import { shatter } from './shatter';
 import { buildFilesystem } from './filesystem';
+import { ShellHistory } from './history';
 
 export type ShellLine = { text: string; kind: 'input' | 'output' | 'error' };
 
@@ -21,7 +22,8 @@ async function pageLines(slug: string): Promise<string[]> {
 class ShellState {
   isOpen = $state(false);
   lines = $state<ShellLine[]>([{ text: 'Type help for commands.', kind: 'output' }]);
-  history = $state<string[]>([]);
+  // Not reactive: nothing renders it, and recall reads it only on keypress.
+  readonly history = new ShellHistory();
   #fs = buildFilesystem(projects);
   // Focus goes back here on close.
   #opener: Element | null = null;
@@ -31,7 +33,7 @@ class ShellState {
       fs: this.#fs,
       cwd: router.path,
       theme: theme.current,
-      history: this.history,
+      history: this.history.entries,
       navigate,
       setTheme: (value) => theme.set(value),
       openUrl: (url) => window.open(url, '_blank', 'noopener,noreferrer'),
@@ -79,10 +81,10 @@ class ShellState {
   async submit(input: string): Promise<void> {
     this.lines.push({ text: input, kind: 'input' });
     const command = input.trim();
+    this.history.add(command);
     if (!command) {
       return;
     }
-    this.history.push(command);
     try {
       for (const text of await runCommand(command, this.#host())) {
         this.lines.push({ text, kind: 'output' });

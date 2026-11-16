@@ -2,9 +2,6 @@
   import { shell } from '../shell/shell.svelte';
 
   let input = $state('');
-  // Position in shell.history while using the arrow keys; `draft` holds what was being typed.
-  let historyIndex = 0;
-  let draft = '';
 
   function isTextField(target: EventTarget | null): boolean {
     return (
@@ -33,20 +30,8 @@
       input = shell.complete(input);
     } else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault();
-      recall(event.key === 'ArrowUp' ? -1 : 1);
+      input = shell.history.recall(event.key === 'ArrowUp' ? -1 : 1, input) ?? input;
     }
-  }
-
-  function recall(step: number) {
-    const next = Math.min(Math.max(historyIndex + step, 0), shell.history.length);
-    if (next === historyIndex) {
-      return;
-    }
-    if (historyIndex === shell.history.length) {
-      draft = input;
-    }
-    historyIndex = next;
-    input = shell.history[next] ?? draft;
   }
 
   function submit(event: SubmitEvent) {
@@ -54,7 +39,6 @@
     // Not awaited: the store appends the output when the command finishes.
     void shell.submit(input);
     input = '';
-    historyIndex = shell.history.length;
   }
 
   /** Attachment: keep the newest line in view. Reads lines.length so it re-runs per command. */
@@ -76,6 +60,7 @@
     <!-- The log scrolls, so keyboard users need to be able to focus it. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
     <div class="log" role="log" aria-label="Shell output" tabindex="0" {@attach followOutput}>
+      <!-- Lines are append-only, so the index is a stable key (the lint rule requires one). -->
       {#each shell.lines as line, index (index)}
         <div class:prompt={line.kind === 'input'} class:error={line.kind === 'error'}>
           {line.text}
@@ -96,6 +81,8 @@
       />
     </form>
   </section>
+  <!-- In-flow stand-in for the fixed panel, so the page's end can scroll above it. -->
+  <div class="shell-spacer"></div>
 {/if}
 
 <style>
@@ -110,6 +97,11 @@
     border-top: 2px solid var(--color-text-primary);
     box-shadow: 0 -6px 12px var(--color-primary-opacity-10);
     font-size: 0.9rem;
+  }
+
+  .shell-spacer {
+    flex-shrink: 0;
+    height: var(--shell-height);
   }
 
   .log {
