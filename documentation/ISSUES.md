@@ -4,8 +4,9 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 
 ## Infrastructure
 
-1. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
-2. **Minor:** `pnpm audit` reports three advisories with no in-range fix: minimatch 10 (moderate, via ESLint, which hasn't moved to minimatch 11), deepmerge (low, via the Svelte Vite plugin, no patched release), and KaTeX (low, prototype pollution, fixed in 0.18.2, outside `^0.16`). None sees untrusted input: the first two are dev tooling, and KaTeX runs only at build time on the project write-ups (the browser gets just its CSS). The KaTeX bump needs checking that `rehype-katex` accepts 0.18 and the math renders the same.
+1. **High:** Debian kernel `6.1.0-55-cloud-amd64` (6.1.192-1) oopses in `ext4_mb_load_buddy_gfp` about 20 minutes after boot, during a `mkdir`. The VM then hangs: SSH, deploys and journald stop, though the serial console still works. It hit twice on 2026-11-16, after unattended-upgrades installed `-55` and auto-rebooted at 09:00 UTC. A replacement VM on `-54` is fine. The kernel is held on the live VM (`apt-mark hold linux-image-cloud-amd64`), so it gets no kernel security updates. **A replaced VM doesn't get the hold:** run the command before its first 06:00 UTC upgrade. When Debian ships a kernel newer than `-55`, unhold it, let it upgrade, and check the serial log (`serial_port_1_output` in Logs Explorer) still has no oops more than 30 minutes after the reboot.
+2. **Minor:** Cloudflare Email Routing (and the MX, SPF, and DKIM records it owns) is configured outside Terraform, since provider v4 can't import its settings. Revisit after upgrading to provider v5.
+3. **Minor:** `pnpm audit` reports three advisories with no in-range fix: minimatch 10 (moderate, via ESLint, which hasn't moved to minimatch 11), deepmerge (low, via the Svelte Vite plugin, no patched release), and KaTeX (low, prototype pollution, fixed in 0.18.2, outside `^0.16`). None sees untrusted input: the first two are dev tooling, and KaTeX runs only at build time on the project write-ups (the browser gets just its CSS). The KaTeX bump needs checking that `rehype-katex` accepts 0.18 and the math renders the same.
 
 ## Appendix: Non-Issues
 
