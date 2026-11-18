@@ -32,11 +32,6 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "website" {
   }
 }
 
-moved {
-  from = cloudflare_record.website_a_record
-  to   = cloudflare_record.website
-}
-
 resource "cloudflare_record" "website" {
   zone_id = var.cloudflare_zone_id
   name    = "@"
@@ -44,10 +39,6 @@ resource "cloudflare_record" "website" {
   type    = "CNAME"
   proxied = true
   comment = "Route to the Cloudflare Tunnel on the flask VM"
-
-  lifecycle {
-    create_before_destroy = false
-  }
 }
 
 # Proxied so www resolves to Cloudflare. The redirect rule below answers every

@@ -127,19 +127,9 @@ else
 	echo "Already provisioned; refreshing secrets only."
 fi
 
-# Every boot, so rotating a secret only needs a reboot.
+# Every boot, so rotating a secret only needs a reboot. gcloud ships with Google's
+# Debian images and runs as the VM's service account, in the VM's project.
 echo "Fetching runtime secrets from Secret Manager..."
-METADATA_HEADER="Metadata-Flavor: Google"
-ACCESS_TOKEN="$(curl -fsS -H "$METADATA_HEADER" "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" | python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')"
-
-fetch_secret_value() {
-	local secret_name="$1"
-	local secret_version="$2"
-	local project_id_local
-	project_id_local="$(curl -fsS -H "$METADATA_HEADER" "http://metadata.google.internal/computeMetadata/v1/project/project-id")"
-	local url="https://secretmanager.googleapis.com/v1/projects/$project_id_local/secrets/$${secret_name}/versions/$${secret_version}:access"
-	curl -fsS -H "Authorization: Bearer $ACCESS_TOKEN" "$url" | python3 -c 'import base64,json,sys; print(base64.b64decode(json.load(sys.stdin)["payload"]["data"]).decode("utf-8"), end="")'
-}
 
 # Write a secrets file; restart the unit only if the contents changed, since
 # enabled units have already started with the previous file at this point.
@@ -160,9 +150,9 @@ install_secret_file() {
 
 mkdir -p /etc/personalwebsite /etc/cloudflared
 install_secret_file /etc/personalwebsite/secrets.env root:flaskapp 640 flaskapp \
-	"SECRET_KEY=$(fetch_secret_value "${secret_name_flask}" "${secret_version_flask}")"
+	"SECRET_KEY=$(gcloud secrets versions access "${secret_version_flask}" --secret="${secret_name_flask}")"
 install_secret_file /etc/cloudflared/tunnel.env root:root 600 cloudflared \
-	"TUNNEL_TOKEN=$(fetch_secret_value "${secret_name_cloudflare_tunnel_token}" "latest")"
+	"TUNNEL_TOKEN=$(gcloud secrets versions access latest --secret="${secret_name_cloudflare_tunnel_token}")"
 
 if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	systemctl restart nginx
@@ -173,32 +163,22 @@ fi
 # Install the last release Deploy published (deploy.yaml), so a replaced VM
 # serves the site without a manual deploy. Returns 0 if none is published yet.
 bootstrap_release() {
-	local object_url="https://storage.googleapis.com/storage/v1/b/${release_bucket}/o/latest.tar.gz"
-	local auth="Authorization: Bearer $ACCESS_TOKEN"
-	local info status fields sha checksum generation
-	info="$(mktemp)"
-	status="$(curl -sS -o "$info" -w '%%{http_code}' -H "$auth" "$object_url")"
-	if [[ "$status" == 404 ]]; then
+	local object="gs://${release_bucket}/latest.tar.gz"
+	local fields sha checksum generation
+	# `list`, not `describe`: a missing object prints nothing instead of failing,
+	# so only real errors return 1. (Callers' `||` turns off `set -e` in here.)
+	fields="$(gcloud storage objects list "$object" \
+		--format='value(custom_fields.git-sha,custom_fields.sha256,generation)')" || return 1
+	if [[ -z "$fields" ]]; then
 		echo "No release published to gs://${release_bucket} yet."
-		rm -f "$info"
 		return 0
-	elif [[ "$status" != 200 ]]; then
-		echo "Release lookup failed (HTTP $status): $(cat "$info")"
-		rm -f "$info"
-		return 1
 	fi
-	fields="$(python3 -c 'import json,sys; o=json.load(sys.stdin); m=o["metadata"]; print(m["git-sha"], m["sha256"], o["generation"])' < "$info")" || {
-		rm -f "$info"
-		return 1
-	}
-	rm -f "$info"
 	read -r sha checksum generation <<< "$fields"
 
 	# Pinned to the generation just read, so a concurrent deploy can't pair this
 	# metadata with another release's bytes. The deploy script checks the checksum.
 	echo "Installing published release $sha..."
-	curl -fsS -H "$auth" "$object_url?alt=media&generation=$generation" \
-		| /usr/local/sbin/personalwebsite-deploy "$sha" "$checksum"
+	gcloud storage cat "$object#$generation" | /usr/local/sbin/personalwebsite-deploy "$sha" "$checksum"
 }
 
 # Any boot without a release, so a failed bootstrap retries on the next reboot.

@@ -3,19 +3,10 @@ provider "google" {
   region  = var.project_region
 }
 
-provider "google-beta" {
-  project = var.project_id
-  region  = var.project_region
-}
-
 resource "google_compute_network" "vpc_network" {
   name                    = "my-custom-mode-network"
   auto_create_subnetworks = false
   mtu                     = 1460
-
-  lifecycle {
-    create_before_destroy = false
-  }
 }
 
 resource "google_compute_subnetwork" "default" {
@@ -128,11 +119,4 @@ resource "google_compute_firewall" "allow_iap_ssh" {
 
   source_ranges = ["35.235.240.0/20"] # Google's IAP TCP forwarding IP range
   target_tags   = ["ssh"]
-
-  depends_on = [google_compute_network.vpc_network]
-}
-
-output "Web-server-URL" {
-  description = "The IP for the website"
-  value       = google_compute_instance.default.network_interface[0].access_config[0].nat_ip
 }
