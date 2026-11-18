@@ -36,7 +36,7 @@
   // List and download share one task, so only one access request runs at a time.
   const access = new AsyncTask("Couldn't retrieve files.");
   let accessFiles = $state<FileShareRecord[]>([]);
-  let selectedFileIndex = $state(1);
+  let selectedFileId = $state('');
 
   // Limits come from the backend, so the page can't drift from it; '—' until loaded.
   const STAT_ROWS: [label: string, value: (status: FileShareStatus) => string][] = [
@@ -87,10 +87,6 @@
       if (result.ok) {
         const fileNames = result.uploaded.map((r) => r.originalFilename).join(', ');
         upload.success = `Stored ${result.uploaded.length} file(s): ${fileNames}.`;
-        if (!result.oldFilesRemoved) {
-          upload.error =
-            "Couldn't remove this key's previous files; they stay listed until they expire.";
-        }
         uploadPassword = '';
         uploadFiles = [];
         // The input keeps its own FileList, so clear it to match `uploadFiles`.
@@ -100,9 +96,9 @@
       } else {
         const reason = errorMessage(result.error, 'Upload failed.');
         const outcome =
-          result.uploadedCount === 0 || result.rolledBack
+          result.uploaded.length === 0
             ? 'Nothing was replaced; the key still has its previous files.'
-            : `The ${result.uploadedCount} file(s) stored before it couldn't be removed and are listed alongside the previous files until they expire.`;
+            : `The key's previous files were replaced; it now holds only the ${result.uploaded.length} file(s) stored before this one.`;
         upload.error = `Upload failed on ${result.failedFile}: ${reason}\n${outcome}`;
       }
     });
@@ -131,8 +127,7 @@
       accessFiles = []; // so a failed lookup doesn't leave the previous key's files listed
       // The API answers 404 when there are none, so this list is never empty.
       accessFiles = (await listFileShareFiles(key)).files;
-      // Indices don't restart at 1: a replaced batch keeps counting up.
-      selectedFileIndex = accessFiles[0].occurrenceIndex;
+      selectedFileId = accessFiles[0].id;
       access.success = `Found ${accessFiles.length} file(s) for this access key.`;
     });
   }
@@ -151,7 +146,7 @@
       const failures: string[] = [];
       for (const file of files) {
         try {
-          saveBlob(await downloadFileShare(key, file.occurrenceIndex), file.originalFilename);
+          saveBlob(await downloadFileShare(key, file.id), file.originalFilename);
         } catch (error) {
           failures.push(`- ${file.originalFilename}: ${errorMessage(error, 'Download failed.')}`);
         }
@@ -255,9 +250,9 @@
       <div class="file-selector">
         <label>
           <span>Select file to download</span>
-          <select bind:value={selectedFileIndex}>
-            {#each accessFiles as file (file.occurrenceIndex)}
-              <option value={file.occurrenceIndex}>
+          <select bind:value={selectedFileId}>
+            {#each accessFiles as file (file.id)}
+              <option value={file.id}>
                 {file.originalFilename} ({formatBytes(file.sizeBytes)})
               </option>
             {/each}
@@ -265,10 +260,7 @@
         </label>
         <button
           type="button"
-          onclick={() =>
-            startDownloads(
-              accessFiles.filter((file) => file.occurrenceIndex === selectedFileIndex),
-            )}
+          onclick={() => startDownloads(accessFiles.filter((file) => file.id === selectedFileId))}
           disabled={access.busy}
         >
           {access.busy ? 'Fetching...' : 'Download'}

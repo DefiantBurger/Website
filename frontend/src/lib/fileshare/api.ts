@@ -1,5 +1,4 @@
-import { ApiError, apiFetch, apiJson } from '../api';
-import { replaceBatch, type ReplaceBatchResult } from './replaceBatch';
+import { apiFetch, apiJson } from '../api';
 
 export interface FileShareStatus {
   activeFileCount: number;
@@ -10,17 +9,25 @@ export interface FileShareStatus {
 }
 
 export interface FileShareRecord {
-  occurrenceIndex: number;
+  id: string;
   originalFilename: string;
   sizeBytes: number;
   uploadedAt: string;
   expiresAt: string;
 }
 
-function postForm(fields: Record<string, string | Blob>): RequestInit {
+/** `uploaded` holds the files stored before a failure; any of them means the key's earlier files are gone. */
+export type UploadResult =
+  | { ok: true; uploaded: FileShareRecord[] }
+  | { ok: false; uploaded: FileShareRecord[]; failedFile: string; error: unknown };
+
+/** A POST with `fields` as multipart form data; undefined fields are left out. */
+function postForm(fields: Record<string, string | Blob | undefined>): RequestInit {
   const body = new FormData();
   for (const [name, value] of Object.entries(fields)) {
-    body.append(name, value);
+    if (value !== undefined) {
+      body.append(name, value);
+    }
   }
   return { method: 'POST', body };
 }
@@ -29,40 +36,32 @@ export function fetchFileShareStatus(): Promise<FileShareStatus> {
   return apiJson<FileShareStatus>('/api/fileshare/status/');
 }
 
-/** Replace the key's files with `files`, keeping the old ones if any upload fails. */
-export async function uploadFileShare(
-  files: File[],
-  password: string,
-): Promise<ReplaceBatchResult<FileShareRecord>> {
+/** Upload `files` one per request (the 80 MB cap is per request); the first replaces the key's earlier files once stored. */
+export async function uploadFileShare(files: File[], password: string): Promise<UploadResult> {
   // Fail before touching the server if a selected file was moved or deleted since it was picked.
   for (const file of files) {
     await readFile(file.slice(0, 1), file.name);
   }
 
-  return replaceBatch(files, {
-    listIndices: async () => {
-      try {
-        return (await listFileShareFiles(password)).files.map((f) => f.occurrenceIndex);
-      } catch (error) {
-        // The list endpoint answers 404 when the key has no files.
-        if (error instanceof ApiError && error.status === 404) {
-          return [];
-        }
-        throw error;
-      }
-    },
-    upload: async (file) => {
+  const uploaded: FileShareRecord[] = [];
+  for (const file of files) {
+    try {
       // Send an in-memory copy: some browsers leave the fetch hanging forever when a
-      // disk-backed body file disappears, which would skip the rollback.
+      // disk-backed body file disappears, which would never report the failure.
       const copy = new File([await readFile(file, file.name)], file.name, { type: file.type });
+      const replace = uploaded.length === 0 ? '1' : undefined;
       // No timeout: the server only answers once the whole body has arrived, which can take minutes.
-      return apiJson<FileShareRecord>('/api/fileshare/upload/', {
-        ...postForm({ file: copy, password }),
-        timeoutMs: null,
-      });
-    },
-    deleteIndices: (indices) => deleteFileShareFiles(password, indices),
-  });
+      uploaded.push(
+        await apiJson<FileShareRecord>('/api/fileshare/upload/', {
+          ...postForm({ file: copy, password, replace }),
+          timeoutMs: null,
+        }),
+      );
+    } catch (error) {
+      return { ok: false, uploaded, failedFile: file.name, error };
+    }
+  }
+  return { ok: true, uploaded };
 }
 
 async function readFile(blob: Blob, name: string): Promise<ArrayBuffer> {
@@ -75,18 +74,8 @@ async function readFile(blob: Blob, name: string): Promise<ArrayBuffer> {
   }
 }
 
-async function deleteFileShareFiles(password: string, indices: number[]): Promise<void> {
-  await apiFetch(
-    '/api/fileshare/delete/',
-    postForm({ password, occurrenceIndices: indices.join(',') }),
-  );
-}
-
-export async function downloadFileShare(password: string, occurrenceIndex: number): Promise<Blob> {
-  const response = await apiFetch(
-    '/api/fileshare/access/',
-    postForm({ password, occurrenceIndex: occurrenceIndex.toString() }),
-  );
+export async function downloadFileShare(password: string, id: string): Promise<Blob> {
+  const response = await apiFetch('/api/fileshare/access/', postForm({ password, id }));
   return response.blob();
 }
 

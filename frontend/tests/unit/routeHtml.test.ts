@@ -7,6 +7,7 @@ import {
   renderHead,
   renderNoscriptLinks,
   renderShell,
+  sitemapXml,
   structuredData,
 } from '../../plugins/routeHtml.ts';
 import type { ProjectSummary } from '../../src/lib/projects/types.ts';
@@ -119,5 +120,16 @@ describe('renderShell', () => {
     const links = renderNoscriptLinks();
     assert.ok(links.includes('<a href="/projects">Projects</a>'));
     assert.doesNotMatch(links, /href="\/"|:slug/);
+  });
+});
+
+describe('sitemapXml', () => {
+  test('lists every canonical URL and leaves out the 404 page', () => {
+    const pages = [...pageHeads([project('one', 'One', '')]), notFoundHead];
+    const locs = [...sitemapXml(pages, ORIGIN).matchAll(/<loc>(.*?)<\/loc>/g)].map((m) => m[1]);
+    assert.equal(locs.length, pages.length - 1);
+    assert.ok(locs.includes(`${ORIGIN}/`));
+    assert.ok(locs.includes(`${ORIGIN}/projects/one`));
+    assert.ok(!locs.some((loc) => loc.includes('404')));
   });
 });

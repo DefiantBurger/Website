@@ -83,12 +83,11 @@ If `nginx -t` fails, the previous config is restored and Nginx keeps running. Th
 
 ### File-share upload returns 503
 
-- **"busy, try again"**: three transfers are already running (`MAX_CONCURRENT_TRANSFERS`). Retry shortly.
-- **"Not enough storage"**: eviction couldn't free room under the 1 GB cap. Check `GET /api/fileshare/status/`; wait for files to expire (10 minutes) or delete files from `/var/lib/personalwebsite/fileshare/` on the VM.
+Three transfers are already running (`MAX_CONCURRENT_TRANSFERS`). Retry shortly.
 
 ### File-share download returns 404
 
-The key is wrong, the files expired (10 minutes), the VM was replaced, or someone uploaded a new batch with the same key, which replaces earlier files.
+The key is wrong, the files expired (10 minutes), the app restarted (a deploy, reboot, or VM replacement clears the file share), or someone uploaded a new batch with the same key, which replaces earlier files.
 
 ### Site shows Cloudflare error 1033
 

@@ -9,12 +9,9 @@ const VERSION_PREFIX = 'v1.';
 export const MAX_PLAN_BYTES = 256 * 1024;
 
 export async function encodePlan(file: ScheduleFile): Promise<string> {
-  const json = new TextEncoder().encode(JSON.stringify(file));
-  const compressed = await readAll(
-    streamOf(json).pipeThrough(new CompressionStream('deflate-raw')),
-    Infinity,
-  );
-  return VERSION_PREFIX + toBase64Url(compressed);
+  const json = new Blob([JSON.stringify(file)]).stream();
+  const compressed = new Response(json.pipeThrough(new CompressionStream('deflate-raw')));
+  return VERSION_PREFIX + toBase64Url(new Uint8Array(await compressed.arrayBuffer()));
 }
 
 /** Inverse of `encodePlan`; throws a user-facing message for anything unreadable. */
@@ -27,7 +24,7 @@ export async function decodePlan(encoded: string): Promise<ScheduleFile> {
   try {
     const compressed = fromBase64Url(encoded.slice(VERSION_PREFIX.length));
     const json = await readAll(
-      streamOf(compressed).pipeThrough(new DecompressionStream('deflate-raw')),
+      new Blob([compressed]).stream().pipeThrough(new DecompressionStream('deflate-raw')),
       MAX_PLAN_BYTES,
     );
     value = JSON.parse(new TextDecoder().decode(json));
@@ -46,15 +43,7 @@ export function planHash(encoded: string): string {
   return `#${PLAN_PARAM}=${encoded}`;
 }
 
-function streamOf(bytes: Uint8Array<ArrayBuffer>): ReadableStream<ArrayBufferView<ArrayBuffer>> {
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  });
-}
-
+/** The whole stream, or a throw once it passes `maxBytes`. */
 async function readAll(stream: ReadableStream<Uint8Array>, maxBytes: number): Promise<Uint8Array> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];

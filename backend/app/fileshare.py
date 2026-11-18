@@ -1,22 +1,25 @@
 """Temporary encrypted file storage keyed by an access key.
 
-Each file is a pair in `<instance>/fileshare/`: `<label>.json` (metadata) and
-`<label>.payload` (AES-GCM ciphertext in chunks). Further files under the same key use
-`<label>__2`, `<label>__3`, ... The label is an HMAC of the access key, so the
-key itself is never stored.
+The index of stored files lives in memory (one `FileShareStore` per app); each file's
+AES-GCM ciphertext is `<instance>/fileshare/<id>`, in chunks. A file's label is an HMAC
+of its access key, so the key itself is never kept. Nothing survives a restart: the
+store deletes every payload when it's created, since without the index (which holds
+each file's salt) they could never be found or decrypted again. That assumes one
+process, as Waitress runs it; separate workers would delete each other's files.
 """
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import hmac
-import json
 import os
+import secrets
+import shutil
 import threading
-from collections.abc import Callable, Iterable, Iterator
+import unicodedata
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from itertools import chain
 from pathlib import Path
@@ -26,7 +29,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 from flask import Flask, current_app
 from werkzeug.datastructures import FileStorage
-from werkzeug.utils import secure_filename
 from werkzeug.wsgi import ClosingIterator
 
 from .errors import ApiError
@@ -34,10 +36,11 @@ from .errors import ApiError
 # Below Cloudflare's 100 MB request limit with room for multipart overhead.
 MAX_FILE_BYTES = 80 * 1_000_000
 MAX_TOTAL_STORAGE_BYTES = 1_000_000_000
+# The byte quota alone allows ~60 million empty files (16 bytes each).
+MAX_FILE_COUNT = 1_000
 RETENTION_SECONDS = 10 * 60
-STORAGE_DIR_NAME = 'fileshare'
-META_SUFFIX = '.json'
-PAYLOAD_SUFFIX = '.payload'
+# The usual filesystem limit, which also keeps Content-Disposition well under Nginx's 4 KB header buffer.
+MAX_FILENAME_BYTES = 255
 SALT_BYTES = 16
 CHUNK_BYTES = 1024 * 1024
 TAG_BYTES = 16
@@ -49,7 +52,6 @@ KDF_P = 1
 # keeps one free for other requests.
 MAX_CONCURRENT_TRANSFERS = 3
 SWEEP_INTERVAL_SECONDS = 60
-MAX_INDEX_CLAIM_ATTEMPTS = 10
 
 _transfer_slots = threading.BoundedSemaphore(MAX_CONCURRENT_TRANSFERS)
 
@@ -60,27 +62,91 @@ class FileShareError(ApiError):
 
 @dataclass(frozen=True)
 class FileShareRecord:
+	id: str
 	label: str
-	occurrence_index: int
 	original_filename: str
 	size_bytes: int
-	uploaded_at: str
-	expires_at: str
-	salt_b64: str
+	uploaded_at: datetime
+	expires_at: datetime
+	salt: bytes
+
+	@property
+	def stored_bytes(self) -> int:
+		return _ciphertext_size(self.size_bytes)
 
 	def to_json(self) -> dict:
-		# The public fields only; the salt stays server-side.
+		# The public fields only; the label and salt stay server-side.
 		return {
-			'occurrenceIndex': self.occurrence_index,
+			'id': self.id,
 			'originalFilename': self.original_filename,
 			'sizeBytes': self.size_bytes,
-			'uploadedAt': self.uploaded_at,
-			'expiresAt': self.expires_at,
+			'uploadedAt': self.uploaded_at.isoformat(),
+			'expiresAt': self.expires_at.isoformat(),
 		}
 
 
+class FileShareStore:
+	"""The index of stored files, oldest first, and the directory holding their payloads."""
+
+	def __init__(self, root: Path):
+		# Payloads left by an earlier process aren't in this (empty) index, so delete them.
+		if root.exists():
+			shutil.rmtree(root)
+		root.mkdir(parents=True)
+		self.root = root
+		# Insertion order is upload order, which eviction relies on.
+		self._records: dict[str, FileShareRecord] = {}
+		self._lock = threading.Lock()
+
+	def payload_path(self, file_id: str) -> Path:
+		return self.root / file_id
+
+	def _remove_locked(self, record: FileShareRecord) -> None:
+		del self._records[record.id]
+		# A download still streaming it keeps its open handle; the disk space frees when it closes.
+		self.payload_path(record.id).unlink(missing_ok=True)
+
+	def _remove_expired_locked(self, now: datetime) -> None:
+		for record in [r for r in self._records.values() if r.expires_at <= now]:
+			self._remove_locked(record)
+
+	def sweep(self, now: datetime | None = None) -> list[FileShareRecord]:
+		"""Delete expired files; returns the rest, oldest first."""
+		with self._lock:
+			self._remove_expired_locked(now or _now_utc())
+			return list(self._records.values())
+
+	def add(self, record: FileShareRecord, replace: bool) -> None:
+		"""Index a stored payload. `replace` first drops the key's other files; then the
+		oldest files go until the new one fits the byte and count quotas."""
+		with self._lock:
+			self._remove_expired_locked(_now_utc())
+			if replace:
+				for old in [r for r in self._records.values() if r.label == record.label]:
+					self._remove_locked(old)
+			# Uploads still writing aren't indexed yet, so the disk can briefly hold up to
+			# MAX_CONCURRENT_TRANSFERS more files than this counts.
+			used = sum(r.stored_bytes for r in self._records.values())
+			while self._records and (
+				used + record.stored_bytes > MAX_TOTAL_STORAGE_BYTES
+				or len(self._records) >= MAX_FILE_COUNT
+			):
+				oldest = next(iter(self._records.values()))
+				used -= oldest.stored_bytes
+				self._remove_locked(oldest)
+			self._records[record.id] = record
+
+
+def init_app(app: Flask) -> None:
+	app.extensions['fileshare'] = FileShareStore(Path(app.instance_path) / 'fileshare')
+
+
+def _store() -> FileShareStore:
+	return current_app.extensions['fileshare']
+
+
 def build_label(password: str) -> str:
-	# Keyed with SECRET_KEY (a pepper) so labels on disk can't be brute-forced
+	# Keyed with SECRET_KEY (a pepper), so a leaked label can't be brute-forced
 	# without also having the server secret.
 	pepper = current_app.config['SECRET_KEY'].encode('utf-8')
 	return hmac.new(pepper, password.encode('utf-8'), hashlib.sha256).hexdigest()
@@ -120,175 +186,33 @@ def _now_utc() -> datetime:
 	return datetime.now(UTC)
 
 
-def _storage_root() -> Path:
-	root = Path(current_app.instance_path) / STORAGE_DIR_NAME
-	root.mkdir(parents=True, exist_ok=True)
-	return root
-
-
-def _record_stem(label: str, occurrence_index: int) -> str:
-	return label if occurrence_index == 1 else f'{label}__{occurrence_index}'
-
-
-def _parse_stem(stem: str) -> tuple[str, int] | None:
-	"""Inverse of `_record_stem`: `(label, occurrence_index)`, or None for a malformed name."""
-	label, sep, suffix = stem.partition('__')
-	if not sep:
-		return label, 1
-	if not (suffix.isascii() and suffix.isdigit()):
-		return None
-	return label, int(suffix)
-
-
-def _record_paths(label: str, occurrence_index: int = 1) -> tuple[Path, Path]:
-	base = _storage_root() / _record_stem(label, occurrence_index)
-	return base.with_suffix(META_SUFFIX), base.with_suffix(PAYLOAD_SUFFIX)
-
-
-def _existing_indices(label: str) -> list[int]:
-	indices: set[int] = set()
-	for path in _storage_root().glob(f'{label}*'):
-		parsed = _parse_stem(path.stem)
-		if parsed is not None and parsed[0] == label:
-			indices.add(parsed[1])
-	return sorted(indices)
-
-
-def _b64encode(raw: bytes) -> str:
-	return base64.b64encode(raw).decode('ascii')
-
-
-def _b64decode(value: str) -> bytes:
-	return base64.b64decode(value.encode('ascii'))
-
-
-def _parse_timestamp(value: str) -> datetime:
-	parsed = datetime.fromisoformat(value)
-	if parsed.tzinfo is None:
-		return parsed.replace(tzinfo=UTC)
-	return parsed.astimezone(UTC)
-
-
 def _derive_key(password: str, salt: bytes) -> bytes:
 	kdf = Scrypt(salt=salt, length=KDF_LENGTH, n=KDF_N, r=KDF_R, p=KDF_P)
 	return kdf.derive(password.encode('utf-8'))
 
 
-def _load_record(meta_path: Path) -> FileShareRecord | None:
-	"""Read one record; None if it is unreadable or its payload is missing."""
-	parsed = _parse_stem(meta_path.stem)
-	if parsed is None:
-		return None
-	label, occurrence_index = parsed
-
-	try:
-		payload = json.loads(meta_path.read_text(encoding='utf-8'))
-		# Required, not defaulted: falsy-chaining it once reported empty files as 16 bytes.
-		size_bytes = int(payload['size_bytes'])
-	except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
-		return None
-	if not meta_path.with_suffix(PAYLOAD_SUFFIX).exists():
-		return None
-
-	return FileShareRecord(
-		label=label,
-		occurrence_index=occurrence_index,
-		original_filename=str(payload.get('original_filename') or 'download'),
-		size_bytes=size_bytes,
-		uploaded_at=str(payload.get('uploaded_at') or ''),
-		expires_at=str(payload.get('expires_at') or ''),
-		salt_b64=str(payload.get('salt_b64') or ''),
-	)
-
-
-def _unlink(*paths: Path) -> None:
-	for path in paths:
-		path.unlink(missing_ok=True)
-
-
-def _remove_record(label: str, occurrence_index: int) -> None:
-	_unlink(*_record_paths(label, occurrence_index))
-
-
-def _payload_size(record: FileShareRecord) -> int:
-	_, payload_path = _record_paths(record.label, record.occurrence_index)
-	try:
-		return payload_path.stat().st_size
-	except OSError:
-		return 0
-
-
-def _is_expired(record: FileShareRecord, now: datetime) -> bool:
-	try:
-		return now >= _parse_timestamp(record.expires_at)
-	except ValueError:
-		return True
-
-
-def _sweep(now: datetime | None = None) -> tuple[list[FileShareRecord], int]:
-	"""Delete expired or unreadable records in one pass over the metadata.
-
-	Returns the remaining records, ordered by label then index, and how many were deleted.
-	"""
-	current_time = now or _now_utc()
-	active: list[FileShareRecord] = []
-	deleted_count = 0
-
-	for meta_path in _storage_root().glob(f'*{META_SUFFIX}'):
-		record = _load_record(meta_path)
-		if record is not None and not _is_expired(record, current_time):
-			active.append(record)
-			continue
-		# Unlink by path so an unreadable record's payload doesn't linger outside the quota.
-		_unlink(meta_path, meta_path.with_suffix(PAYLOAD_SUFFIX))
-		deleted_count += 1
-
-	active.sort(key=lambda record: (record.label, record.occurrence_index))
-	return active, deleted_count
-
-
-def _remove_orphan_payloads(now: datetime) -> int:
-	"""Delete payloads left without metadata (e.g. by a crash mid-upload); returns how many."""
-	# The age check spares uploads still writing their payload, whose metadata comes last.
-	cutoff = (now - timedelta(seconds=RETENTION_SECONDS)).timestamp()
-	removed = 0
-	for payload_path in _storage_root().glob(f'*{PAYLOAD_SUFFIX}'):
-		try:
-			if (
-				payload_path.with_suffix(META_SUFFIX).exists()
-				or payload_path.stat().st_mtime > cutoff
-			):
-				continue
-		except FileNotFoundError:
-			continue
-		payload_path.unlink(missing_ok=True)
-		removed += 1
-	return removed
-
-
 def start_expiry_sweeper(app: Flask) -> threading.Event:
 	"""Sweep expired files on a daemon thread so idle files don't linger; set the returned event to stop it."""
 	stop = threading.Event()
+	store: FileShareStore = app.extensions['fileshare']
 
 	def run() -> None:
 		while not stop.wait(SWEEP_INTERVAL_SECONDS):
-			with app.app_context():
-				try:
-					_sweep()
-					_remove_orphan_payloads(_now_utc())
-				except Exception:
-					# One bad pass must not end the thread for the life of the process.
-					app.logger.exception('File share sweep failed')
+			try:
+				store.sweep()
+			except Exception:
+				# One bad pass must not end the thread for the life of the process.
+				app.logger.exception('File share sweep failed')
 
 	threading.Thread(target=run, name='fileshare-sweeper', daemon=True).start()
 	return stop
 
 
 def get_storage_status() -> dict[str, int | bool]:
-	records, _ = _sweep()
+	records = _store().sweep()
 	return {
 		'activeFileCount': len(records),
-		'usedBytes': sum(_payload_size(record) for record in records),
+		'usedBytes': sum(record.stored_bytes for record in records),
 		'maxFileBytes': MAX_FILE_BYTES,
 		'maxTotalBytes': MAX_TOTAL_STORAGE_BYTES,
 		'retentionSeconds': RETENTION_SECONDS,
@@ -297,12 +221,12 @@ def get_storage_status() -> dict[str, int | bool]:
 
 def get_all_records_for_password(password: str) -> list[FileShareRecord]:
 	label = build_label(password)
-	return [record for record in _sweep()[0] if record.label == label]
+	return [record for record in _store().sweep() if record.label == label]
 
 
-def get_record_for_password(password: str, occurrence_index: int) -> FileShareRecord | None:
+def get_record_for_password(password: str, file_id: str) -> FileShareRecord | None:
 	records = get_all_records_for_password(password)
-	return next((r for r in records if r.occurrence_index == occurrence_index), None)
+	return next((r for r in records if r.id == file_id), None)
 
 
 def _chunk_nonce(index: int, last: bool) -> bytes:
@@ -342,79 +266,30 @@ def _decrypt_chunks(key: bytes, path: Path) -> Iterator[bytes]:
 			yield aead.decrypt(_chunk_nonce(index, last), chunk, None)
 
 
-def _sanitize_original_filename(filename: str) -> str:
-	# secure_filename strips accents (`café` -> `cafe`) and drops other non-ASCII.
-	clean_name = secure_filename(filename)
-
-	stem, ext = os.path.splitext(os.path.basename(filename.replace('\\', '/')))
-	if not filename.isascii() and stem.strip() and not secure_filename(stem):
-		# Nothing in the name survives ASCII conversion (e.g. `日本語.pdf`), so keep the
-		# extension and use a placeholder stem that is stable for the same name.
-		digest = hashlib.sha256(stem.encode('utf-8')).hexdigest()[:8]
-		clean_ext = secure_filename(ext.lstrip('.'))
-		clean_name = f'file-{digest}.{clean_ext}' if clean_ext else f'file-{digest}'
-
-	return clean_name or 'download'
-
-
-def _evict_oldest_records(records: list[FileShareRecord], required_free_bytes: int) -> int:
-	"""Delete `records` oldest-upload-first until at least `required_free_bytes` are freed; returns bytes freed."""
-	if required_free_bytes <= 0:
-		return 0
-
-	try:
-		ordered = sorted(records, key=lambda record: _parse_timestamp(record.uploaded_at))
-	except ValueError:
-		ordered = records
-
-	freed_bytes = 0
-	for record in ordered:
-		if freed_bytes >= required_free_bytes:
-			break
-		freed_bytes += _payload_size(record)
-		_remove_record(record.label, record.occurrence_index)
-
-	return freed_bytes
+def _clean_filename(filename: str) -> str:
+	"""The uploaded name, kept only as metadata: Unicode stays, while directories and
+	control characters go, and it's capped at MAX_FILENAME_BYTES of UTF-8."""
+	name = filename.replace('\\', '/').rsplit('/', 1)[-1]
+	# Category C includes bidi overrides, which can disguise a file's real extension.
+	name = ''.join(c for c in name if unicodedata.category(c)[0] != 'C').strip()
+	stem, ext = os.path.splitext(name)
+	# Trim the stem, not the extension, so the file still opens with the right app.
+	room = MAX_FILENAME_BYTES - len(ext.encode())
+	if room <= 0:
+		stem, ext, room = name, '', MAX_FILENAME_BYTES
+	# 'ignore' drops a character cut in half by the byte limit.
+	stem = stem.encode()[:room].decode('utf-8', 'ignore')
+	return (stem + ext).strip() or 'download'
 
 
-def _write_new_payload(label: str, write: Callable[[BinaryIO], None]) -> int:
-	"""Create the payload at the label's next free index, fill it with `write`, and return that index.
+def save_upload(
+	uploaded_file: FileStorage | None, password: str, replace: bool = False
+) -> FileShareRecord:
+	"""Encrypt and store a file under the key, evicting the oldest files if over quota.
 
-	Mode 'x' makes claiming an index atomic: if a concurrent upload under the same key
-	took it first, move on to the next index instead of overwriting that file.
+	`replace` deletes the key's earlier files, but only once this one is stored, so a
+	failed upload leaves them in place.
 	"""
-	for _ in range(MAX_INDEX_CLAIM_ATTEMPTS):
-		occurrence_index = max(_existing_indices(label), default=0) + 1
-		_, payload_path = _record_paths(label, occurrence_index)
-		try:
-			handle = payload_path.open('xb')
-		except FileExistsError:
-			continue
-		try:
-			with handle:
-				write(handle)
-		except BaseException:
-			payload_path.unlink(missing_ok=True)
-			raise
-		return occurrence_index
-
-	raise FileShareError('The file share is busy right now; try again in a moment.', 503)
-
-
-def _write_text_atomically(path: Path, text: str) -> None:
-	# Sweeps delete metadata they can't parse, so they must never see a half-written file.
-	# The dot prefix keeps the temp file out of the `*.json` and `<label>*` globs.
-	temp_path = path.with_name(f'.{path.name}.tmp')
-	try:
-		temp_path.write_text(text, encoding='utf-8')
-		temp_path.replace(path)
-	except BaseException:
-		temp_path.unlink(missing_ok=True)
-		raise
-
-
-def save_upload(uploaded_file: FileStorage | None, password: str) -> FileShareRecord:
-	"""Encrypt and store a file at the key's next occurrence index, evicting old files if over quota."""
 	if not password.strip():
 		raise FileShareError('Access key is required.')
 	if uploaded_file is None or not (uploaded_file.filename or '').strip():
@@ -427,57 +302,35 @@ def save_upload(uploaded_file: FileStorage | None, password: str) -> FileShareRe
 	if size_bytes > MAX_FILE_BYTES:
 		raise FileShareError(f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.', 413)
 
-	records, _ = _sweep()
-	used_bytes = sum(_payload_size(record) for record in records)
-	required_free_bytes = used_bytes + _ciphertext_size(size_bytes) - MAX_TOTAL_STORAGE_BYTES
-	if required_free_bytes >= 0:
-		freed_bytes = _evict_oldest_records(records, required_free_bytes + 1)
-		if freed_bytes <= required_free_bytes:
-			raise FileShareError('Not enough storage available; try again later.', 503)
-
+	store = _store()
+	file_id = secrets.token_hex(16)
 	salt = os.urandom(SALT_BYTES)
-	key = _derive_key(password, salt)
 	label = build_label(password)
-	occurrence_index: int | None = None
+	filename = _clean_filename(uploaded_file.filename)
+	payload_path = store.payload_path(file_id)
 	try:
-		occurrence_index = _write_new_payload(
-			label, lambda handle: _encrypt_chunks(key, source, handle)
-		)
-		now = _now_utc()
-		record = FileShareRecord(
-			label=label,
-			occurrence_index=occurrence_index,
-			original_filename=_sanitize_original_filename(uploaded_file.filename),
-			size_bytes=size_bytes,
-			uploaded_at=now.isoformat(),
-			expires_at=(now + timedelta(seconds=RETENTION_SECONDS)).isoformat(),
-			salt_b64=_b64encode(salt),
-		)
-		# Label and index are encoded in the filename, not stored.
-		metadata = {
-			k: v for k, v in asdict(record).items() if k not in ('label', 'occurrence_index')
-		}
-		meta_path, _ = _record_paths(label, occurrence_index)
-		_write_text_atomically(meta_path, json.dumps(metadata, indent=2, sort_keys=True))
+		with payload_path.open('wb') as handle:
+			_encrypt_chunks(_derive_key(password, salt), source, handle)
 	except OSError as exc:
-		if occurrence_index is not None:
-			_remove_record(label, occurrence_index)
+		payload_path.unlink(missing_ok=True)
 		current_app.logger.exception('Failed to store fileshare upload')
 		raise FileShareError('Failed to store upload.', 500) from exc
+	except BaseException:
+		payload_path.unlink(missing_ok=True)
+		raise
 
+	now = _now_utc()
+	record = FileShareRecord(
+		id=file_id,
+		label=label,
+		original_filename=filename,
+		size_bytes=size_bytes,
+		uploaded_at=now,
+		expires_at=now + timedelta(seconds=RETENTION_SECONDS),
+		salt=salt,
+	)
+	store.add(record, replace=replace)
 	return record
-
-
-def delete_records(password: str, occurrence_indices: Iterable[int]) -> int:
-	"""Delete the key's files at the given indices (missing ones are skipped); returns how many were removed."""
-	if not password.strip():
-		raise FileShareError('Access key is required.')
-
-	label = build_label(password)
-	targets = set(_existing_indices(label)).intersection(occurrence_indices)
-	for occurrence_index in targets:
-		_remove_record(label, occurrence_index)
-	return len(targets)
 
 
 def open_record_payload(record: FileShareRecord, password: str) -> Iterator[bytes]:
@@ -486,10 +339,11 @@ def open_record_payload(record: FileShareRecord, password: str) -> Iterator[byte
 	The first chunk is decrypted here so a missing or corrupt file still gets an error
 	response; a later bad chunk can only end the stream early.
 	"""
-	_, payload_path = _record_paths(record.label, record.occurrence_index)
 	# Catch the failed open rather than checking exists(): a sweep can delete it in between.
 	try:
-		chunks = _decrypt_chunks(_derive_key(password, _b64decode(record.salt_b64)), payload_path)
+		chunks = _decrypt_chunks(
+			_derive_key(password, record.salt), _store().payload_path(record.id)
+		)
 		first = next(chunks)
 	except FileNotFoundError:
 		raise FileShareError('The requested file is no longer available.', 404) from None

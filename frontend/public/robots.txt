@@ -54,4 +54,4 @@ Disallow: /
 User-agent: meta-externalagent
 Disallow: /
 
-Sitemap: %SITE_ORIGIN%/sitemap.xml
+Sitemap: https://josephcicalese.com/sitemap.xml

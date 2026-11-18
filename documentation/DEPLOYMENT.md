@@ -34,7 +34,7 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 | `cloudflare-api-token` | manually | `tf.sh` → `CLOUDFLARE_API_TOKEN` for the Cloudflare provider |
 
 - The VM reads secrets on every boot and restarts a service only if its secret changed. To rotate, update the secret in Secret Manager and reboot the VM.
-- `flask-secret` is also the file-share label pepper, so rotating it orphans current file-share files (they expire within 10 minutes anyway).
+- `flask-secret` is also the file-share label pepper. Rotating it takes a restart, which clears the file share anyway.
 - GitHub Actions holds no deploy credentials: it authenticates through Workload Identity Federation, and its two repository variables are identifiers. (`CODECOV_TOKEN` is the only Actions secret.)
 - **`tf.sh` token lookup:** secret `GSM_CLOUDFLARE_TOKEN_SECRET` (default `cloudflare-api-token`), version `GSM_CLOUDFLARE_TOKEN_VERSION` (default `latest`), project `GSM_CLOUDFLARE_TOKEN_PROJECT`, then `TF_VAR_project_id`, then the `gcloud` default. Needs an authenticated `gcloud` with `secretmanager.secretAccessor` on the secret.
 - The Cloudflare API token needs Zone → DNS → Edit, Account → Cloudflare Tunnel → Edit, Zone → Managed headers → Edit, and Account → Account Rulesets → Read. A 403 on one resource during `apply` usually means one is missing.
@@ -49,7 +49,7 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 4. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
 5. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
 
-On every boot it refreshes secrets from Secret Manager. Then, on any boot where no release is active (`current` is missing), it installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
+On every boot it refreshes secrets from Secret Manager, using the `gcloud` that ships with Google's Debian images (as the VM's service account). Then, on any boot where no release is active (`current` is missing), it installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
 
 Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates changes the startup script metadata, which forces Terraform to **replace the VM**.
 
@@ -63,7 +63,7 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
   - gzip for HTML, JSON, CSS, JS, and SVG, including API responses (the course catalog is ~3 MB raw).
   - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10 (`/api/fileshare/` with `nodelay`; other `/api/` delays requests past 5 instead), answered with `429`. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
   - Security headers: HSTS (with `includeSubDomains`, so every subdomain, `status` included, must serve HTTPS), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce it, browse each page with the console open, fix or allow what it reports, then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
-- `/.well-known/security.txt` is built from `frontend/site-files/security.txt` (see [Implementation](./IMPLEMENTATION.md)). Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
+- `/.well-known/security.txt` is `frontend/public/.well-known/security.txt`. Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
 - **`flaskapp`** (systemd, `FLASK_ENV=production`, `PORT=backend_port`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
 
 ### Releases

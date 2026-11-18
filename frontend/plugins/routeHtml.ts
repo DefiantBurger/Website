@@ -1,7 +1,8 @@
 // Per-route HTML: every route gets its own copy of index.html with that page's title,
 // description, canonical link, and Open Graph tags, so link previews and crawlers that
 // don't run JavaScript see the right page. Nginx serves only files that exist, so
-// unknown paths get a real 404 (with the SPA shell as the body).
+// unknown paths get a real 404 (with the SPA shell as the body). The same page list
+// becomes sitemap.xml.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { Plugin } from 'vite';
@@ -131,6 +132,14 @@ export function renderNoscriptLinks(): string {
     .join('\n        ');
 }
 
+/** sitemap.xml listing every page that has a canonical URL. */
+export function sitemapXml(pages: readonly PageHead[], origin: string): string {
+  const urls = pages
+    .filter((page) => page.canonicalPath)
+    .map((page) => `  <url><loc>${escapeHtml(origin + page.canonicalPath)}</loc></url>`);
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+}
+
 /** index.html with its markers filled in for one page. */
 export function renderShell(shell: string, page: PageHead, origin: string): string {
   for (const marker of [HEAD_MARKER, NOSCRIPT_MARKER]) {
@@ -143,7 +152,7 @@ export function renderShell(shell: string, page: PageHead, origin: string): stri
     .replace(NOSCRIPT_MARKER, () => renderNoscriptLinks());
 }
 
-/** Writes <path>/index.html for every route plus 404.html; the dev server fills in the requested page. */
+/** Writes <path>/index.html for every route, 404.html, and sitemap.xml; the dev server fills in the requested page. */
 export function routeHtml(origin: string, readProjects: () => ProjectSummary[]): Plugin {
   const findHead = (path: string) =>
     pageHeads(readProjects()).find((page) => page.path === path) ?? notFoundHead;
@@ -160,8 +169,10 @@ export function routeHtml(origin: string, readProjects: () => ProjectSummary[]):
     writeBundle(options) {
       const dist = options.dir ?? resolve(import.meta.dirname, '..', 'dist');
       const shell = readFileSync(resolve(dist, 'index.html'), 'utf8');
+      const pages = pageHeads(readProjects());
+      writeFileSync(resolve(dist, 'sitemap.xml'), sitemapXml(pages, origin));
       const files: [string, PageHead][] = [
-        ...pageHeads(readProjects()).map((page): [string, PageHead] => [
+        ...pages.map((page): [string, PageHead] => [
           resolve(dist, `.${page.path}`, 'index.html'),
           page,
         ]),

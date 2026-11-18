@@ -224,7 +224,7 @@ Better Stack monitors uptime externally. The site footer links its public status
 The platform hosts several interactive utilities that showcase different engineering challenges:
 
 - **Class Scheduler** (`/utilities/scheduler`): a drag-and-drop semester planner for UW–Madison courses. It checks nested prerequisite rules (all-of, any-of, at-least-k-of, and concurrent enrollment), draws them as a dependency graph with auto-detangling to reduce edge crossings, flags pairs of courses that can't both count for credit, and supports variable-credit courses, undo/redo, and JSON import/export. Plans are saved in the URL fragment, compressed, so a link shares a plan without it ever reaching the server. The catalog comes from a separate scraper I wrote that parses the university's requisite text into structured rules.
-- **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. Files are encrypted at rest with scrypt + AES-256-GCM in 1 MiB chunks streamed to and from disk, so memory use doesn't grow with file size and a truncated or reordered file fails to decrypt. Files are looked up by an HMAC of the key, limited to 80 MB each and 1 GB total, and expire after 10 minutes.
+- **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. Files are encrypted at rest with scrypt + AES-256-GCM in 1 MiB chunks streamed to and from disk, so memory use doesn't grow with file size and a truncated or reordered file fails to decrypt. Files are looked up by an HMAC of the key, limited to 80 MB each and 1 GB (and 1,000 files) in total, and expire after 10 minutes. The file index lives only in memory, so a restart deletes every file.
 - **Message Board** (`/utilities/message-board`): an anonymous board where posts expire 60 seconds after posting. Text is Unicode-sanitized (control, zero-width, and bidi-override characters are stripped while emoji sequences survive), capped at 280 characters, and rate-limited per IP. The page polls while visible and times each countdown from the server's clock, so a wrong local clock doesn't hide or keep messages.
 
 There's also an **About You** page that shows what the site can observe about a visit: request headers, Cloudflare's location headers (with a map of the approximate location), browser properties, and in-session navigation history (kept in memory, never sent to the server).
@@ -281,7 +281,7 @@ The rendering pipeline:
 
 Implementing this surfaced subtle integration issues:
 
-- The sanitization schema needed explicit support for the Mermaid placeholder tags, and the build now fails if a Mermaid fence doesn't survive as a diagram, so a schema change can't silently turn diagrams into code blocks.
+- The sanitization schema needed explicit support for the Mermaid placeholder tags; without it, diagrams silently turn back into code blocks.
 - Heading IDs have to be added after sanitizing; otherwise the sanitizer prefixes them and the anchor links stop matching.
 - Mermaid has to run after rendered content is mounted, and again when the theme changes.
 - Wide diagrams shrink to fit only down to 60% of their natural size, then scroll horizontally, so they stay readable on phones.

@@ -61,23 +61,23 @@ Temporary file sharing keyed by an access key: files are encrypted at rest and e
 | Method | Path | Fields | Response |
 | --- | --- | --- | --- |
 | GET | `/api/fileshare/status/` | | `{activeFileCount, usedBytes, maxFileBytes, maxTotalBytes, retentionSeconds}` |
-| POST | `/api/fileshare/upload/` | `file`, `password` | file record, stored at the key's next `occurrenceIndex` |
-| POST | `/api/fileshare/delete/` | `password`, `occurrenceIndices` (comma-separated) | `{"deletedCount": n}`; missing indices are skipped |
-| POST | `/api/fileshare/list/` | `password` | `{"files": [<file record>]}`; 404 if none |
-| POST | `/api/fileshare/access/` | `password`, `occurrenceIndex` (default `1`) | the file as an `application/octet-stream` attachment |
+| POST | `/api/fileshare/upload/` | `file`, `password`, optional `replace=1` | file record; `replace=1` deletes the key's earlier files once this one is stored |
+| POST | `/api/fileshare/list/` | `password` | `{"files": [<file record>]}`, oldest first; 404 if none |
+| POST | `/api/fileshare/access/` | `password`, `id` | the file as an `application/octet-stream` attachment |
 
-A file record is `{occurrenceIndex, originalFilename, sizeBytes, uploadedAt, expiresAt}`.
+A file record is `{id, originalFilename, sizeBytes, uploadedAt, expiresAt}`; `id` is random.
 
-Errors: `400` missing key/file or invalid index, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `503` storage full or too many concurrent transfers.
+Errors: `400` missing key or file, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `503` too many concurrent transfers.
 
 ### Behavior
 
-- **Lookup.** The storage label is HMAC-SHA256(access key) keyed with `SECRET_KEY`, so labels can't be brute-forced without the server secret. A key's files are `<label>.json`/`.payload`, `<label>__2.*`, and so on; each upload claims its index by creating the payload exclusively, so concurrent uploads never overwrite each other.
+- **Storage.** The index of files lives in memory (`FileShareStore`, one per app); each file's ciphertext is `<instance>/fileshare/<id>`. Nothing survives a restart (deploy, reboot, or crash): creating the store empties that directory, since without the index, which holds each file's salt, the payloads could never be found or decrypted. This assumes one process, as Waitress runs it.
+- **Lookup.** A file belongs to the key whose HMAC-SHA256, keyed with `SECRET_KEY`, matches its label, so the key itself is never stored.
 - **Encryption.** scrypt (n=2¹⁴, r=8, p=1, random salt per file) derives an AES-256-GCM key from the access key. Files are encrypted and decrypted in 1 MiB chunks, streamed to and from disk, so a transfer's memory use doesn't grow with file size. Each chunk's nonce is its index plus a last-chunk flag, so truncated, extended, or reordered payloads fail to decrypt. A download checks the first chunk before responding; a bad later chunk ends the stream short of its `Content-Length`.
-- **Limits.** 80 MB per file (under Cloudflare's 100 MB request limit), 1 GB total; the oldest files are evicted to make room, else `503`. At most 3 transfers run at once (`MAX_CONCURRENT_TRANSFERS`), leaving one of Waitress's 4 threads for other requests; a download keeps its slot until the response is fully sent.
-- **Expiry.** File-share requests delete expired files, and in production a background thread (`start_expiry_sweeper`, started in `main.py`) also sweeps every minute, removing payloads left without metadata for longer than the retention period.
+- **Limits.** 80 MB per file (under Cloudflare's 100 MB request limit), and 1 GB and 1,000 files in total; the oldest files are evicted to make room. At most 3 transfers run at once (`MAX_CONCURRENT_TRANSFERS`), leaving one of Waitress's 4 threads for other requests; a download keeps its slot until the response is fully sent.
+- **Expiry.** File-share requests delete expired files, and in production a background thread (`start_expiry_sweeper`, started in `main.py`) also sweeps every minute. Expired, evicted, and replaced files are deleted from disk immediately.
 - **Downloads** ignore the uploader's MIME type and send `nosniff`, so uploaded HTML can't run on the site's origin.
-- **UI batches.** The UI uploads one request per file, and a new batch replaces the key's previous files only after every upload succeeds; on failure it deletes what it already stored, so the previous batch survives (`lib/fileshare/replaceBatch.ts`). Indices keep counting up across batches.
+- **UI batches.** The UI uploads one request per file, and the first sends `replace=1`, so a new batch replaces the key's previous files. If the first upload fails, the previous files stay; if a later one fails, the key keeps only the files stored before it.
 
 ## Message Board
 

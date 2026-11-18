@@ -4,6 +4,7 @@ from flask import Flask, current_app, jsonify, request
 from flask_cors import CORS
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from . import fileshare
 from .fileshare import MAX_FILE_BYTES
 from .views import views
 
@@ -40,6 +41,7 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 	def request_too_large(e):
 		return jsonify({'error': f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.'}), 413
 
+	fileshare.init_app(app)
 	app.register_blueprint(views, url_prefix='/')
 
 	return app

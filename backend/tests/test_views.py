@@ -7,21 +7,24 @@ import pytest
 from app.fileshare import FileShareError
 
 
-def _upload(client, name='file.txt', content=b'abc', password='pass', mimetype=None):
+def _upload(client, name='file.txt', content=b'abc', password='pass', mimetype=None, **fields):
 	file = (BytesIO(content), name, mimetype) if mimetype else (BytesIO(content), name)
 	return client.post(
 		'/api/fileshare/upload/',
-		data={'file': file, 'password': password},
+		data={'file': file, 'password': password, **fields},
 		content_type='multipart/form-data',
 	)
 
 
-def _access(client, password='pass', index='1', **kwargs):
+def _access(client, file_id, password='pass', **kwargs):
 	return client.post(
-		'/api/fileshare/access/',
-		data={'password': password, 'occurrenceIndex': index},
-		**kwargs,
+		'/api/fileshare/access/', data={'password': password, 'id': file_id}, **kwargs
 	)
+
+
+def _list_names(client, password='pass'):
+	files = client.post('/api/fileshare/list/', data={'password': password}).get_json()['files']
+	return [f['originalFilename'] for f in files]
 
 
 def test_health(client):
@@ -91,13 +94,7 @@ def test_fileshare_upload_and_download_flow(client):
 	res = _upload(client, 'hello.txt', content, password='mypassword')
 	assert res.status_code == 200
 	uploaded = res.get_json()
-	assert set(uploaded) == {
-		'occurrenceIndex',
-		'originalFilename',
-		'sizeBytes',
-		'uploadedAt',
-		'expiresAt',
-	}
+	assert set(uploaded) == {'id', 'originalFilename', 'sizeBytes', 'uploadedAt', 'expiresAt'}
 	assert uploaded['originalFilename'] == 'hello.txt'
 	assert uploaded['sizeBytes'] == len(content)
 
@@ -108,10 +105,10 @@ def test_fileshare_upload_and_download_flow(client):
 	assert res.status_code == 200
 	assert res.get_json() == {'files': [uploaded]}
 
-	assert _access(client, 'mypassword', 'abc').status_code == 400
-	assert _access(client, 'wrong-password').status_code == 404
+	assert _access(client, 'no-such-id', 'mypassword').status_code == 404
+	assert _access(client, uploaded['id'], 'wrong-password').status_code == 404
 
-	res = _access(client, 'mypassword')
+	res = _access(client, uploaded['id'], 'mypassword')
 	assert res.status_code == 200
 	assert res.data == content
 	assert res.headers['Content-Disposition'] == 'attachment; filename=hello.txt'
@@ -119,46 +116,38 @@ def test_fileshare_upload_and_download_flow(client):
 	assert res.headers['Cache-Control'] == 'no-store'
 
 
-def test_fileshare_replace_batch_flow(client):
-	# What the UI does: upload the new batch, then delete the old one.
-	old = _upload(client, 'old.txt', b'old').get_json()
-	new = [_upload(client, name, b'new').get_json() for name in ('a.txt', 'b.txt')]
-	assert [r['occurrenceIndex'] for r in new] == [2, 3]
+def test_fileshare_replace_flow(client):
+	# What the UI does: the first file of a batch replaces the key's earlier files.
+	_upload(client, 'old.txt', b'old')
+	_upload(client, 'a.txt', b'new', replace='1')
+	_upload(client, 'b.txt', b'new')
+	assert _list_names(client) == ['a.txt', 'b.txt']
 
-	res = client.post(
-		'/api/fileshare/delete/',
-		data={'password': 'pass', 'occurrenceIndices': str(old['occurrenceIndex'])},
+
+def test_fileshare_download_sends_unicode_names_as_filename_star(client):
+	file_id = _upload(client, 'résumé 日本.pdf').get_json()['id']
+	disposition = _access(client, file_id).headers['Content-Disposition']
+	assert disposition == (
+		'attachment; filename="resume .pdf"; filename*=UTF-8\'\'r%C3%A9sum%C3%A9%20%E6%97%A5%E6%9C%AC.pdf'
 	)
-	assert res.status_code == 200
-	assert res.get_json() == {'deletedCount': 1}
-
-	files = client.post('/api/fileshare/list/', data={'password': 'pass'}).get_json()['files']
-	assert [f['originalFilename'] for f in files] == ['a.txt', 'b.txt']
-
-
-@pytest.mark.parametrize(
-	'data', [{'password': 'pass', 'occurrenceIndices': '1,x'}, {'occurrenceIndices': '1'}]
-)
-def test_fileshare_delete_rejects_bad_input(client, data):
-	res = client.post('/api/fileshare/delete/', data=data)
-	assert res.status_code == 400
-	assert 'error' in res.get_json()
 
 
 def test_fileshare_access_decryption_error(client):
-	_upload(client)
+	file_id = _upload(client).get_json()['id']
 	with patch(
 		'app.views.open_record_payload',
 		side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
 	):
-		res = _access(client)
+		res = _access(client, file_id)
 	assert res.status_code == 403
 	assert res.get_json() == {'error': 'Incorrect access key or corrupted file.'}
 
 
 def test_fileshare_download_ignores_uploaded_mime_type(client):
-	_upload(client, 'x.html', b'<script>alert(1)</script>', mimetype='text/html')
-	res = _access(client)
+	file_id = _upload(
+		client, 'x.html', b'<script>alert(1)</script>', mimetype='text/html'
+	).get_json()['id']
+	res = _access(client, file_id)
 	assert res.status_code == 200
 	assert res.mimetype == 'application/octet-stream'
 	assert res.headers.get('X-Content-Type-Options') == 'nosniff'
@@ -172,11 +161,11 @@ def test_fileshare_busy_when_no_transfer_slots(client):
 
 
 def test_fileshare_download_holds_slot_until_response_closes(client):
-	_upload(client)
+	file_id = _upload(client).get_json()['id']
 	slots = threading.BoundedSemaphore(1)
 	with patch('app.fileshare._transfer_slots', slots):
 		# buffered=False leaves the response open, like a client still downloading.
-		res = _access(client, buffered=False)
+		res = _access(client, file_id, buffered=False)
 		assert res.status_code == 200
 		assert not slots.acquire(blocking=False)
 
@@ -187,7 +176,7 @@ def test_fileshare_download_holds_slot_until_response_closes(client):
 
 
 def test_fileshare_download_error_releases_slot(client):
-	_upload(client)
+	file_id = _upload(client).get_json()['id']
 	slots = threading.BoundedSemaphore(1)
 	with (
 		patch('app.fileshare._transfer_slots', slots),
@@ -196,6 +185,6 @@ def test_fileshare_download_error_releases_slot(client):
 			side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
 		),
 	):
-		assert _access(client).status_code == 403
+		assert _access(client, file_id).status_code == 403
 		assert slots.acquire(blocking=False)
 		slots.release()

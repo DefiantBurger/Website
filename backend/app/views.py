@@ -1,5 +1,7 @@
+import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from flask import (
 	Blueprint,
@@ -15,7 +17,6 @@ from . import uptime
 from .errors import ApiError
 from .fileshare import (
 	acquire_transfer_slot,
-	delete_records,
 	get_all_records_for_password,
 	get_record_for_password,
 	get_storage_status,
@@ -75,11 +76,16 @@ def _parse_coordinate(raw: str) -> float | None:
 		return None
 
 
-def _parse_index(value: str) -> int:
-	try:
-		return int(value)
-	except ValueError:
-		raise ApiError('Invalid occurrence index.') from None
+def _attachment_header(filename: str) -> str:
+	"""Content-Disposition for a download, built the way Werkzeug's send_file does: the
+	name as `filename`, or for a non-ASCII name an ASCII fallback plus the real one in `filename*`."""
+	if filename.isascii():
+		return dump_options_header('attachment', {'filename': filename})
+	fallback = unicodedata.normalize('NFKD', filename).encode('ascii', 'ignore').decode('ascii')
+	encoded = quote(filename, safe='!#$&+-.^_`|~')
+	return dump_options_header(
+		'attachment', {'filename': fallback, 'filename*': f"UTF-8''{encoded}"}
+	)
 
 
 def _cloudflare_geolocation() -> dict:
@@ -138,33 +144,21 @@ def fileshare_status():
 
 @views.route('/api/fileshare/upload/', methods=['POST'])
 def fileshare_upload():
-	# Form fields: file, password. Always appends; the client deletes the old batch afterwards.
+	# Form fields: file, password, and replace=1 on a batch's first file, which then
+	# replaces the key's earlier files once it's stored.
 	password = request.form.get('password', '')
+	replace = request.form.get('replace') == '1'
 	with transfer_slot():
-		record = save_upload(request.files.get('file'), password)
+		record = save_upload(request.files.get('file'), password, replace=replace)
 
 	return jsonify(record.to_json())
 
 
-@views.route('/api/fileshare/delete/', methods=['POST'])
-def fileshare_delete():
-	# Form fields: password, occurrenceIndices (comma-separated).
-	password = request.form.get('password', '')
-	occurrence_indices = [
-		_parse_index(part)
-		for part in request.form.get('occurrenceIndices', '').split(',')
-		if part.strip()
-	]
-	return jsonify({'deletedCount': delete_records(password, occurrence_indices)})
-
-
 @views.route('/api/fileshare/access/', methods=['POST'])
 def fileshare_access():
-	# Form fields: password, occurrenceIndex (which of the key's files; default 1).
+	# Form fields: password, id (which of the key's files, from the list or upload response).
 	password = request.form.get('password', '')
-	occurrence_index = _parse_index(request.form.get('occurrenceIndex', '1'))
-
-	record = get_record_for_password(password, occurrence_index)
+	record = get_record_for_password(password, request.form.get('id', ''))
 	if record is None:
 		raise ApiError('No active file matched that password.', 404)
 
@@ -182,9 +176,7 @@ def fileshare_access():
 		chunks,
 		mimetype='application/octet-stream',
 		headers={
-			'Content-Disposition': dump_options_header(
-				'attachment', {'filename': record.original_filename}
-			),
+			'Content-Disposition': _attachment_header(record.original_filename),
 			# Lets the client detect a stream cut short by a corrupt later chunk.
 			'Content-Length': str(record.size_bytes),
 			'Cache-Control': 'no-store',

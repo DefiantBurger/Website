@@ -14,16 +14,19 @@ def test_create_app_without_secret_key_raises_error(monkeypatch):
 		create_app()
 
 
-def test_create_app_with_env_secret_key(monkeypatch):
+def test_create_app_with_env_secret_key(monkeypatch, tmp_path):
 	monkeypatch.setenv('SECRET_KEY', 'env-secret-key')
-	app = create_app()
+	app = create_app(instance_path=str(tmp_path))
 	assert app.config['SECRET_KEY'] == 'env-secret-key'
 	assert not app.config.get('TESTING', False)
 
 
-def test_test_config_secret_key_wins_over_env(monkeypatch):
+def test_test_config_secret_key_wins_over_env(monkeypatch, tmp_path):
 	monkeypatch.setenv('SECRET_KEY', 'env-secret-key')
-	app = create_app(test_config={'SECRET_KEY': 'config-secret-key', 'TESTING': True})
+	app = create_app(
+		test_config={'SECRET_KEY': 'config-secret-key', 'TESTING': True},
+		instance_path=str(tmp_path),
+	)
 	assert app.config['SECRET_KEY'] == 'config-secret-key'
 	assert app.config['TESTING']
 
@@ -68,9 +71,12 @@ def test_oversized_body_returns_json_413(app, client):
 	('flask_env', 'allowed_origins'),
 	[('production', [None]), ('development', ['*', 'https://example.com'])],
 )
-def test_cors_only_in_development(monkeypatch, flask_env, allowed_origins):
+def test_cors_only_in_development(monkeypatch, tmp_path, flask_env, allowed_origins):
 	monkeypatch.setenv('FLASK_ENV', flask_env)
-	client = create_app(test_config={'SECRET_KEY': 'test-key', 'TESTING': True}).test_client()
+	app = create_app(
+		test_config={'SECRET_KEY': 'test-key', 'TESTING': True}, instance_path=str(tmp_path)
+	)
+	client = app.test_client()
 	res = client.get('/api/messageboard/messages/', headers={'Origin': 'https://example.com'})
 	assert res.status_code == 200
 	assert res.headers.get('Access-Control-Allow-Origin') in allowed_origins

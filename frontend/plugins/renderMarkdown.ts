@@ -48,58 +48,41 @@ function fenceText(node: HastNode, language: string): string | undefined {
     .trim();
 }
 
-/** Replace ```mermaid code blocks with <div class="mermaid"> so Mermaid can render them after mount. */
-function rehypeMermaid(counter: { transformed: number }) {
-  return function transformer(tree: HastNode) {
+/**
+ * A plugin replacing every ```<language> fence with the div `toDiv` builds from its text.
+ * A new function per call: unified keeps only the last options of a plugin used twice.
+ */
+function rehypeFence(language: string, toDiv: (text: string) => HastNode) {
+  return () => (tree: HastNode) => {
     visit(
       tree,
       'element',
       (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
-        const codeText = fenceText(node, 'mermaid');
-        if (codeText === undefined || !parent?.children || index === undefined) {
-          return;
+        const text = fenceText(node, language);
+        if (text !== undefined && parent?.children && index !== undefined) {
+          parent.children[index] = toDiv(text);
         }
-
-        parent.children[index] = {
-          type: 'element',
-          tagName: 'div',
-          properties: { className: ['mermaid'] },
-          children: [{ type: 'text', value: codeText }],
-        };
-
-        counter.transformed += 1;
       },
     );
   };
 }
 
-/**
- * Replace ```demo blocks (body: a demo id) with a placeholder div that
- * ProjectDetail.svelte mounts the interactive demo into.
- */
-function rehypeDemos() {
-  return function transformer(tree: HastNode) {
-    visit(
-      tree,
-      'element',
-      (node: HastNode, index: number | undefined, parent: HastNode | undefined) => {
-        const id = fenceText(node, 'demo');
-        if (id === undefined || !parent?.children || index === undefined) {
-          return;
-        }
-        if (!isDemoId(id)) {
-          throw new Error(`renderMarkdown: unknown demo "${id}"`);
-        }
+const div = (properties: HastNode['properties'], text: string): HastNode => ({
+  type: 'element',
+  tagName: 'div',
+  properties,
+  children: [{ type: 'text', value: text }],
+});
 
-        parent.children[index] = {
-          type: 'element',
-          tagName: 'div',
-          properties: { className: ['project-demo'], dataDemo: id },
-          children: [{ type: 'text', value: 'Loading interactive demo...' }],
-        };
-      },
-    );
-  };
+// Mermaid renders these after mount.
+const mermaidDiv = (source: string) => div({ className: ['mermaid'] }, source);
+
+// The body is a demo id; ProjectDetail.svelte mounts that interactive demo into the placeholder.
+function demoDiv(id: string): HastNode {
+  if (!isDemoId(id)) {
+    throw new Error(`renderMarkdown: unknown demo "${id}"`);
+  }
+  return div({ className: ['project-demo'], dataDemo: id }, 'Loading interactive demo...');
 }
 
 // Blocks that become grep lines; one nested in another (a list in a list item) is its own line.
@@ -143,26 +126,14 @@ function rehypeCollectText(out: Omit<RenderedMarkdown, 'html'>) {
   };
 }
 
-/** Fail the build on output that would render wrong, rather than ship it. */
-function rehypeCheckOutput(mermaid: { transformed: number }) {
+/** Fail the build on invalid LaTeX, which rehype-katex renders as red source text instead of throwing. */
+function rehypeCheckMath() {
   return function transformer(tree: HastNode) {
-    let mermaidDivs = 0;
     visit(tree, 'element', (node: HastNode) => {
-      // A fence that wasn't transformed, or a div that lost its class, shows up as raw source.
-      if (hasClass(node, 'language-mermaid')) {
-        throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
-      }
-      if (node.tagName === 'div' && hasClass(node, 'mermaid')) {
-        mermaidDivs += 1;
-      }
-      // rehype-katex renders bad LaTeX as red source text instead of throwing.
       if (hasClass(node, 'katex-error')) {
         throw new Error('renderMarkdown: invalid LaTeX in a math block');
       }
     });
-    if (mermaidDivs < mermaid.transformed) {
-      throw new Error('renderMarkdown: a mermaid fence did not survive the pipeline');
-    }
   };
 }
 
@@ -216,7 +187,6 @@ const sanitizeSchema: SanitizeSchema = {
 };
 
 export async function renderProjectMarkdown(markdown: string): Promise<RenderedMarkdown> {
-  const counter = { transformed: 0 };
   const text = { lines: [] as string[], hasMath: false };
 
   const rendered = await unified()
@@ -224,8 +194,8 @@ export async function renderProjectMarkdown(markdown: string): Promise<RenderedM
     .use(remarkGfm)
     .use(remarkMath)
     .use(remarkRehype)
-    .use(rehypeMermaid, counter)
-    .use(rehypeDemos)
+    .use(rehypeFence('mermaid', mermaidDiv))
+    .use(rehypeFence('demo', demoDiv))
     .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeCollectText, text)
     // After sanitize: KaTeX's output is trusted, and sanitize would strip its inline styles.
@@ -243,7 +213,7 @@ export async function renderProjectMarkdown(markdown: string): Promise<RenderedM
         value: '#',
       },
     })
-    .use(rehypeCheckOutput, counter)
+    .use(rehypeCheckMath)
     .use(rehypeStringify)
     .process(markdown);
 

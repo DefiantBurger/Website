@@ -1,5 +1,5 @@
-// Route paths and page metadata without page components, so vite.config.ts can
-// import them (for sitemap.xml) without pulling in Svelte. routes.ts pairs each
+// Route paths and page metadata without page components, so the build plugins can
+// import them (for the per-route HTML and sitemap.xml) without pulling in Svelte. routes.ts pairs each
 // key with its page, and TypeScript requires a page for every key. Order is match order.
 
 export const SITE_NAME = 'JosephCicalese.com';
@@ -117,7 +117,7 @@ export function pathFor<Key extends RouteKey>(key: Key, ...[params]: ParamsArg<K
   });
 }
 
-/** Paths without params, e.g. for the sitemap or suggesting where a broken link meant to go. */
+/** Paths without params, e.g. for suggesting where a broken link meant to go. */
 export function staticRoutePaths(): string[] {
   return Object.values(routeDefinitions)
     .map((definition) => definition.path)
