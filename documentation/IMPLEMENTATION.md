@@ -44,6 +44,8 @@ cd frontend && pnpm outdated && pnpm update -i --latest
 cd backend && uv tree --outdated --depth 1 && uv lock --upgrade && uv sync
 ```
 
+Both package managers skip releases younger than three days, so a freshly compromised version can't land in a lockfile: `minimumReleaseAge` in `frontend/pnpm-workspace.yaml` and `exclude-newer` under `[tool.uv]` in `backend/pyproject.toml`. To take an urgent fix sooner, exempt that one package (`minimumReleaseAgeExclude: [<name>]` or `exclude-newer-package = { <name> = false }`) and remove the exemption once the release is three days old.
+
 GitHub Actions are pinned by commit SHA in `.github/workflows/` and `.github/actions/`; bump those by hand too.
 
 ## Backend

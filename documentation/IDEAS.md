@@ -86,14 +86,6 @@ Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028
 - Repo: `backend/.python-version` to `3.13`, `requires-python = ">=3.13"` and `target-version = "py313"` in `backend/pyproject.toml`, then `uv lock` and `uv run ruff check --fix .` (the `UP` rules may suggest newer syntax). CI reads `.python-version`, so it follows.
 - Docs: Debian 12 in `DEPLOYMENT.md` (Resources table) and `ARCHITECTURE.md` (Stack table); Python 3.11 in `CLAUDE.md`, `README.md` (badge and requirements line), and the *VM Bootstrap* list in `DEPLOYMENT.md`.
 
-### Supply-chain cooldowns in the repo
-
-pnpm's `minimumReleaseAge` (install nothing published in the last N minutes) is currently set only in the owner's `~/.npmrc` (`minimum-release-age=4320`, three days). So the protection exists on one machine, and the backend has none.
-
-- Create `frontend/pnpm-workspace.yaml` with `minimumReleaseAge: 4320`. pnpm reads it for this project only; when a needed release is too new, add a `minimumReleaseAgeExclude` entry and remove it once the release has aged past the window.
-- Add `[tool.uv]` with `exclude-newer = "3 days"` to `backend/pyproject.toml`, then `uv lock` (only the lockfile's `[options]` change). uv accepts a rolling span and stores it in `uv.lock` as `exclude-newer-span`, so `uv lock --check` and CI's `uv sync --frozen` don't break as the window moves. For an urgent patch, exempt one package with `exclude-newer-package = { <name> = false }` and remove it once the window catches up.
-- Docs: mention the setting under *Updating Dependencies* in `IMPLEMENTATION.md`.
-
 ### Terraform and shell checks in CI
 
 Nothing runs `terraform fmt -check` or `terraform validate`, so a typo in `deployment/` surfaces only at `./tf.sh plan` with a live Cloudflare token. Neither needs credentials: `init -backend=false` downloads the providers from `.terraform.lock.hcl` and `validate` never calls an API.
