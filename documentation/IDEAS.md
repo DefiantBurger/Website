@@ -35,6 +35,15 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 Warn when a course is placed in a term it isn't offered in (e.g. fall-only courses in a spring column). Semester keys already carry the term, so only the data is missing: the catalog scraper would need to record which terms each course is offered in (e.g. an `offered: ["fall", "spring"]` field), and `logic.ts` would add a problem for a mismatch. Show it in the Problems panel and on the card, separate from prerequisite problems.
 
+### Scheduler: catalog as a static asset
+
+The 3 MB course catalog goes through Flask (`/api/scheduler/course-data/`) and is gzipped again by Nginx on every scheduler visit, and browsers revalidate it every time (Flask sends `no-cache` with an ETag). It changes only with a deploy, so it can be a build asset:
+
+- Import it with Vite's `?url` suffix, so the build emits `assets/course_data-<hash>.json`, which Nginx serves from `/assets/` with `expires max`. A plain JSON import would inline 3 MB into a JS chunk. `my_courses.json` (1 KB) can be a plain import.
+- Precompress it at build time (a `.gz` next to it, written by a small plugin with `node:zlib`, no dependency) and turn on `gzip_static` in Nginx, so the VM never compresses it per request. The Nginx change reaches the VM only through an in-place update or a replacement.
+- Cloudflare doesn't cache `.json` by default; a Cache Rule for `/assets/*` would let the edge serve it.
+- The scheduler then needs nothing from the backend. Remove both routes, their tests, and `backend/app/static/json/`. Update the API tables in IMPLEMENTATION.md and UTILITIES.md, UTILITIES.md's catalog update steps (the `cp` target), and the `course_data.json` rule in CLAUDE.md.
+
 ### File Share: upload progress
 
 Show a progress bar while uploading. `fetch` can't report upload progress, so this needs `XMLHttpRequest` (`upload.onprogress`). Uploads currently have no timeout (`timeoutMs: null`) because a large upload can legitimately take minutes; with progress events, a stall timeout (no bytes sent for ~30 s) could replace that.
@@ -43,6 +52,7 @@ Show a progress bar while uploading. `fetch` can't report upload progress, so th
 
 **Encrypt in the browser** so the server only ever stores ciphertext and can't read uploaded files.
 
+- **Why:** today's encryption at rest only protects against a leak of the disk alone. The server sees every access key in its requests, and anyone with `SECRET_KEY` can test key guesses against the labels at HMAC speed, skipping scrypt. So tuning scrypt's cost isn't worth it; this is the real fix.
 - Today the server uses the access key both to find a batch (HMAC label) and to encrypt it. With browser encryption, the browser derives two separate values from the access key (e.g. HKDF): a lookup token sent to the server, and an AES-GCM key that never leaves the browser. Otherwise the server still sees what it needs to decrypt.
 - Reuse the server's chunk format (1 MiB chunks, nonce = chunk index + last-chunk flag; see [Utilities](./UTILITIES.md#file-share)) so large files never need to fit in memory.
 - File names should be encrypted too, or the server still learns something about the files.
@@ -181,3 +191,27 @@ resource "cloudflare_zone_settings_override" "website" {
 - **Move `flask-cors` to the `dev` group** and import it where it's used, inside the `development` branch of `create_app` in `backend/app/__init__.py` (`from flask_cors import CORS`), so production never imports it. Ruff doesn't flag function-level imports with the current rule set.
 - **Stop treating the backend as a package:** delete `[build-system]` and `[tool.setuptools.packages.find]`, and add `[tool.uv]` with `package = false`. Tests then no longer get `app` from an installed package, so add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. `main.py` is unaffected: it's run from `backend/`, which puts the script's directory on `sys.path`.
 - Run `uv lock` after each manifest change (never hand-edit `uv.lock`), then `uv run pytest` and the Ruff checks. Confirm the release still builds: `uv export --frozen --no-dev --no-emit-project --format requirements-txt` must list neither package.
+
+### Config changes without replacing the VM
+
+The startup script writes the Nginx config, systemd units, and deploy script only on first boot. It's set through `metadata_startup_script`, which forces a new VM whenever it changes. So each config change means either a VM replacement or a hand-applied update like the runbook's Nginx one, and the live VM drifts from the templates in between. The `startup-script` key in `metadata` can be updated in place instead.
+
+- Move the script to `metadata = { startup-script = templatefile(...) }`, next to the existing metadata keys.
+- Have it rewrite the templated files on every boot, not just the first:
+  - Nginx: keep the old config, restore it if `nginx -t` fails, otherwise reload.
+  - Units: `daemon-reload` and `try-restart` only when a file changed, the way `install_secret_file` handles secrets.
+  - The deploy script and sudoers rule: rewrite them (sudoers still through `visudo -cf`).
+  - Package installs and user creation stay first-boot only.
+- A config change then becomes `./tf.sh apply` plus a reboot, or `sudo google_metadata_script_runner startup` over SSH. `plan` should show an in-place update of `flask-vm`; if it shows a replacement, stop and ask. This is also how the fixes for the deploy script, metadata access, and upload limits in [Issues](./ISSUES.md#infrastructure) would reach the VM.
+- Switching from `metadata_startup_script` to the key replaces the VM once. Do it alongside the next [kernel update](./DEPLOYMENT.md#kernel-updates), which replaces it anyway.
+- Don't ship these configs in the release tarball instead. Nginx's `load_module`, or any systemd unit, would let whoever can deploy run code as root, which is the boundary the deploy script exists to keep.
+- Docs: DEPLOYMENT.md (*VM Bootstrap*, the *Deploying Changes* table, and the line saying template changes replace the VM), RUNBOOK.md (the in-place Nginx update becomes a fallback), and the "templates reach the VM only at provisioning" note in *Tighter systemd sandboxing* above.
+
+### Edge rate limit for uploads
+
+Cloudflare's free plan includes one rate-limiting rule. Pointing it at `/api/fileshare/upload/` (a few requests per IP per 10 s) would drop upload floods at the edge, before they cross the tunnel and fill Nginx's buffers (the disk-fill entry in [Issues](./ISSUES.md#infrastructure)). Nginx's `limit_conn` is still needed, since the edge counts requests, not concurrent ones.
+
+- In Terraform it's a `cloudflare_ruleset` with phase `http_ratelimit`; like `www_redirect`, a zone gets one ruleset per phase. Check the free plan's limits first (it counts by IP only, with short fixed periods and block times) and pick values that fit.
+- The API token needs permission to edit the zone's WAF rules; add it to the token list under *Secrets* in DEPLOYMENT.md.
+- Provider v5 changes ruleset syntax (nested blocks become attributes), so either write it during the v5 upgrade or accept rewriting it then.
+- Docs: a row in the Resources table in DEPLOYMENT.md.
