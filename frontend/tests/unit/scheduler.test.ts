@@ -43,10 +43,18 @@ import {
   sortSemesters,
   suggestedNextSemester,
   upcomingMainTerm,
+  isPastSemester,
 } from '../../src/lib/scheduler/semesters.ts';
+import {
+  describeOfferingWarning,
+  findOfferingWarnings,
+  offeringSummary,
+  offeringWarning,
+} from '../../src/lib/scheduler/offering.ts';
 import type {
   CourseCatalogFile,
   CourseCatalogRecord,
+  OfferedWindow,
   PrereqEdge,
   RequirementNode,
   ScheduleState,
@@ -106,7 +114,7 @@ const catalogFile: CourseCatalogFile = {
     }),
   },
 };
-const catalog = parseCatalogFile(catalogFile);
+const { catalog } = parseCatalogFile(catalogFile);
 
 const graphFor = (schedule: ScheduleState) => scheduleGraph(catalog, schedule);
 // [status, matched course ids] for each requirement row of a course.
@@ -139,7 +147,23 @@ describe('parseCourseEntry', () => {
 
 describe('parseCatalogFile', () => {
   test('unwraps a version 2 file', () => {
-    assert.equal(parseCatalogFile(catalogFile), catalogFile.courses);
+    assert.deepEqual(parseCatalogFile(catalogFile), {
+      catalog: catalogFile.courses,
+      offeredWindow: null,
+    });
+    const offered_window = { from: 'Fall 2021', to: 'Fall 2026', Fall: 6, Spring: 5 };
+    assert.deepEqual(parseCatalogFile({ ...catalogFile, offered_window }).offeredWindow, {
+      from: 'Fall 2021',
+      to: 'Fall 2026',
+      Fall: 6,
+      Spring: 5,
+    });
+    // A malformed window turns warnings off instead of failing the load.
+    assert.equal(
+      parseCatalogFile({ ...catalogFile, offered_window: { ...offered_window, Spring: 0 } })
+        .offeredWindow,
+      null,
+    );
   });
 
   test('rejects other versions and the old unversioned format', () => {
@@ -223,6 +247,17 @@ describe('semesters', () => {
     assert.deepEqual(upcomingMainTerm(new Date(2026, 8, 30)), { term: 'fall', year: 2026 });
     assert.deepEqual(upcomingMainTerm(new Date(2026, 9, 1)), { term: 'spring', year: 2027 });
     assert.deepEqual(upcomingMainTerm(new Date(2026, 11, 15)), { term: 'spring', year: 2027 });
+  });
+
+  test('past semesters end with the term today falls in', () => {
+    const november = new Date(2026, 10, 18);
+    assert.equal(isPastSemester(PRECOLLEGE_SEMESTER, november), true);
+    assert.equal(isPastSemester('summer26', november), true);
+    assert.equal(isPastSemester('fall26', november), false);
+    assert.equal(isPastSemester('spring27', november), false);
+    const june = new Date(2026, 5, 1);
+    assert.equal(isPastSemester('spring26', june), true);
+    assert.equal(isPastSemester('summer26', june), false);
   });
 
   test('suggested next semester follows the plan and never throws', () => {
@@ -581,8 +616,81 @@ describe('credit overlaps', () => {
       findCreditOverlaps(schedule, overlapIndex),
     );
     assert.deepEqual(problems, [
-      { courseId: 'MATH 341__1', checks: [], overlapsWith: ['MATH 340__1'] },
+      { courseId: 'MATH 341__1', checks: [], overlapsWith: ['MATH 340__1'], offering: null },
     ]);
+  });
+});
+
+describe('offering warnings', () => {
+  const window: OfferedWindow = { from: 'Fall 2021', to: 'Fall 2026', Fall: 6, Spring: 5 };
+  const offered = (Fall: number, Spring: number): CourseCatalogRecord => ({
+    ...course('Offered', 3),
+    times_offered: { Fall, Spring },
+  });
+  const warn = (record: CourseCatalogRecord, term: string) => offeringWarning(record, window, term);
+
+  test('flags a season with no offerings while the other has some', () => {
+    assert.deepEqual(warn(offered(6, 0), 'spring27'), {
+      kind: 'not-offered',
+      season: 'Spring',
+      count: 0,
+      outOf: 5,
+    });
+    assert.equal(warn(offered(6, 0), 'fall27'), null);
+  });
+
+  test('flags a season much rarer than the other, not one that is merely irregular', () => {
+    // 1/6 of falls vs 4/5 of springs.
+    assert.equal(warn(offered(1, 4), 'fall27')?.kind, 'rare');
+    assert.equal(warn(offered(1, 4), 'spring27'), null);
+    // Half of each season (e.g. a new course): no warning either way.
+    assert.equal(warn(offered(3, 2), 'fall27'), null);
+    assert.equal(warn(offered(3, 2), 'spring27'), null);
+    // Rates are compared, not raw counts: 3/6 isn't rare next to 5/5.
+    assert.equal(warn(offered(3, 5), 'fall27'), null);
+    assert.equal(warn(offered(2, 5), 'fall27')?.kind, 'rare');
+  });
+
+  test('no history, no window, or a non-fall/spring term means no warning', () => {
+    assert.equal(warn(offered(0, 0), 'fall27'), null);
+    assert.equal(warn(course('Old', 3), 'fall27'), null);
+    assert.equal(warn(offered(6, 0), 'summer27'), null);
+    assert.equal(warn(offered(6, 0), 'winter27'), null);
+    assert.equal(warn(offered(6, 0), PRECOLLEGE_SEMESTER), null);
+    assert.equal(offeringWarning(offered(6, 0), null, 'spring27'), null);
+  });
+
+  test('warns only for the current term and later', () => {
+    const offeringCatalog = { ...catalog, 'MATH 221': offered(6, 0) };
+    const schedule = buildSchedule(offeringCatalog, {
+      semesters: { spring26: ['MATH 221'], spring27: ['MATH 221'], fall27: ['MATH 221'] },
+    });
+    const warnings = findOfferingWarnings(
+      offeringCatalog,
+      window,
+      schedule,
+      new Date(2026, 10, 18),
+    );
+    assert.deepEqual(Object.keys(warnings), ['MATH 221__2']);
+    const problems = listProblems(schedule, graphFor(schedule), [], warnings);
+    assert.deepEqual(
+      problems.map((problem) => [problem.courseId, problem.offering?.kind]),
+      [['MATH 221__2', 'not-offered']],
+    );
+  });
+
+  test('describes warnings and history', () => {
+    assert.equal(
+      describeOfferingWarning({ kind: 'rare', season: 'Fall', count: 1, outOf: 6 }),
+      'offered in only 1 of the last 6 Falls',
+    );
+    assert.equal(
+      describeOfferingWarning({ kind: 'not-offered', season: 'Spring', count: 0, outOf: 5 }),
+      'not offered in any of the last 5 Springs',
+    );
+    assert.equal(offeringSummary(offered(6, 2), window), 'Fall 6 of 6, Spring 2 of 5');
+    assert.equal(offeringSummary(offered(0, 0), window), 'no Fall or Spring offerings on record');
+    assert.equal(offeringSummary(offered(6, 2), null), null);
   });
 });
 

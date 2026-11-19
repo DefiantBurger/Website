@@ -5,6 +5,7 @@ import type {
   CheckStatus,
   CourseCatalog,
   CreditOverlap,
+  OfferingWarning,
   PrereqEdge,
   RequirementCheck,
   RequirementNode,
@@ -213,11 +214,15 @@ export function findCreditOverlaps(
   return overlaps;
 }
 
-/** Courses with unmet requirement rows or redundant credit, in board order (column, then card). */
+/**
+ * Courses with unmet requirement rows, redundant credit, or an offering warning, in board order
+ * (column, then card).
+ */
 export function listProblems(
   schedule: ScheduleState,
   graph: SchedulerGraph,
   overlaps: CreditOverlap[] = [],
+  offeringWarnings: Record<string, OfferingWarning> = {},
 ): ScheduleProblem[] {
   const problems: ScheduleProblem[] = [];
   for (const semester of schedule.semesterOrder) {
@@ -228,8 +233,9 @@ export function listProblems(
       const overlapsWith = overlaps
         .filter((overlap) => overlap.courseId === courseId)
         .map((overlap) => overlap.otherCourseId);
-      if (checks.length > 0 || overlapsWith.length > 0) {
-        problems.push({ courseId, checks, overlapsWith });
+      const offering = offeringWarnings[courseId] ?? null;
+      if (checks.length > 0 || overlapsWith.length > 0 || offering) {
+        problems.push({ courseId, checks, overlapsWith, offering });
       }
     }
   }

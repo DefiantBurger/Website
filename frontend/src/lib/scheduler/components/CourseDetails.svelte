@@ -1,5 +1,6 @@
 <script lang="ts">
   import { buildRequirements, requirementParts } from '../catalog';
+  import { describeOfferingWarning, offeringSummary } from '../offering';
   import { setCourseCredits, shiftCourse } from '../schedule';
   import { PRECOLLEGE_SEMESTER, formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
@@ -23,6 +24,10 @@
         }))
       : [],
   );
+  const offeringHistory = $derived(
+    course ? offeringSummary(store.catalog[course.name], store.offeredWindow) : null,
+  );
+  const offeringWarning = $derived(course ? store.offeringWarnings[course.id] : undefined);
   // Precollege courses aren't checked, so list their raw requirements instead.
   const uncheckedRequirements = $derived(
     course?.semester === PRECOLLEGE_SEMESTER ? buildRequirements(store.catalog, course.name) : [],
@@ -77,6 +82,19 @@
       {/if}
     </div>
     <p>Semester: {formatSemester(course.semester)}</p>
+    {#if offeringHistory && store.offeredWindow}
+      <p class="offering">
+        Offered {store.offeredWindow.from}–{store.offeredWindow.to}: {offeringHistory}
+      </p>
+    {/if}
+    {#if offeringWarning}
+      {@const text = describeOfferingWarning(offeringWarning)}
+      <p class="offering warning">
+        {text.charAt(0).toUpperCase()}{text.slice(1)}, so it may not run in {formatSemester(
+          course.semester,
+        )}.
+      </p>
+    {/if}
 
     <div class="move-controls">
       <button type="button" onclick={() => store.apply((s) => shiftCourse(s, course.id, -1))}>
@@ -155,6 +173,15 @@
 
   .credits-row select:hover {
     border-color: var(--color-text-primary);
+  }
+
+  .offering {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+  }
+
+  .offering.warning {
+    color: var(--color-warning);
   }
 
   .move-controls {

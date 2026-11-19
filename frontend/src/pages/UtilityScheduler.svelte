@@ -259,6 +259,7 @@
     void load.run(async () => {
       const data = await loadSchedulerData();
       defaultSchedule = data.schedule;
+      store.offeredWindow = data.offeredWindow;
       store.load(data.catalog, data.schedule);
 
       const encoded = planFromHash(window.location.hash);

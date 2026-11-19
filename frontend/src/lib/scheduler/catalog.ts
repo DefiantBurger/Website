@@ -4,11 +4,13 @@ import type {
   CourseCatalogFile,
   CourseCatalogRecord,
   CourseInstance,
+  OfferedWindow,
   Requirement,
   RequirementNode,
   ScheduleFile,
   ScheduleState,
 } from './types';
+import { parseOfferedWindow } from './offering';
 import { PRECOLLEGE_SEMESTER, isSemesterKey, sortSemesters } from './semesters';
 
 /** Own-property lookup, so names like `constructor` don't match `Object.prototype`. */
@@ -87,7 +89,10 @@ function resolveCredits(
 }
 
 /** Unwrap `course_data.json`, failing clearly on any format but version 2. */
-export function parseCatalogFile(value: unknown): CourseCatalog {
+export function parseCatalogFile(value: unknown): {
+  catalog: CourseCatalog;
+  offeredWindow: OfferedWindow | null;
+} {
   const file = value as Partial<CourseCatalogFile> | null;
   if (!file || typeof file !== 'object' || file.version !== 2) {
     const found = file && typeof file === 'object' ? (file.version ?? 'none') : typeof value;
@@ -96,7 +101,7 @@ export function parseCatalogFile(value: unknown): CourseCatalog {
   if (!file.courses || typeof file.courses !== 'object') {
     throw new Error('Course catalog has no courses object.');
   }
-  return file.courses;
+  return { catalog: file.courses, offeredWindow: parseOfferedWindow(file.offered_window) };
 }
 
 /**

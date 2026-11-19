@@ -223,7 +223,7 @@ Better Stack monitors uptime externally. The site footer links its public status
 
 The platform hosts several interactive utilities that showcase different engineering challenges:
 
-- **Class Scheduler** (`/utilities/scheduler`): a drag-and-drop semester planner for UW–Madison courses. It checks nested prerequisite rules (all-of, any-of, at-least-k-of, and concurrent enrollment), draws them as a dependency graph with auto-detangling to reduce edge crossings, flags pairs of courses that can't both count for credit, and supports variable-credit courses, undo/redo, and JSON import/export. Plans are saved in the URL fragment, compressed, so a link shares a plan without it ever reaching the server. The catalog comes from a separate scraper I wrote that parses the university's requisite text into structured rules.
+- **Class Scheduler** (`/utilities/scheduler`): a drag-and-drop semester planner for UW–Madison courses. It checks nested prerequisite rules (all-of, any-of, at-least-k-of, and concurrent enrollment), draws them as a dependency graph with auto-detangling to reduce edge crossings, flags pairs of courses that can't both count for credit, warns when a course is planned in a season it rarely runs in, and supports variable-credit courses, undo/redo, and JSON import/export. Plans are saved in the URL fragment, compressed, so a link shares a plan without it ever reaching the server. The catalog comes from a separate scraper I wrote that parses the university's requisite text into structured rules.
 - **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. Files are encrypted at rest with scrypt + AES-256-GCM in 1 MiB chunks streamed to and from disk, so memory use doesn't grow with file size and a truncated or reordered file fails to decrypt. Files are looked up by an HMAC of the key, limited to 80 MB each and 1 GB (and 1,000 files) in total, and expire after 10 minutes. The file index lives only in memory, so a restart deletes every file.
 - **Message Board** (`/utilities/message-board`): an anonymous board where posts expire 60 seconds after posting. Text is Unicode-sanitized (control, zero-width, and bidi-override characters are stripped while emoji sequences survive), capped at 280 characters, and rate-limited per IP. The page polls while visible and times each countdown from the server's clock, so a wrong local clock doesn't hide or keep messages.
 
@@ -384,6 +384,5 @@ Areas to strengthen:
 
 1. Run the browser smoke test and accessibility scan in CI, not just locally.
 2. Encrypt file-share uploads in the browser so the server only ever stores ciphertext, and add a QR code for moving the access key to a phone.
-3. Warn in the scheduler when a course is placed in a term it isn't offered.
-4. Move Terraform state to a remote encrypted backend and upgrade to Cloudflare provider v5, which can also manage Email Routing.
-5. Expand write-ups with screenshots, interactive demos embedded in the text, and deeper implementation notes per project.
+3. Move Terraform state to a remote encrypted backend and upgrade to Cloudflare provider v5, which can also manage Email Routing.
+4. Expand write-ups with screenshots, interactive demos embedded in the text, and deeper implementation notes per project.

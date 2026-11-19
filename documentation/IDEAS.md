@@ -31,10 +31,6 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 ## Utilities
 
-### Scheduler: term-offered checks
-
-Warn when a course is placed in a term it isn't offered in (e.g. fall-only courses in a spring column). Semester keys already carry the term, so only the data is missing: the catalog scraper would need to record which terms each course is offered in (e.g. an `offered: ["fall", "spring"]` field), and `logic.ts` would add a problem for a mismatch. Show it in the Problems panel and on the card, separate from prerequisite problems.
-
 ### Scheduler: catalog as a static asset
 
 The 3 MB course catalog goes through Flask (`/api/scheduler/course-data/`) and is gzipped again by Nginx on every scheduler visit, and browsers revalidate it every time (Flask sends `no-cache` with an ETag). It changes only with a deploy, so it can be a build asset:

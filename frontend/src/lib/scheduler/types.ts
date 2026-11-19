@@ -28,6 +28,28 @@ export interface CourseCatalogRecord {
   requires: { all: RequirementNode[] } | null;
   not_open_with_credit_for: string[];
   last_taught: string | null;
+  // Offering history over the file's `offered_window`; optional so an older catalog still loads.
+  terms_offered?: OfferedSeason[];
+  times_offered?: Record<OfferedSeason, number>;
+}
+
+/** Seasons the offering history covers; summer and winter aren't tracked. */
+export type OfferedSeason = 'Fall' | 'Spring';
+
+/** The span the offering counts cover; `Fall`/`Spring` are how many of each season it holds. */
+export interface OfferedWindow {
+  from: string;
+  to: string;
+  Fall: number;
+  Spring: number;
+}
+
+/** A course planned in a season it's rarely or never offered in; `count` of `outOf` such terms. */
+export interface OfferingWarning {
+  kind: 'not-offered' | 'rare';
+  season: OfferedSeason;
+  count: number;
+  outOf: number;
 }
 
 /** `course_data.json` as served; only version 2 is supported. */
@@ -35,6 +57,7 @@ export interface CourseCatalogFile {
   version: 2;
   generated: string;
   source: string;
+  offered_window?: OfferedWindow;
   courses: CourseCatalog;
 }
 
@@ -96,10 +119,11 @@ export interface CreditOverlap {
   otherCourseId: string;
 }
 
-/** A course with out-of-order or missing requirement rows, or credit it can't earn. */
+/** A course with out-of-order or missing requirement rows, credit it can't earn, or an unusual term. */
 export interface ScheduleProblem {
   courseId: string;
   checks: RequirementCheck[];
   // Earlier courses that make this one redundant.
   overlapsWith: string[];
+  offering: OfferingWarning | null;
 }

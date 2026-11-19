@@ -5,13 +5,15 @@ import { buildCreditOverlapIndex, getValidCredits } from './catalog';
 import { createHistory, commit, redo, undo } from './history';
 import { formatSemester } from './semesters';
 import { detangleCourseOrder, findCreditOverlaps, listProblems, scheduleGraph } from './logic';
+import { findOfferingWarnings } from './offering';
 import { boardColumns, emptySchedule, removeCourse, repeatPositions } from './schedule';
-import type { CourseCatalog, ScheduleState } from './types';
+import type { CourseCatalog, OfferedWindow, ScheduleState } from './types';
 
 export type Notice = { kind: 'error' | 'success'; text: string };
 
 export class SchedulerStore {
   catalog = $state.raw<CourseCatalog>({});
+  offeredWindow = $state.raw<OfferedWindow | null>(null);
   history = $state.raw(createHistory<ScheduleState>(emptySchedule()));
   selectedCourseId = $state<string | null>(null);
   notice = $state<Notice | null>(null);
@@ -35,7 +37,13 @@ export class SchedulerStore {
   readonly graph = $derived(scheduleGraph(this.catalog, this.schedule));
   readonly creditOverlapIndex = $derived(buildCreditOverlapIndex(this.catalog));
   readonly creditOverlaps = $derived(findCreditOverlaps(this.schedule, this.creditOverlapIndex));
-  readonly problems = $derived(listProblems(this.schedule, this.graph, this.creditOverlaps));
+  readonly offeringWarnings = $derived(
+    // Not reactive to the clock: a tab left open into a new term catches up on the next edit.
+    findOfferingWarnings(this.catalog, this.offeredWindow, this.schedule),
+  );
+  readonly problems = $derived(
+    listProblems(this.schedule, this.graph, this.creditOverlaps, this.offeringWarnings),
+  );
   readonly repeats = $derived(repeatPositions(this.schedule));
   readonly canUndo = $derived(this.history.past.length > 0);
   readonly canRedo = $derived(this.history.future.length > 0);

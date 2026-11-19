@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { describeOfferingWarning } from '../offering';
   import { formatSemester } from '../semesters';
   import type { SchedulerStore } from '../store.svelte';
   import Panel from '../../components/Panel.svelte';
@@ -9,7 +10,7 @@
 
 <Panel compact title="Problems ({store.problems.length})">
   {#if store.problems.length === 0}
-    <p class="ok">No prerequisite problems.</p>
+    <p class="ok">No problems found.</p>
   {:else}
     <ul>
       {#each store.problems as problem (problem.courseId)}
@@ -36,6 +37,9 @@
                 no credit: overlaps {other.name} ({formatSemester(other.semester)})
               </span>
             {/each}
+            {#if problem.offering}
+              <span class="detail offering">{describeOfferingWarning(problem.offering)}</span>
+            {/if}
           </button>
         </li>
       {/each}
@@ -88,7 +92,8 @@
     color: var(--color-error);
   }
 
-  .detail.overlap {
+  .detail.overlap,
+  .detail.offering {
     color: var(--color-warning);
   }
 </style>

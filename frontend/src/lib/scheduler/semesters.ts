@@ -58,6 +58,22 @@ export function sortSemesters(keys: string[]): string[] {
   return keys.toSorted((a, b) => rank(a) - rank(b));
 }
 
+/** The term `today` falls in: spring through May, summer through August, then fall. */
+export function currentTerm(today: Date): TermParts {
+  const month = today.getMonth();
+  const term = month < 5 ? 'spring' : month < 8 ? 'summer' : 'fall';
+  return { term, year: today.getFullYear() };
+}
+
+/** True for precollege and terms before the one `today` falls in. */
+export function isPastSemester(key: string, today: Date): boolean {
+  if (key === PRECOLLEGE_SEMESTER) {
+    return true;
+  }
+  const { term, year } = currentTerm(today);
+  return parseSemesterKey(key) !== null && rank(key) < year * TERMS.length + TERMS.indexOf(term);
+}
+
 /** The next fall or spring after `key`; winter and summer are added by hand. */
 export function nextMainTerm(key: string): TermParts {
   const parts = parseSemesterKey(key);

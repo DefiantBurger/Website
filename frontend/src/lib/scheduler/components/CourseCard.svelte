@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Attachment } from 'svelte/attachments';
 
+  import { describeOfferingWarning } from '../offering';
   import type { SchedulerStore } from '../store.svelte';
 
   let {
@@ -28,6 +29,8 @@
       .map((id) => store.schedule.coursesById[id]?.name)
       .join(', '),
   );
+  const offering = $derived(store.offeringWarnings[courseId]);
+  const offeringText = $derived(offering ? describeOfferingWarning(offering) : '');
   const selected = $derived(store.selectedCourseId === courseId);
 
   let element = $state<HTMLButtonElement>();
@@ -107,6 +110,15 @@
           >≠</span
         >
         <span class="sr-only">, no credit with both this and {overlapNames},</span>
+      {/if}
+      {#if offering}
+        <span
+          class="offering-icon"
+          aria-hidden="true"
+          title="{offeringText.charAt(0).toUpperCase()}{offeringText.slice(1)}"
+          >{offering.kind === 'not-offered' ? '∅' : '~'}</span
+        >
+        <span class="sr-only">, {offeringText},</span>
       {/if}
       <span class="course-credits">{course.credits}cr</span>
     </span>
@@ -201,7 +213,8 @@
     color: var(--color-accent);
   }
 
-  .overlap-icon {
+  .overlap-icon,
+  .offering-icon {
     font-size: 0.85rem;
     font-weight: bold;
     color: var(--color-warning);
