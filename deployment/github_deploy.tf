@@ -68,7 +68,7 @@ resource "google_service_account_iam_member" "github_deployer_act_as_vm" {
   member             = "serviceAccount:${google_service_account.github_deployer.email}"
 }
 
-# Non-admin login: the only sudo it gets is the deploy script (see startup.sh.tftpl).
+# Non-admin login: the only sudo it gets is the deploy script (see vm/sudoers.tftpl).
 resource "google_compute_instance_iam_member" "github_deployer_os_login" {
   project       = var.project_id
   zone          = var.project_zone

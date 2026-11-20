@@ -11,7 +11,7 @@ Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudf
 | Area | Resources |
 | --- | --- |
 | Network | VPC `my-custom-mode-network`, subnet `my-custom-subnet` (`10.0.1.0/24`) |
-| Compute | `flask-vm`: e2-micro, Debian 13, service account `flask-vm-runtime`, OS Login, startup script from `startup.sh.tftpl` |
+| Compute | `flask-vm`: e2-micro, Debian 13, service account `flask-vm-runtime`, OS Login, `startup-script` metadata from `startup.sh.tftpl` |
 | Firewall | `allow-iap-ssh`: port 22 from IAP (`35.235.240.0/20`) only. No inbound web ports; the external IP is outbound-only. |
 | Cloudflare | Tunnel `personal-website` routing `${domain}` to `http://localhost:80`; proxied `@` CNAME to the tunnel; "Add visitor location headers" Managed Transform (used by About You) |
 | DNS | DNSSEC; CAA allowing only `pki.goog`, `letsencrypt.org`, `ssl.com`; `status` CNAME to Better Stack (must stay **DNS only**); Google site-verification TXT; `_dmarc` TXT (`p=reject`, reports to Cloudflare DMARC Management) |
@@ -41,17 +41,20 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 
 ## VM Bootstrap
 
-`startup.sh.tftpl` runs as root on every boot (logged to `/var/log/startup-script.log`). On the first boot only, it:
+`startup.sh.tftpl` is the VM's `startup-script` metadata. It runs as root on every boot (logged to `/var/log/startup-script.log`) and can be [rerun by hand](./RUNBOOK.md#apply-vm-config-changes):
 
-1. Installs Python 3.13, Nginx, curl, and `cloudflared` (with raised UDP buffers for QUIC).
-2. Configures `unattended-upgrades` (`/etc/apt/apt.conf.d/52personalwebsite`) to also install Debian point releases and `cloudflared`, but never kernels (`linux-image-*`; see [Kernel updates](#kernel-updates)), and to reboot at 09:17 UTC when an update needs it. It also sets `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung.
-3. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
-4. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
-5. Installs and enables the Nginx config and the `flaskapp` and `cloudflared` units, then writes `/var/lib/personalwebsite/.provisioned`.
+1. **First boot only** (until `/var/lib/personalwebsite/.provisioned` exists): installs Python 3.13, Nginx, curl, `unattended-upgrades`, and `cloudflared` (from Cloudflare's apt repo), and creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
+2. Installs the files listed in `vm_files` (`main.tf`, sources in `deployment/vm/`), replacing only those whose contents changed:
+   - The Nginx config, and the `flaskapp`, `cloudflared`, and `cloudflared-restart` units.
+   - `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
+   - `unattended-upgrades.conf`: also install Debian point releases and `cloudflared`, but never kernels (`linux-image-*`; see [Kernel updates](#kernel-updates)), and reboot at 09:17 UTC when an update needs it.
+   - `sysctl.conf`: `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung, and the larger UDP buffers QUIC wants.
+3. Checks a changed Nginx config with `nginx -t`. If it fails, it restores the previous files and stops with an error, so Nginx keeps serving the old config. A changed sudoers rule is checked with `visudo` before it goes live.
+4. Refreshes secrets from Secret Manager, using the `gcloud` that ships with Google's Debian images (as the VM's service account). If `gcloud` fails, the script stops and the old secrets stay.
+5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx, `sysctl -p` for kernel settings, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step.
+6. If no release is active (`current` is missing), installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
 
-On every boot it refreshes secrets from Secret Manager, using the `gcloud` that ships with Google's Debian images (as the VM's service account). Then, on any boot where no release is active (`current` is missing), it installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
-
-Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates changes the startup script metadata, which forces Terraform to **replace the VM**.
+To add a file, put it in `vm/` and list it in `vm_files`. If its directory needs a reload or restart that `apply_changes` in `startup.sh.tftpl` doesn't cover yet, add a case there.
 
 ## Runtime on the VM
 
@@ -81,15 +84,14 @@ Changing `startup.sh.tftpl`, `deploy.sh.tftpl`, or the unit/Nginx templates chan
 
 ## Deploying Changes
 
-Only the release tarball (backend app code and `frontend/dist`) ships on deploy. Everything else under `deployment/` reaches the VM only at provisioning.
+Only the release tarball (backend app code and `frontend/dist`) ships on deploy. The VM's config (the startup script and `deployment/vm/`) ships through Terraform, never in the tarball: a systemd unit or Nginx `load_module` there would let whoever can deploy run code as root.
 
 | Change | How |
 | --- | --- |
 | App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
 | Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A replaced `flask-vm` reinstalls the last published release by itself. |
-| VM provisioning (startup script, units, Nginx, deploy script) | `./tf.sh apply` replaces the VM, which then reinstalls the last published release. |
-| Nginx config without downtime | Edit `nginx.conf.tftpl`, then [update it in place](./RUNBOOK.md#update-the-nginx-config-in-place). |
+| VM config (startup script, or `vm/`: units, Nginx, deploy script, sudoers, apt and sysctl settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](./RUNBOOK.md#apply-vm-config-changes). |
 | Roll back | [Runbook](./RUNBOOK.md#roll-back-a-release). |
 
 ### Kernel updates

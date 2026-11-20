@@ -1,164 +1,158 @@
 #!/bin/bash
+# The VM's startup script (the startup-script metadata key in main.tf), run as root on
+# every boot. To apply a config change without rebooting, run it by hand:
+#   sudo google_metadata_script_runner startup
 
 # google_metadata_script_runner already forwards stdout to the serial console,
 # so only tee to the local log file to avoid every line appearing twice.
 exec > >(tee -a /var/log/startup-script.log) 2>&1
 set -euo pipefail
 
-echo "===== Startup Script Begin ====="
-
-# Provisioning runs on the first boot only. Releases are deployed by GitHub
-# Actions (deploy.sh.tftpl); every boot refreshes secrets, and a boot without a
-# release installs the last one Actions published (bootstrap_release).
 PROVISIONED_MARKER=${data_path}/.provisioned
+# Files write_file replaced in this run, for apply_changes.
+CHANGED=()
+# The previous Nginx files, so check_nginx can restore them.
+BACKUPS="$(mktemp -d)"
+trap 'rm -rf -- "$BACKUPS"' EXIT
 
-if [[ ! -f "$PROVISIONED_MARKER" ]]; then
-	echo "[0/7] Pre-Setup: Removing man-db and cleaning up..."
+# Packages, the runtime user, and its directories. First boot only.
+provision() {
 	export DEBIAN_FRONTEND=noninteractive
-	apt-get remove -y man-db
-	apt-get autoremove -y
-
-	echo "[1/7] Updating packages..."
+	# man-db rebuilds its index after every package install, which is slow on an e2-micro.
+	apt-get remove -yq man-db
+	apt-get autoremove -yq
 	apt-get update -yq
+	apt-get install -yq python3.13 python3.13-venv nginx curl ca-certificates unattended-upgrades
 
-	echo "[2/7] Installing base dependencies..."
-	apt-get install -yq \
-		python3.13 \
-		python3.13-venv \
-		python3 \
-		nginx \
-		curl \
-		ca-certificates \
-		gnupg \
-		unattended-upgrades
+	# A second update, since fetching Cloudflare's key needs the curl installed above.
+	install -d -m 755 /usr/share/keyrings
+	curl -fsSL -o /usr/share/keyrings/cloudflare-main.gpg https://pkg.cloudflare.com/cloudflare-main.gpg
+	echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" \
+		> /etc/apt/sources.list.d/cloudflared.list
+	apt-get update -yq
+	apt-get install -yq cloudflared
 
-	echo "[3/7] Verifying Python 3.13 runtime..."
-	python3.13 --version
-
-	echo "[4/7] Creating backend runtime user and directories..."
 	if ! id -u flaskapp >/dev/null 2>&1; then
 		useradd --system --no-create-home --shell /usr/sbin/nologin flaskapp
 	fi
 	# Releases are root-owned; flaskapp can only write its runtime data.
 	install -d -m 755 -o root -g root ${app_path} ${app_path}/releases
 	install -d -m 700 -o flaskapp -g flaskapp ${data_path}
+}
 
-	echo "[5/7] Installing the release deploy script..."
-	printf "%s" "${deploy_script}" | base64 --decode > /usr/local/sbin/personalwebsite-deploy
-	chown root:root /usr/local/sbin/personalwebsite-deploy
-	chmod 755 /usr/local/sbin/personalwebsite-deploy
+# Replace file $1 with stdin (mode $2, owner $3) if the contents differ, and record it in
+# CHANGED. Written to a temp file beside it and renamed, so nothing reads a partial file.
+write_file() {
+	local path="$1" mode="$2" owner="$3" tmp
+	mkdir -p "$(dirname "$path")"
+	# The leading dot keeps sudo, systemd, and Nginx from loading the temp file.
+	tmp="$(mktemp "$(dirname "$path")/.$(basename "$path").XXXXXX")"
+	cat > "$tmp"
+	chown "$owner" "$tmp"
+	chmod "$mode" "$tmp"
 
-	# The GitHub deployer logs in through OS Login without admin rights; this is its only sudo.
-	SUDOERS_TMP="$(mktemp)"
-	printf "%s ALL=(root) NOPASSWD: /usr/local/sbin/personalwebsite-deploy\n" "${deployer_username}" > "$SUDOERS_TMP"
-	visudo -cf "$SUDOERS_TMP"
-	install -m 440 -o root -g root "$SUDOERS_TMP" /etc/sudoers.d/personalwebsite-deploy
-	rm -f "$SUDOERS_TMP"
+	if [[ -f "$path" ]] && cmp -s "$tmp" "$path"; then
+		rm -f "$tmp"
+		# Fix drift in place: replacing the file would bump its mtime, which systemd
+		# reads as a changed unit.
+		chown "$owner" "$path"
+		chmod "$mode" "$path"
+		return 0
+	fi
+	case "$path" in
+		# A broken rule would lock everyone out of sudo, so check it before it's live.
+		/etc/sudoers.d/*)
+			if ! visudo -cf "$tmp"; then
+				rm -f "$tmp"
+				echo "ERROR: invalid sudoers rule for $path; kept the current one." >&2
+				return 1
+			fi
+			;;
+		/etc/nginx/*)
+			if [[ -f "$path" ]]; then
+				mkdir -p "$BACKUPS$(dirname "$path")"
+				cp -p "$path" "$BACKUPS$path"
+			fi
+			;;
+	esac
+	mv -f "$tmp" "$path"
+	CHANGED+=("$path")
+	echo "Updated $path"
+}
 
-	echo "[6/7] Setting up Nginx reverse proxy and systemd units..."
-	printf "%s" "${nginx_api_proxy_params}" | base64 --decode > /etc/nginx/api_proxy_params.conf
-	printf "%s" "${nginx_conf}" | base64 --decode > /etc/nginx/sites-available/default
-	nginx -t
+# The files in main.tf's vm_files, rendered in by Terraform. Read through < <(...), not a
+# pipe, so write_file runs in this shell and its CHANGED entries survive.
+install_vm_files() {
+%{ for path, f in vm_files ~}
+	write_file ${path} ${f.mode} root:root < <(base64 --decode <<< '${base64encode(f.content)}')
+%{ endfor ~}
+}
 
-	# flaskapp starts on the first deploy; its ConditionPathExists skips it until then.
-	printf "%s" "${flaskapp_service}" | base64 --decode > /etc/systemd/system/flaskapp.service
+# A bad Nginx config would take the site down at the next reload or boot. Test it before
+# anything reloads, and if it fails, restore the previous files and stop.
+check_nginx() {
+	local path nginx_files=()
+	for path in "$${CHANGED[@]}"; do
+		if [[ "$path" == /etc/nginx/* ]]; then
+			nginx_files+=("$path")
+		fi
+	done
+	if (( $${#nginx_files[@]} == 0 )) || nginx -t; then
+		return 0
+	fi
 
-	echo "[7/7] Installing Cloudflare Tunnel..."
-	mkdir -p --mode=0755 /usr/share/keyrings
-	curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg > /usr/share/keyrings/cloudflare-main.gpg
-	echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
-	apt-get update -yq
-	apt-get install -yq cloudflared
-
-	# Lists append to Debian's 50unattended-upgrades (security only), adding point releases and cloudflared.
-	# Reboots only when a package needs one (e.g. libc); the VM clock is UTC.
-	# Kernels come only from the pinned boot image: an auto-installed kernel once crashed the VM on every boot.
-	cat > /etc/apt/apt.conf.d/52personalwebsite <<'EOF'
-Unattended-Upgrade::Origins-Pattern {
-	"origin=Debian,codename=$${distro_codename},label=Debian";
-	"site=pkg.cloudflare.com";
-};
-Unattended-Upgrade::Package-Blacklist {
-	"linux-image-";
-};
-Unattended-Upgrade::Automatic-Reboot "true";
-Unattended-Upgrade::Automatic-Reboot-Time "09:17";
-EOF
-
-	# Reboot 10 s after a kernel oops instead of hanging with the filesystem locked until someone notices.
-	cat > /etc/sysctl.d/99-panic-on-oops.conf <<'EOF'
-kernel.panic_on_oops=1
-kernel.panic=10
-EOF
-	sysctl -p /etc/sysctl.d/99-panic-on-oops.conf
-
-	# quic-go (used by cloudflared) wants ~7 MiB UDP buffers; the Debian default caps them at 208 KiB.
-	cat > /etc/sysctl.d/99-cloudflared.conf <<'EOF'
-net.core.rmem_max=7500000
-net.core.wmem_max=7500000
-EOF
-	sysctl -p /etc/sysctl.d/99-cloudflared.conf
-
-	printf "%s" "${cloudflared_service}" | base64 --decode > /etc/systemd/system/cloudflared.service
-
-	# The cloudflared package never restarts the service, so an upgrade would otherwise wait for a reboot.
-	cat > /etc/systemd/system/cloudflared-restart.path <<'EOF'
-[Unit]
-Description=Watch the cloudflared binary for upgrades
-
-[Path]
-PathChanged=/usr/bin/cloudflared
-
-[Install]
-WantedBy=multi-user.target
-EOF
-	cat > /etc/systemd/system/cloudflared-restart.service <<'EOF'
-[Unit]
-Description=Restart cloudflared after an upgrade
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/systemctl try-restart cloudflared.service
-EOF
-
-	systemctl daemon-reload
-	systemctl enable flaskapp nginx cloudflared cloudflared-restart.path
-else
-	echo "Already provisioned; refreshing secrets only."
-fi
+	for path in "$${nginx_files[@]}"; do
+		if [[ -f "$BACKUPS$path" ]]; then
+			cp -p "$BACKUPS$path" "$path"
+		else
+			rm -f "$path"
+		fi
+	done
+	echo "ERROR: nginx -t failed; restored the previous Nginx config and stopped." >&2
+	exit 1
+}
 
 # Every boot, so rotating a secret only needs a reboot. gcloud ships with Google's
 # Debian images and runs as the VM's service account, in the VM's project.
-echo "Fetching runtime secrets from Secret Manager..."
-
-# Write a secrets file; restart the unit only if the contents changed, since
-# enabled units have already started with the previous file at this point.
-install_secret_file() {
-	local path="$1" owner="$2" mode="$3" unit="$4" content="$5"
-	local tmp
-	tmp="$(mktemp)"
-	printf "%s\n" "$content" > "$tmp"
-	chown "$owner" "$tmp"
-	chmod "$mode" "$tmp"
-	if [[ -f "$path" ]] && cmp -s "$tmp" "$path"; then
-		rm -f "$tmp"
-	else
-		mv "$tmp" "$path"
-		systemctl try-restart "$unit"
-	fi
+refresh_secrets() {
+	local flask_key tunnel_token
+	# Assigned on their own lines so a gcloud failure stops the script (set -e) instead
+	# of writing an empty secret.
+	flask_key="$(gcloud secrets versions access "${secret_version_flask}" --secret="${secret_name_flask}")"
+	tunnel_token="$(gcloud secrets versions access latest --secret="${secret_name_cloudflare_tunnel_token}")"
+	write_file /etc/personalwebsite/secrets.env 640 root:flaskapp <<< "SECRET_KEY=$flask_key"
+	write_file /etc/cloudflared/tunnel.env 600 root:root <<< "TUNNEL_TOKEN=$tunnel_token"
 }
 
-mkdir -p /etc/personalwebsite /etc/cloudflared
-install_secret_file /etc/personalwebsite/secrets.env root:flaskapp 640 flaskapp \
-	"SECRET_KEY=$(gcloud secrets versions access "${secret_version_flask}" --secret="${secret_name_flask}")"
-install_secret_file /etc/cloudflared/tunnel.env root:root 600 cloudflared \
-	"TUNNEL_TOKEN=$(gcloud secrets versions access latest --secret="${secret_name_cloudflare_tunnel_token}")"
+# Make each changed file take effect, by where it lives. Files not listed here (the apt
+# config, sudoers rule, deploy script) are read fresh on every use.
+apply_changes() {
+	local path daemon_reload=false reload_nginx=false
+	local -A restart=()
+	for path in "$${CHANGED[@]}"; do
+		case "$path" in
+			/etc/systemd/system/*)
+				daemon_reload=true
+				restart[$(basename "$path")]=1
+				;;
+			/etc/personalwebsite/*) restart[flaskapp.service]=1 ;;
+			/etc/cloudflared/*) restart[cloudflared.service]=1 ;;
+			/etc/nginx/*) reload_nginx=true ;;
+			/etc/sysctl.d/*) sysctl -p "$path" ;;
+		esac
+	done
 
-if [[ ! -f "$PROVISIONED_MARKER" ]]; then
-	systemctl restart nginx
-	systemctl start cloudflared
-	touch "$PROVISIONED_MARKER"
-fi
+	if [[ "$daemon_reload" == true ]]; then
+		systemctl daemon-reload
+	fi
+	# try-: units that aren't running yet (first boot) start at the end of the script.
+	if (( $${#restart[@]} )); then
+		systemctl try-restart "$${!restart[@]}"
+	fi
+	if [[ "$reload_nginx" == true ]]; then
+		systemctl try-reload-or-restart nginx
+	fi
+}
 
 # Install the last release Deploy published (deploy.yaml), so a replaced VM
 # serves the site without a manual deploy. Returns 0 if none is published yet.
@@ -180,6 +174,25 @@ bootstrap_release() {
 	echo "Installing published release $sha..."
 	gcloud storage cat "$object#$generation" | /usr/local/sbin/personalwebsite-deploy "$sha" "$checksum"
 }
+
+echo "===== Startup Script Begin ====="
+
+if [[ ! -f "$PROVISIONED_MARKER" ]]; then
+	echo "First boot: installing packages..."
+	provision
+fi
+
+echo "Installing config files..."
+install_vm_files
+check_nginx
+echo "Fetching runtime secrets from Secret Manager..."
+refresh_secrets
+apply_changes
+systemctl enable flaskapp nginx cloudflared cloudflared-restart.path
+# --no-block: a unit that fails to start (say, cloudflared during a Cloudflare outage)
+# shows in systemctl status instead of stopping the script before the release bootstrap.
+systemctl start --no-block flaskapp nginx cloudflared cloudflared-restart.path
+touch "$PROVISIONED_MARKER"
 
 # Any boot without a release, so a failed bootstrap retries on the next reboot.
 if [[ ! -e ${app_path}/current ]]; then

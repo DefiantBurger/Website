@@ -322,7 +322,7 @@ This project demonstrates full-stack architecture in a cohesive, deployable syst
 
 **Backend Design**: API-first thinking, streamed authenticated encryption and expiry for user uploads, input sanitization and rate limiting, and a tested API surface.
 
-**Infrastructure as Code**: A tunnel-only VM topology, deterministic first-boot provisioning that restores the last good release, runtime secret retrieval, and least-privilege service configuration.
+**Infrastructure as Code**: A tunnel-only VM topology, boot-time provisioning that applies config changes in place and restores the last good release, runtime secret retrieval, and least-privilege service configuration.
 
 **CI/CD**: Tested code and reproducible releases with hash-pinned dependencies, keyless authentication, atomic activation, and automatic rollback.
 

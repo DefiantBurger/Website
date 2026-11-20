@@ -34,7 +34,7 @@ flowchart LR
 
 - `frontend/`: SPA, page components, per-utility logic in `src/lib/<utility>/`, project Markdown in `src/content/projects/`, build-time Vite plugins in `plugins/`.
 - `backend/`: Flask app (`app/`), scheduler data (`app/static/json/`), tests.
-- `deployment/`: Terraform, VM startup script, release deploy script, systemd and Nginx templates.
+- `deployment/`: Terraform and the VM startup script. `deployment/vm/` holds the files the script installs: the release deploy script, systemd units, Nginx config, sudoers rule, and apt and sysctl settings.
 - `.github/workflows/`: `test.yaml` and the manual `deploy.yaml` ([Deployment](./DEPLOYMENT.md#deploying-changes)).
 - Root scripts: `start-dev.sh`, `test.sh`, `format.sh`, `gen-icons.sh`, `deploy.sh` ([Implementation](./IMPLEMENTATION.md)).
 

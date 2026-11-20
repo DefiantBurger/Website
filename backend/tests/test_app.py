@@ -85,7 +85,7 @@ def test_cors_only_in_development(monkeypatch, tmp_path, flask_env, allowed_orig
 def test_flask_body_limit_fits_under_nginx_upload_limit(app):
 	# Nginx's cap lives in Terraform; changing it there replaces the VM, so this
 	# guards against the two drifting apart instead of sharing one value.
-	conf = (Path(__file__).parents[2] / 'deployment' / 'nginx.conf.tftpl').read_text()
+	conf = (Path(__file__).parents[2] / 'deployment' / 'vm' / 'nginx.conf.tftpl').read_text()
 	block = conf.split('location /api/fileshare/upload/', 1)[1].split('}', 1)[0]
 	mebibytes = int(re.search(r'client_max_body_size (\d+)M;', block).group(1))
 	assert MAX_FILE_BYTES < app.config['MAX_CONTENT_LENGTH'] < mebibytes * 1024 * 1024

@@ -17,23 +17,30 @@ resource "google_compute_subnetwork" "default" {
 }
 
 locals {
-  nginx_conf = templatefile("${path.module}/nginx.conf.tftpl", {
-    domain   = var.domain
-    app_path = var.app_path
-  })
-  nginx_api_proxy_params = templatefile("${path.module}/nginx_api_proxy_params.conf.tftpl", {
-    backend_port = var.backend_port
-  })
-  flaskapp_service = templatefile("${path.module}/flaskapp.service.tftpl", {
-    app_path     = var.app_path
-    data_path    = var.data_path
-    backend_port = var.backend_port
-  })
-  cloudflared_service = templatefile("${path.module}/cloudflared.service.tftpl", {})
-  deploy_script = templatefile("${path.module}/deploy.sh.tftpl", {
-    app_path     = var.app_path
-    backend_port = var.backend_port
-  })
+  vm = "${path.module}/vm"
+  # Every .tftpl in vm/ gets all of these; templatefile ignores the ones it doesn't use.
+  vm_template_vars = {
+    domain            = var.domain
+    app_path          = var.app_path
+    data_path         = var.data_path
+    backend_port      = var.backend_port
+    deployer_username = "sa_${google_service_account.github_deployer.unique_id}"
+  }
+
+  # Root-owned files the startup script installs on every boot, by destination. Where a
+  # file goes decides how a change to it is applied (apply_changes in startup.sh.tftpl).
+  vm_files = {
+    "/etc/apt/apt.conf.d/52personalwebsite"           = { mode = "644", content = file("${local.vm}/unattended-upgrades.conf") }
+    "/etc/sysctl.d/99-personalwebsite.conf"           = { mode = "644", content = file("${local.vm}/sysctl.conf") }
+    "/etc/sudoers.d/personalwebsite-deploy"           = { mode = "440", content = templatefile("${local.vm}/sudoers.tftpl", local.vm_template_vars) }
+    "/usr/local/sbin/personalwebsite-deploy"          = { mode = "755", content = templatefile("${local.vm}/deploy.sh.tftpl", local.vm_template_vars) }
+    "/etc/nginx/sites-available/default"              = { mode = "644", content = templatefile("${local.vm}/nginx.conf.tftpl", local.vm_template_vars) }
+    "/etc/nginx/api_proxy_params.conf"                = { mode = "644", content = templatefile("${local.vm}/nginx_api_proxy_params.conf.tftpl", local.vm_template_vars) }
+    "/etc/systemd/system/flaskapp.service"            = { mode = "644", content = templatefile("${local.vm}/flaskapp.service.tftpl", local.vm_template_vars) }
+    "/etc/systemd/system/cloudflared.service"         = { mode = "644", content = file("${local.vm}/cloudflared.service") }
+    "/etc/systemd/system/cloudflared-restart.path"    = { mode = "644", content = file("${local.vm}/cloudflared-restart.path") }
+    "/etc/systemd/system/cloudflared-restart.service" = { mode = "644", content = file("${local.vm}/cloudflared-restart.service") }
+  }
 }
 
 resource "google_service_account" "vm_runtime" {
@@ -65,24 +72,18 @@ resource "google_compute_instance" "default" {
     # Copies serial port 1 (kernel + journald console output) to Cloud Logging from
     # outside the guest, so logs survive a hung VM. Volume is far below the free tier.
     serial-port-logging-enable = "TRUE"
+    # This key, unlike metadata_startup_script, updates in place instead of replacing the
+    # VM. A change reaches the VM on its next boot or a manual run (see RUNBOOK.md).
+    startup-script = templatefile("${path.module}/startup.sh.tftpl", {
+      app_path                            = var.app_path
+      data_path                           = var.data_path
+      vm_files                            = local.vm_files
+      secret_name_flask                   = var.secret_name_flask
+      secret_version_flask                = var.secret_version_flask
+      secret_name_cloudflare_tunnel_token = var.secret_name_cloudflare_tunnel_token
+      release_bucket                      = google_storage_bucket.releases.name
+    })
   }
-
-  metadata_startup_script = templatefile("${path.module}/startup.sh.tftpl", {
-    domain                              = var.domain
-    app_path                            = var.app_path
-    data_path                           = var.data_path
-    deploy_script                       = base64encode(local.deploy_script)
-    deployer_username                   = "sa_${google_service_account.github_deployer.unique_id}"
-    flaskapp_service                    = base64encode(local.flaskapp_service)
-    cloudflared_service                 = base64encode(local.cloudflared_service)
-    nginx_conf                          = base64encode(local.nginx_conf)
-    nginx_api_proxy_params              = base64encode(local.nginx_api_proxy_params)
-    secret_name_flask                   = var.secret_name_flask
-    secret_version_flask                = var.secret_version_flask
-    secret_name_cloudflare_tunnel_token = var.secret_name_cloudflare_tunnel_token
-    release_bucket                      = google_storage_bucket.releases.name
-  })
-
 
   network_interface {
     subnetwork = google_compute_subnetwork.default.id

@@ -86,7 +86,7 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
-      # The deployer's only sudo right is this script (deployment/deploy.sh.tftpl).
+      # The deployer's only sudo right is this script (deployment/vm/deploy.sh.tftpl).
       # It verifies the checksum, installs the release, and rolls back if the
       # health check fails.
       #

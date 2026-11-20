@@ -22,7 +22,7 @@ For the Wisconsin Robotics electrical work: export boards to SVG and show them i
 The build already writes `<route>/index.html` for every route (`plugins/routeHtml.ts`) with that page's head tags, but the body is the same empty shell plus a `<noscript>` link list, so clients that don't run JavaScript see none of a page's own content. Prerendering would render each page to HTML at build time (`render` from `svelte/server`) and write that into the route's file instead. `main.ts` would then switch from `mount` to `hydrate`.
 
 - **Gains:** visitors without JavaScript and simple crawlers see real content; content appears before the JS loads.
-- **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. The CSP blocks inline scripts, and a blocking external script was already tried and made the flash worse (Issues appendix), so allow the inline one by hash: add its `'sha256-...'` to `script-src` in `nginx.conf.tftpl`, and have the build fail if the script's hash stops matching. Keep the script tiny and stable, since the Nginx config only reaches the VM through an in-place update or a VM replacement. It's also a second render path, which CI's `pnpm build` now covers.
+- **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. The CSP blocks inline scripts, and a blocking external script was already tried and made the flash worse (Issues appendix), so allow the inline one by hash: add its `'sha256-...'` to `script-src` in `nginx.conf.tftpl`, and have the build fail if the script's hash stops matching. Keep the script tiny and stable: the Nginx config ships through Terraform, not with releases, so a new hash needs a [config apply](./RUNBOOK.md#apply-vm-config-changes) alongside the deploy. It's also a second render path, which CI's `pnpm build` now covers.
 - **Scope:** start with the static pages (home, about, projects, project detail, contact). Utilities need JS and live data anyway, so they keep the plain shell. Mermaid diagrams stay client-side.
 
 ### OG images
@@ -127,8 +127,8 @@ UMask=077
 
 - Leave out `MemoryDenyWriteExecute`: `cryptography` still depends on cffi, and libffi trampolines can need writable-and-executable memory.
 - `UMask=077` makes file-share files mode 600, which is fine because only `flaskapp` reads them.
-- `cloudflared.service.tftpl` already gets most of this from `DynamicUser=yes`; the `Protect*`, `Restrict*`, `LockPersonality`, `CapabilityBoundingSet=`, and `SystemCallFilter` lines apply there too. It needs `AF_INET AF_INET6 AF_UNIX` for the QUIC tunnel.
-- **Test on the VM first**, the same way `RUNBOOK.md` updates Nginx in place: edit `/etc/systemd/system/flaskapp.service`, `systemctl daemon-reload && systemctl restart flaskapp`, then `systemd-analyze security flaskapp`, `curl http://127.0.0.1:5000/api/health/`, and a file-share upload and download through the site. Only then commit the same lines to the templates. The templates reach the VM only at provisioning, so the live unit and the template diverge until the next VM replacement; say so in the commit message.
+- `vm/cloudflared.service` already gets most of this from `DynamicUser=yes`; the `Protect*`, `Restrict*`, `LockPersonality`, `CapabilityBoundingSet=`, and `SystemCallFilter` lines apply there too. It needs `AF_INET AF_INET6 AF_UNIX` for the QUIC tunnel.
+- **Test on the VM first:** edit `/etc/systemd/system/flaskapp.service`, `systemctl daemon-reload && systemctl restart flaskapp`, then `systemd-analyze security flaskapp`, `curl http://127.0.0.1:5000/api/health/`, and a file-share upload and download through the site. Only then commit the same lines to the templates and [apply them](./RUNBOOK.md#apply-vm-config-changes), which overwrites the hand edit.
 - Docs: the `flaskapp` bullet under *Runtime on the VM* in `DEPLOYMENT.md` lists the sandbox directives.
 
 ### Cloudflare zone settings in Terraform
@@ -170,21 +170,6 @@ resource "cloudflare_zone_settings_override" "website" {
 - **Move `flask-cors` to the `dev` group** and import it where it's used, inside the `development` branch of `create_app` in `backend/app/__init__.py` (`from flask_cors import CORS`), so production never imports it. Ruff doesn't flag function-level imports with the current rule set.
 - **Stop treating the backend as a package:** delete `[build-system]` and `[tool.setuptools.packages.find]`, and add `[tool.uv]` with `package = false`. Tests then no longer get `app` from an installed package, so add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. `main.py` is unaffected: it's run from `backend/`, which puts the script's directory on `sys.path`.
 - Run `uv lock` after each manifest change (never hand-edit `uv.lock`), then `uv run pytest` and the Ruff checks. Confirm the release still builds: `uv export --frozen --no-dev --no-emit-project --format requirements-txt` must list neither package.
-
-### Config changes without replacing the VM
-
-The startup script writes the Nginx config, systemd units, and deploy script only on first boot. It's set through `metadata_startup_script`, which forces a new VM whenever it changes. So each config change means either a VM replacement or a hand-applied update like the runbook's Nginx one, and the live VM drifts from the templates in between. The `startup-script` key in `metadata` can be updated in place instead.
-
-- Move the script to `metadata = { startup-script = templatefile(...) }`, next to the existing metadata keys.
-- Have it rewrite the templated files on every boot, not just the first:
-  - Nginx: keep the old config, restore it if `nginx -t` fails, otherwise reload.
-  - Units: `daemon-reload` and `try-restart` only when a file changed, the way `install_secret_file` handles secrets.
-  - The deploy script and sudoers rule: rewrite them (sudoers still through `visudo -cf`).
-  - Package installs and user creation stay first-boot only.
-- A config change then becomes `./tf.sh apply` plus a reboot, or `sudo google_metadata_script_runner startup` over SSH. `plan` should show an in-place update of `flask-vm`; if it shows a replacement, stop and ask. This is also how the fixes for the deploy script, metadata access, and upload limits in [Issues](./ISSUES.md#infrastructure) would reach the VM.
-- Switching from `metadata_startup_script` to the key replaces the VM once. Do it alongside the next [kernel update](./DEPLOYMENT.md#kernel-updates), which replaces it anyway.
-- Don't ship these configs in the release tarball instead. Nginx's `load_module`, or any systemd unit, would let whoever can deploy run code as root, which is the boundary the deploy script exists to keep.
-- Docs: DEPLOYMENT.md (*VM Bootstrap*, the *Deploying Changes* table, and the line saying template changes replace the VM), RUNBOOK.md (the in-place Nginx update becomes a fallback), and the "templates reach the VM only at provisioning" note in *Tighter systemd sandboxing* above.
 
 ### Edge rate limit for uploads
 

@@ -43,22 +43,20 @@ sudo personalwebsite-deploy --rollback <commit sha>
 
 It stays rolled back until the next manual deploy, so revert or fix the bad commit before deploying again. A rollback doesn't change the release bucket, so a VM replaced in the meantime comes back on the bad release; deploy the fix first.
 
-## Update the Nginx Config in Place
+## Apply VM Config Changes
 
-Deploys don't touch Nginx. To apply an edited `deployment/nginx.conf.tftpl` without replacing the VM, run this from the repo root:
+Deploys don't touch the VM's config. After editing `deployment/startup.sh.tftpl` or anything in `deployment/vm/` (Nginx, units, the deploy script, sudoers, apt or sysctl settings):
 
-```bash
-sed -e 's|${domain}|josephcicalese.com|' -e 's|${app_path}|/opt/personalwebsite|' \
-  deployment/nginx.conf.tftpl > /tmp/nginx-default
-gcloud compute scp /tmp/nginx-default flask-vm:/tmp/nginx-default --zone us-central1-a --tunnel-through-iap
-gcloud compute ssh flask-vm --zone us-central1-a --tunnel-through-iap --command '
-  sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.bak &&
-  sudo install -m 644 -o root -g root /tmp/nginx-default /etc/nginx/sites-available/default &&
-  { sudo nginx -t && sudo systemctl reload nginx; } ||
-  { sudo cp /etc/nginx/sites-available/default.bak /etc/nginx/sites-available/default; echo "Restored previous config"; exit 1; }'
-```
+1. `./tf.sh plan` should show `flask-vm` updated in place (`~ metadata`). If it says the VM must be replaced, find out why before applying.
+2. `./tf.sh apply`.
+3. Run the new startup script now rather than waiting for a reboot:
 
-If `nginx -t` fails, the previous config is restored and Nginx keeps running. The `${...}` values are the defaults in `deployment/variables.tf`.
+   ```bash
+   gcloud compute ssh flask-vm --zone us-central1-a --tunnel-through-iap \
+     --command 'sudo google_metadata_script_runner startup'
+   ```
+
+It prints each file it updated (also appended to `/var/log/startup-script.log`) and restarts only what those files affect. Unchanged files are left alone, so a rerun is safe. If `nginx -t` fails, it restores the previous Nginx files, leaves Nginx running, and exits with an error; fix the template and repeat.
 
 ## Incidents
 

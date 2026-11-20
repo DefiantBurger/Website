@@ -1,0 +1,9 @@
+# The cloudflared package never restarts the service, so an upgrade would otherwise wait for a reboot.
+[Unit]
+Description=Watch the cloudflared binary for upgrades
+
+[Path]
+PathChanged=/usr/bin/cloudflared
+
+[Install]
+WantedBy=multi-user.target
