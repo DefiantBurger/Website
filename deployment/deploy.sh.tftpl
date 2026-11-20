@@ -117,7 +117,7 @@ tar -xzf "$work/release.tar.gz" -C "$release" --no-same-owner --no-same-permissi
 	|| die "tarball is missing backend/main.py, backend/requirements.txt or frontend/dist/index.html"
 
 # Hash-pinned wheels only: no sdist builds, nothing resolved beyond uv.lock.
-python3.11 -m venv "$release/backend/.venv"
+python3.13 -m venv "$release/backend/.venv"
 "$release/backend/.venv/bin/pip" install --quiet --disable-pip-version-check \
 	--require-hashes --only-binary :all: --no-deps -r "$release/backend/requirements.txt"
 

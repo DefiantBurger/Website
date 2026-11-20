@@ -153,7 +153,7 @@ The backend is intentionally lightweight. Most transformation and presentation l
 
 ### Infrastructure
 
-- Terraform-managed GCP network, firewall, and e2-micro VM (Debian 12)
+- Terraform-managed GCP network, firewall, and e2-micro VM (Debian 13)
 - Cloudflare DNS (with DNSSEC, CAA, and DMARC records), Tunnel, a www-to-apex redirect, and a Managed Transform for visitor location headers
 - Nginx on loopback for static hosting, caching, compression, security headers, and rate limiting
 - systemd services for the backend and `cloudflared`

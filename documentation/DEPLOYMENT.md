@@ -11,7 +11,7 @@ Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudf
 | Area | Resources |
 | --- | --- |
 | Network | VPC `my-custom-mode-network`, subnet `my-custom-subnet` (`10.0.1.0/24`) |
-| Compute | `flask-vm`: e2-micro, Debian 12, service account `flask-vm-runtime`, OS Login, startup script from `startup.sh.tftpl` |
+| Compute | `flask-vm`: e2-micro, Debian 13, service account `flask-vm-runtime`, OS Login, startup script from `startup.sh.tftpl` |
 | Firewall | `allow-iap-ssh`: port 22 from IAP (`35.235.240.0/20`) only. No inbound web ports; the external IP is outbound-only. |
 | Cloudflare | Tunnel `personal-website` routing `${domain}` to `http://localhost:80`; proxied `@` CNAME to the tunnel; "Add visitor location headers" Managed Transform (used by About You) |
 | DNS | DNSSEC; CAA allowing only `pki.goog`, `letsencrypt.org`, `ssl.com`; `status` CNAME to Better Stack (must stay **DNS only**); Google site-verification TXT; `_dmarc` TXT (`p=reject`, reports to Cloudflare DMARC Management) |
@@ -43,7 +43,7 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 
 `startup.sh.tftpl` runs as root on every boot (logged to `/var/log/startup-script.log`). On the first boot only, it:
 
-1. Installs Python 3.11, Nginx, curl, and `cloudflared` (with raised UDP buffers for QUIC).
+1. Installs Python 3.13, Nginx, curl, and `cloudflared` (with raised UDP buffers for QUIC).
 2. Configures `unattended-upgrades` (`/etc/apt/apt.conf.d/52personalwebsite`) to also install Debian point releases and `cloudflared`, but never kernels (`linux-image-*`; see [Kernel updates](#kernel-updates)), and to reboot at 09:17 UTC when an update needs it. It also sets `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung.
 3. Creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
 4. Installs `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
@@ -94,9 +94,9 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 
 ### Kernel updates
 
-The kernel comes only from the boot image pinned in `main.tf`, since an automatically installed kernel once crashed the VM on every boot (see [Issues](./ISSUES.md)). To update it, every month or two or for a kernel security fix:
+The kernel comes only from the boot image pinned in `main.tf`, since an automatically installed kernel once crashed the VM on every boot (Debian 12 kernel `6.1.0-55`, November 2026). To update it, every month or two or for a kernel security fix:
 
-1. Find the newest image: `gcloud compute images describe-from-family debian-12 --project debian-cloud --format='value(name)'`.
+1. Find the newest image: `gcloud compute images describe-from-family debian-13 --project debian-cloud --format='value(name)'`.
 2. Set it in `main.tf`, then `./tf.sh apply` (replaces the VM).
 3. Watch the serial log (`serial_port_1_output` in Logs Explorer) for at least 30 minutes. If the kernel oopses, the VM reboots in a loop; pin the previous image and apply again.
 

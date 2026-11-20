@@ -73,15 +73,6 @@ Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates e
 - **Main risk:** `tunnel_token` moves off the tunnel resource to the `cloudflare_zero_trust_tunnel_cloudflared_token` data source, and it feeds the Secret Manager version the VM reads. `plan` must show no replacement of the tunnel or the VM, or the site goes down until a redeploy.
 - **Email Routing:** import `cloudflare_email_routing_settings` and `cloudflare_email_routing_dns` (both by zone ID). The repo is public, so rule destination addresses either go in a tfvars variable or stay in the dashboard.
 
-### Debian 13 and Python 3.13
-
-Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028 (confirm at https://wiki.debian.org/LTS before scheduling). Debian 13 (trixie) ships Python 3.13 and kernel 6.12, which also ends the kernel pin in ISSUES.md #1. This replaces the VM.
-
-- `deployment/main.tf`: pin a specific `debian-cloud/debian-13-trixie-vYYYYMMDD` image, not the `debian-13` family (see the kernel note in ISSUES.md #1).
-- `deployment/startup.sh.tftpl`: `python3.11` and `python3.11-venv` become `python3.13` and `python3.13-venv` (step 2 and the version check in step 3); the cloudflared apt line's `bookworm` becomes `any` (Cloudflare's distro-agnostic suite; there's no `trixie` one, and unattended-upgrades matches it by site, not codename). `deployment/deploy.sh.tftpl`: `python3.11 -m venv` becomes `python3.13`.
-- Repo: `backend/.python-version` to `3.13`, `requires-python = ">=3.13"` and `target-version = "py313"` in `backend/pyproject.toml`, then `uv lock` and `uv run ruff check --fix .` (the `UP` rules may suggest newer syntax). CI reads `.python-version`, so it follows.
-- Docs: Debian 12 in `DEPLOYMENT.md` (Resources table) and `ARCHITECTURE.md` (Stack table); Python 3.11 in `CLAUDE.md`, `README.md` (badge and requirements line), and the *VM Bootstrap* list in `DEPLOYMENT.md`.
-
 ### Terraform and shell checks in CI
 
 Nothing runs `terraform fmt -check` or `terraform validate`, so a typo in `deployment/` surfaces only at `./tf.sh plan` with a live Cloudflare token. Neither needs credentials: `init -backend=false` downloads the providers from `.terraform.lock.hcl` and `validate` never calls an API.

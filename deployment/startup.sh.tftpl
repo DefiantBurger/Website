@@ -23,8 +23,8 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 
 	echo "[2/7] Installing base dependencies..."
 	apt-get install -yq \
-		python3.11 \
-		python3.11-venv \
+		python3.13 \
+		python3.13-venv \
 		python3 \
 		nginx \
 		curl \
@@ -32,8 +32,8 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 		gnupg \
 		unattended-upgrades
 
-	echo "[3/7] Verifying Python 3.11 runtime..."
-	python3.11 --version
+	echo "[3/7] Verifying Python 3.13 runtime..."
+	python3.13 --version
 
 	echo "[4/7] Creating backend runtime user and directories..."
 	if ! id -u flaskapp >/dev/null 2>&1; then
@@ -66,7 +66,7 @@ if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	echo "[7/7] Installing Cloudflare Tunnel..."
 	mkdir -p --mode=0755 /usr/share/keyrings
 	curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg > /usr/share/keyrings/cloudflare-main.gpg
-	echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared bookworm main" > /etc/apt/sources.list.d/cloudflared.list
+	echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" > /etc/apt/sources.list.d/cloudflared.list
 	apt-get update -yq
 	apt-get install -yq cloudflared
 

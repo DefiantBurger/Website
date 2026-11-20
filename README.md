@@ -10,14 +10,14 @@ Svelte + Vite frontend, Flask API backend, on a single GCP VM (provisioned by Te
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)
 ![Flask](https://img.shields.io/badge/Flask-000000?logo=flask&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13%2B-3776AB?logo=python&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-844FBA?logo=terraform&logoColor=white)
 ![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?logo=googlecloud&logoColor=white)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-F38020?logo=cloudflare&logoColor=white)
 
 ## Quick Start
 
-Requires Python 3.11+, [uv](https://docs.astral.sh/uv/), Node.js 22.18+ (the test scripts run TypeScript directly), and pnpm.
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), Node.js 22.18+ (the test scripts run TypeScript directly), and pnpm.
 
 ```bash
 (cd backend && uv sync)

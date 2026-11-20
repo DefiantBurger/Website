@@ -51,9 +51,9 @@ resource "google_compute_instance" "default" {
 
   boot_disk {
     initialize_params {
-      # A pinned image, not the debian-12 family, so the kernel only changes on purpose
+      # A pinned image, not the debian-13 family, so the kernel only changes on purpose
       # (unattended-upgrades skips kernels). See "Kernel updates" in DEPLOYMENT.md.
-      image = "debian-cloud/debian-12-bookworm-v20261109"
+      image = "debian-cloud/debian-13-trixie-v20261116"
     }
   }
 
