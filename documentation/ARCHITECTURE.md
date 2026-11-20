@@ -57,7 +57,7 @@ flowchart LR
 
 ## Tradeoffs
 
-1. A single VM is simple and cheap but is a single failure domain.
+1. A single VM is simple and cheap but is a single failure domain. Planned replacements are zero-downtime [swaps](./DEPLOYMENT.md#vm-swaps), but a crash takes the site down until the VM recovers.
 2. Build-time Markdown keeps pages fast and free of runtime sanitizing, but content changes need a deploy.
 3. In-browser utility logic keeps interactions fast at the cost of a heavier client.
 4. File-share and message-board state is local to one process/disk, which rules out horizontal scaling.

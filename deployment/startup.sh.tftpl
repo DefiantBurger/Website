@@ -14,6 +14,8 @@ CHANGED=()
 # The previous Nginx files, so check_nginx can restore them.
 BACKUPS="$(mktemp -d)"
 trap 'rm -rf -- "$BACKUPS"' EXIT
+# Set by bootstrap_release when the bucket is empty (first-time setup), for mark_ready.
+NO_RELEASE_PUBLISHED=false
 
 # Packages, the runtime user, and its directories. First boot only.
 provision() {
@@ -157,7 +159,7 @@ apply_changes() {
 	fi
 }
 
-# Install the last release Deploy published (deploy.yaml), so a replaced VM
+# Install the last release Deploy published (deploy.yaml), so a new VM in a swap
 # serves the site without a manual deploy. Returns 0 if none is published yet.
 bootstrap_release() {
 	local object="gs://${release_bucket}/latest.tar.gz"
@@ -168,14 +170,41 @@ bootstrap_release() {
 		--format='value(custom_fields.git-sha,custom_fields.sha256,generation)')" || return 1
 	if [[ -z "$fields" ]]; then
 		echo "No release published to gs://${release_bucket} yet."
+		NO_RELEASE_PUBLISHED=true
 		return 0
 	fi
 	read -r sha checksum generation <<< "$fields"
 
 	# Pinned to the generation just read, so a concurrent deploy can't pair this
 	# metadata with another release's bytes. The deploy script checks the checksum.
+	# It also starts cloudflared once the release is healthy.
 	echo "Installing published release $sha..."
 	gcloud storage cat "$object#$generation" | /usr/local/sbin/personalwebsite-deploy "$sha" "$checksum"
+}
+
+# Tell Terraform (vm_ready in main.tf) that this VM serves a release through the tunnel,
+# with a guest attribute: the release's commit SHA, or `none` before the first release.
+# A swap destroys the old VM only after the new one sets it.
+mark_ready() {
+	local value tries=0
+	if [[ -e ${app_path}/current ]]; then
+		value="$(basename "$(readlink ${app_path}/current)")"
+		until curl -fsS -o /dev/null http://127.0.0.1:20241/ready; do
+			if (( ++tries >= 24 )); then
+				echo "ERROR: serving $value, but cloudflared hasn't connected after 2 minutes; not marking ready." >&2
+				return 1
+			fi
+			sleep 5
+		done
+	elif [[ "$NO_RELEASE_PUBLISHED" == true ]]; then
+		value=none
+	else
+		echo "ERROR: no release is active; not marking ready." >&2
+		return 1
+	fi
+	curl -fsS -X PUT --data "$value" -H 'Metadata-Flavor: Google' \
+		http://metadata.google.internal/computeMetadata/v1/instance/guest-attributes/personalwebsite/ready
+	echo "Marked ready: $value"
 }
 
 echo "===== Startup Script Begin ====="
@@ -194,6 +223,7 @@ apply_changes
 systemctl enable flaskapp nginx cloudflared cloudflared-restart.path
 # --no-block: a unit that fails to start (say, cloudflared during a Cloudflare outage)
 # shows in systemctl status instead of stopping the script before the release bootstrap.
+# flaskapp and cloudflared are skipped until a release exists (ConditionPathExists).
 systemctl start --no-block flaskapp nginx cloudflared cloudflared-restart.path
 touch "$PROVISIONED_MARKER"
 
@@ -201,5 +231,6 @@ touch "$PROVISIONED_MARKER"
 if [[ ! -e ${app_path}/current ]]; then
 	bootstrap_release || echo "Release bootstrap failed; run Deploy, or reboot to retry."
 fi
+mark_ready
 
 echo "===== Startup Script Complete ====="

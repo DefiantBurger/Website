@@ -37,9 +37,29 @@ locals {
     "/etc/nginx/sites-available/default"              = { mode = "644", content = templatefile("${local.vm}/nginx.conf.tftpl", local.vm_template_vars) }
     "/etc/nginx/api_proxy_params.conf"                = { mode = "644", content = templatefile("${local.vm}/nginx_api_proxy_params.conf.tftpl", local.vm_template_vars) }
     "/etc/systemd/system/flaskapp.service"            = { mode = "644", content = templatefile("${local.vm}/flaskapp.service.tftpl", local.vm_template_vars) }
-    "/etc/systemd/system/cloudflared.service"         = { mode = "644", content = file("${local.vm}/cloudflared.service") }
+    "/etc/systemd/system/cloudflared.service"         = { mode = "644", content = templatefile("${local.vm}/cloudflared.service.tftpl", local.vm_template_vars) }
     "/etc/systemd/system/cloudflared-restart.path"    = { mode = "644", content = file("${local.vm}/cloudflared-restart.path") }
     "/etc/systemd/system/cloudflared-restart.service" = { mode = "644", content = file("${local.vm}/cloudflared-restart.service") }
+  }
+
+  startup_script = templatefile("${path.module}/startup.sh.tftpl", {
+    app_path                            = var.app_path
+    data_path                           = var.data_path
+    vm_files                            = local.vm_files
+    secret_name_flask                   = var.secret_name_flask
+    secret_version_flask                = var.secret_version_flask
+    secret_name_cloudflare_tunnel_token = var.secret_name_cloudflare_tunnel_token
+    release_bucket                      = google_storage_bucket.releases.name
+  })
+
+  # Everything that would need a new VM or a stop/start. Changing any of it renames the
+  # VM, which makes the change a zero-downtime swap (see "VM swaps" in DEPLOYMENT.md).
+  vm_spec = {
+    # A pinned image, not the debian-13 family, so the kernel only changes on purpose
+    # (unattended-upgrades skips kernels). See "Kernel updates" in DEPLOYMENT.md.
+    image        = "debian-cloud/debian-13-trixie-v20261116"
+    machine_type = "e2-micro"
+    zone         = var.project_zone
   }
 }
 
@@ -48,41 +68,39 @@ resource "google_service_account" "vm_runtime" {
   display_name = "Flask VM runtime service account"
 }
 
+# Random rather than derived from vm_spec: rolling back a failed swap returns to an old
+# spec while the VM that last used it may still exist, and names must be unique.
+resource "random_id" "vm" {
+  byte_length = 3
+  keepers     = local.vm_spec
+}
 
-# Create a single Compute Engine instance
 resource "google_compute_instance" "default" {
-  name         = "flask-vm"
-  machine_type = "e2-micro"
-  zone         = var.project_zone
+  name         = "flask-vm-${random_id.vm.hex}"
+  machine_type = local.vm_spec.machine_type
+  zone         = local.vm_spec.zone
   tags         = ["ssh"]
+  # How the Deploy workflow and deployment/ssh.sh find the VM, since its name changes.
+  labels = { app = "personalwebsite" }
 
   boot_disk {
     initialize_params {
-      # A pinned image, not the debian-13 family, so the kernel only changes on purpose
-      # (unattended-upgrades skips kernels). See "Kernel updates" in DEPLOYMENT.md.
-      image = "debian-cloud/debian-13-trixie-v20261116"
+      image = local.vm_spec.image
     }
   }
 
   metadata = {
     # GitHub Actions deploys over IAP SSH as an OS Login user (see github_deploy.tf).
     enable-oslogin = "TRUE"
-    # Publishes host keys so gcloud can verify them instead of trusting on first use.
+    # Publishes host keys so gcloud can verify them instead of trusting on first use,
+    # and carries the startup script's readiness signal (see vm_ready below).
     enable-guest-attributes = "TRUE"
     # Copies serial port 1 (kernel + journald console output) to Cloud Logging from
     # outside the guest, so logs survive a hung VM. Volume is far below the free tier.
     serial-port-logging-enable = "TRUE"
     # This key, unlike metadata_startup_script, updates in place instead of replacing the
     # VM. A change reaches the VM on its next boot or a manual run (see RUNBOOK.md).
-    startup-script = templatefile("${path.module}/startup.sh.tftpl", {
-      app_path                            = var.app_path
-      data_path                           = var.data_path
-      vm_files                            = local.vm_files
-      secret_name_flask                   = var.secret_name_flask
-      secret_version_flask                = var.secret_version_flask
-      secret_name_cloudflare_tunnel_token = var.secret_name_cloudflare_tunnel_token
-      release_bucket                      = google_storage_bucket.releases.name
-    })
+    startup-script = local.startup_script
   }
 
   network_interface {
@@ -104,6 +122,32 @@ resource "google_compute_instance" "default" {
     google_secret_manager_secret_iam_member.vm_cloudflare_tunnel_token_accessor,
     google_secret_manager_secret_version.cloudflare_tunnel_token,
   ]
+
+  # A swap starts the new VM before the old one goes away.
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Waits until the new VM serves a release through the tunnel. Terraform destroys the old
+# VM only after this succeeds, since a create_before_destroy object is destroyed after
+# its replacement's dependents are created. If it fails, the old VM keeps serving.
+resource "terraform_data" "vm_ready" {
+  triggers_replace = google_compute_instance.default.id
+
+  provisioner "local-exec" {
+    command = "${path.module}/wait-for-vm.sh"
+    environment = {
+      VM      = google_compute_instance.default.name
+      ZONE    = google_compute_instance.default.zone
+      PROJECT = var.project_id
+    }
+  }
+}
+
+output "vm_name" {
+  description = "The current VM's name (it changes on every swap)"
+  value       = google_compute_instance.default.name
 }
 
 # Allows SSH access via GCP website

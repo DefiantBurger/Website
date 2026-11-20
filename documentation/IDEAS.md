@@ -82,24 +82,24 @@ New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_reque
 1. `actions/checkout` (same SHA pin and `persist-credentials: false` as `test.yaml`).
 2. `hashicorp/setup-terraform`, pinned to a commit SHA, with `terraform_version` matching `versions.tf`.
 3. In `deployment/`: `terraform fmt -check -recursive -diff` (warn, like the other format checks), then `terraform init -backend=false -input=false` and `terraform validate` (fail: these are build errors, like `pnpm check`).
-4. `shellcheck deploy.sh test.sh start-dev.sh format.sh deployment/tf.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; leave them out.
+4. `shellcheck deploy.sh test.sh start-dev.sh format.sh deployment/*.sh deployment/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `deployment/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, so CI can't.
+5. `deployment/test/swap-order.test.sh` and `wait-for-vm.test.sh` need only Terraform and bash, so they can run here too (fail).
 
 Docs: add the workflow to the *Pipeline* list in `DEPLOYMENT.md` and the workflows bullet in `ARCHITECTURE.md`.
 
 ### Shielded VM
 
-Add to `google_compute_instance.default` in `deployment/main.tf`:
+In `deployment/main.tf`, add `secure_boot = true` to `local.vm_spec`, and to `google_compute_instance.default`:
 
 ```hcl
 shielded_instance_config {
-  enable_secure_boot          = true
+  enable_secure_boot          = local.vm_spec.secure_boot
   enable_vtpm                 = true
   enable_integrity_monitoring = true
 }
-allow_stopping_for_update = true
 ```
 
-Debian's GCE images are UEFI and support Shielded VM; e2 machines do too. vTPM and integrity monitoring are already GCP's defaults, so the real change is Secure Boot, which refuses unsigned kernel modules (none are used). It needs a stop/start, not a replacement: `./tf.sh plan` should show an in-place update of `flask-vm`. If it shows a replacement, stop and ask. Docs: the Compute row of the Resources table in `DEPLOYMENT.md`.
+Debian's GCE images are UEFI and support Shielded VM; e2 machines do too. vTPM and integrity monitoring are already GCP's defaults, so the real change is Secure Boot, which refuses unsigned kernel modules (none are used). Changing it in place would need a stop/start; through `vm_spec` it's a zero-downtime [swap](./DEPLOYMENT.md#vm-swaps) instead, and a VM that won't boot with it never replaces the old one. `./tf.sh plan` should show a swap. Docs: the Compute row of the Resources table in `DEPLOYMENT.md`.
 
 ### Tighter systemd sandboxing
 
@@ -127,7 +127,7 @@ UMask=077
 
 - Leave out `MemoryDenyWriteExecute`: `cryptography` still depends on cffi, and libffi trampolines can need writable-and-executable memory.
 - `UMask=077` makes file-share files mode 600, which is fine because only `flaskapp` reads them.
-- `vm/cloudflared.service` already gets most of this from `DynamicUser=yes`; the `Protect*`, `Restrict*`, `LockPersonality`, `CapabilityBoundingSet=`, and `SystemCallFilter` lines apply there too. It needs `AF_INET AF_INET6 AF_UNIX` for the QUIC tunnel.
+- `vm/cloudflared.service.tftpl` already gets most of this from `DynamicUser=yes`; the `Protect*`, `Restrict*`, `LockPersonality`, `CapabilityBoundingSet=`, and `SystemCallFilter` lines apply there too. It needs `AF_INET AF_INET6 AF_UNIX` for the QUIC tunnel.
 - **Test on the VM first:** edit `/etc/systemd/system/flaskapp.service`, `systemctl daemon-reload && systemctl restart flaskapp`, then `systemd-analyze security flaskapp`, `curl http://127.0.0.1:5000/api/health/`, and a file-share upload and download through the site. Only then commit the same lines to the templates and [apply them](./RUNBOOK.md#apply-vm-config-changes), which overwrites the hand edit.
 - Docs: the `flaskapp` bullet under *Runtime on the VM* in `DEPLOYMENT.md` lists the sandbox directives.
 

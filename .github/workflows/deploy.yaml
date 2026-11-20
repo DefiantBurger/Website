@@ -12,7 +12,6 @@ permissions:
 
 env:
   DOMAIN: josephcicalese.com
-  GCE_INSTANCE: flask-vm
   GCE_ZONE: us-central1-a
   # The `release_bucket` Terraform output.
   GCS_RELEASE_BUCKET: personal-website-453120-releases
@@ -86,6 +85,19 @@ jobs:
 
       - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
 
+      # The VM's name changes on every swap, so find it by label. Two VMs mean a swap is
+      # in progress or failed, and deploying to either could leave them on different releases.
+      - name: Find the VM
+        id: vm
+        run: |
+          mapfile -t vms < <(gcloud compute instances list --zones "$GCE_ZONE" \
+            --filter="labels.app=personalwebsite" --format='value(name)')
+          if [ "${#vms[@]}" -ne 1 ]; then
+            echo "::error::Found ${#vms[@]} VMs (${vms[*]}): a VM swap is in progress or failed. See \"Swap the VM\" in RUNBOOK.md."
+            exit 1
+          fi
+          echo "name=${vms[0]}" >> "$GITHUB_OUTPUT"
+
       # The deployer's only sudo right is this script (deployment/vm/deploy.sh.tftpl).
       # It verifies the checksum, installs the release, and rolls back if the
       # health check fails.
@@ -95,6 +107,7 @@ jobs:
       # keepalives push the stalled data through after a few seconds instead.
       - name: Deploy release
         env:
+          GCE_INSTANCE: ${{ steps.vm.outputs.name }}
           RELEASE_SHA256: ${{ needs.package.outputs.sha256 }}
         run: |
           gcloud compute ssh "$GCE_INSTANCE" \

@@ -1,4 +1,4 @@
-# The last successfully deployed release, so a replaced VM can install it on
+# The last successfully deployed release, so a new VM (see VM swaps) can install it on
 # first boot without waiting for a manual deploy. Deploy overwrites one object.
 
 resource "google_storage_bucket" "releases" {

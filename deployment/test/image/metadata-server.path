@@ -1,0 +1,8 @@
+# Starts the stub once the startup script installs its first file, after Nginx's package
+# install: Debian's default site binds 0.0.0.0:80, which clashes with the stub's
+# 127.0.0.2:80 (on GCE the metadata server isn't local). Our config binds only 127.0.0.1.
+[Path]
+PathExists=/etc/apt/apt.conf.d/52personalwebsite
+
+[Install]
+WantedBy=multi-user.target

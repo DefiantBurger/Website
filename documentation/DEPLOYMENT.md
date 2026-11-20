@@ -4,14 +4,14 @@ Provisioning and releases are separate. **Terraform** (`deployment/`) provisions
 
 Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudflare API token first ([Secrets](#secrets)). Inputs and their defaults are in `variables.tf`; versions are in `versions.tf`.
 
-> **A replaced `flask-vm` deploys itself.** On first boot it installs the last release *Deploy* published to the release bucket, so no manual deploy is needed. The site is down for a few minutes while it provisions. Check `/var/log/startup-script.log` for `Now serving <sha>`. If the bucket is empty (first-time setup) or the bootstrap failed, run *Deploy*.
+> **Replacing the VM is a zero-downtime swap.** A new VM starts next to the old one, installs the last release *Deploy* published to the release bucket, and joins the tunnel. Only then does Terraform delete the old VM. If the new VM never gets ready, the apply fails and the old VM keeps serving. See [VM Swaps](#vm-swaps).
 
 ## Resources
 
 | Area | Resources |
 | --- | --- |
 | Network | VPC `my-custom-mode-network`, subnet `my-custom-subnet` (`10.0.1.0/24`) |
-| Compute | `flask-vm`: e2-micro, Debian 13, service account `flask-vm-runtime`, OS Login, `startup-script` metadata from `startup.sh.tftpl` |
+| Compute | `flask-vm-<suffix>` (label `app=personalwebsite`; the suffix changes on every [swap](#vm-swaps)): e2-micro, Debian 13, service account `flask-vm-runtime`, OS Login, `startup-script` metadata from `startup.sh.tftpl` |
 | Firewall | `allow-iap-ssh`: port 22 from IAP (`35.235.240.0/20`) only. No inbound web ports; the external IP is outbound-only. |
 | Cloudflare | Tunnel `personal-website` routing `${domain}` to `http://localhost:80`; proxied `@` CNAME to the tunnel; "Add visitor location headers" Managed Transform (used by About You) |
 | DNS | DNSSEC; CAA allowing only `pki.goog`, `letsencrypt.org`, `ssl.com`; `status` CNAME to Better Stack (must stay **DNS only**); Google site-verification TXT; `_dmarc` TXT (`p=reject`, reports to Cloudflare DMARC Management) |
@@ -51,10 +51,26 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
    - `sysctl.conf`: `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung, and the larger UDP buffers QUIC wants.
 3. Checks a changed Nginx config with `nginx -t`. If it fails, it restores the previous files and stops with an error, so Nginx keeps serving the old config. A changed sudoers rule is checked with `visudo` before it goes live.
 4. Refreshes secrets from Secret Manager, using the `gcloud` that ships with Google's Debian images (as the VM's service account). If `gcloud` fails, the script stops and the old secrets stay.
-5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx, `sysctl -p` for kernel settings, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step.
-6. If no release is active (`current` is missing), installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*. `flaskapp.service` stays idle until a release exists (`ConditionPathExists`).
+5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx, `sysctl -p` for kernel settings, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step. `flaskapp` and `cloudflared` stay idle until a release exists (`ConditionPathExists`): joining the tunnel puts the VM in Cloudflare's rotation.
+6. If no release is active (`current` is missing), installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. The deploy script starts `cloudflared` once the release passes its health check. If the check fails with no earlier release to fall back on, it leaves none active. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*.
+7. Marks the VM ready for [swaps](#vm-swaps): once `cloudflared`'s `/ready` answers (up to 2 minutes), it sets the guest attribute `personalwebsite/ready` to the active release's commit SHA, or `none` if no release is published yet.
 
 To add a file, put it in `vm/` and list it in `vm_files`. If its directory needs a reload or restart that `apply_changes` in `startup.sh.tftpl` doesn't cover yet, add a case there.
+
+## VM Swaps
+
+Everything that would need a new VM or a stop/start (the image, machine type, and zone) lives in `local.vm_spec` in `main.tf`. Changing it gives the VM a new random name (`random_id.vm`), and the instance's `create_before_destroy` turns the replacement into a swap:
+
+1. Terraform creates the new VM next to the old one. It provisions, installs `latest.tar.gz`, and joins the tunnel as a second replica, so Cloudflare splits traffic between the two.
+2. `terraform_data.vm_ready` runs `wait-for-vm.sh`, which polls the new VM's `personalwebsite/ready` guest attribute for up to 15 minutes.
+3. Once it's set, Terraform moves the deployer's OS Login and IAP grants to the new VM and deletes the old one. GCE shuts it down gracefully, and `cloudflared` drains in-flight requests for up to 30 s.
+
+A swap takes about 6–8 minutes, and the overlap is its only cost beyond the free tier (a fraction of a cent). If the new VM never marks itself ready (a crash on boot, a release that fails its health check, a tunnel that won't connect), the apply fails and the old VM keeps serving, grants included. See [Swap the VM](./RUNBOOK.md#swap-the-vm) to recover.
+
+- A swap's plan replaces `random_id.vm`, the instance (`+/-`, create before destroy), its two IAM grants, and `terraform_data.vm_ready`. If the instance must be replaced but its name stays the same, the attribute that changed belongs in `vm_spec`; applying anyway fails with "already exists" and leaves the old VM alone.
+- During the overlap, file shares and message-board posts live on one VM each, so for a few minutes a share can 404 on the other.
+- The new VM installs the bucket's release. After a [rollback](./RUNBOOK.md#roll-back-a-release) on the VM, deploy the fix before swapping.
+- *Deploy* refuses to run while two VMs exist. A deploy already past that check when a swap starts can still leave the new VM on the previous release, so don't run both at once.
 
 ## Runtime on the VM
 
@@ -90,17 +106,25 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 | --- | --- |
 | App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
-| Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A replaced `flask-vm` reinstalls the last published release by itself. |
+| Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A change to `vm_spec` (image, machine type, zone) is a zero-downtime [swap](#vm-swaps). |
 | VM config (startup script, or `vm/`: units, Nginx, deploy script, sudoers, apt and sysctl settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](./RUNBOOK.md#apply-vm-config-changes). |
 | Roll back | [Runbook](./RUNBOOK.md#roll-back-a-release). |
+
+### Testing VM changes
+
+`deployment/test/run.sh` checks everything that reaches the VM, locally, in about 5 minutes:
+- It runs the rendered startup script in Debian 13 containers with systemd, with `gcloud`, `sysctl`, and the metadata server stubbed. The scenarios cover first boot, reruns, config changes and their failure handling, and a new VM in a swap whose release is good, broken, or can't reach the tunnel.
+- It also tests `wait-for-vm.sh`, and Terraform's swap ordering with a local stand-in config.
+
+It needs Docker, shellcheck, Terraform, and `tf.sh`'s gcloud login, because rendering reads Terraform state. Run it after changing anything in `deployment/` that reaches the VM. It can't model GCE itself (the guest environment, IAM, a real tunnel), so watch the first real run of anything new.
 
 ### Kernel updates
 
 The kernel comes only from the boot image pinned in `main.tf`, since an automatically installed kernel once crashed the VM on every boot (Debian 12 kernel `6.1.0-55`, November 2026). To update it, every month or two or for a kernel security fix:
 
 1. Find the newest image: `gcloud compute images describe-from-family debian-13 --project debian-cloud --format='value(name)'`.
-2. Set it in `main.tf`, then `./tf.sh apply` (replaces the VM).
-3. Watch the serial log (`serial_port_1_output` in Logs Explorer) for at least 30 minutes. If the kernel oopses, the VM reboots in a loop; pin the previous image and apply again.
+2. Set it in `vm_spec` in `main.tf`, then `./tf.sh apply`, which [swaps](#vm-swaps) the VM. A kernel that crashes on boot never marks the new VM ready, so the old one keeps serving.
+3. Watch the new VM's serial log (`serial_port_1_output` in Logs Explorer) for at least 30 minutes, since an oops after the swap has no old VM to fall back on. If the kernel oopses, the VM reboots in a loop; pin the previous image and apply again.
 
 ### Pipeline
 
@@ -109,12 +133,12 @@ Both workflows set up uv, pnpm, and Node through `.github/actions/setup`, and al
 - ***Test*** (`test.yaml`, on PRs and non-docs pushes to `main`): backend `ruff check`, `ruff format --check`, and `pytest --cov=app` (coverage to Codecov); frontend `lint`, `format:check`, `check`, `test`, and `build`. Lint and format problems only warn.
 - ***Deploy*** (`deploy.yaml`, manual, `main` only; doesn't rerun tests):
   1. **package:** build the frontend with `VITE_BACKEND_URL=https://josephcicalese.com`, export hash-pinned requirements (`uv export --frozen --no-dev --no-emit-project`), and upload the tarball as artifact `release-<sha>`.
-  2. **deploy** (environment `production`, serialized): authenticate through WIF, stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`, then `curl` the public `/api/health/`, the home page, and its entry script.
+  2. **deploy** (environment `production`, serialized): authenticate through WIF, find the VM by its label (failing unless exactly one exists, since two mean a [swap](#vm-swaps) is in progress or failed), stream the tarball over `gcloud compute ssh --tunnel-through-iap` into `sudo personalwebsite-deploy`, then `curl` the public `/api/health/`, the home page, and its entry script.
   3. **publish** (same job, only if the smoke test passed): copy the tarball to `gs://<release bucket>/latest.tar.gz` with the commit SHA and checksum as object metadata (`git-sha`, `sha256`). `GCS_RELEASE_BUCKET` in `deploy.yaml` must match the `release_bucket` Terraform output.
 
 ### First-time setup
 
-1. `./tf.sh apply`.
+1. `./tf.sh apply`. With the bucket empty, the VM marks itself ready with no release, so the apply can finish.
 2. In GitHub → Settings → Environments, create `production` (no required reviewers).
 3. In GitHub → Settings → Variables → Actions, set `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA` from the Terraform outputs.
 4. Run *Deploy* on `main`. The release bucket is empty until then, so this first deploy is manual.

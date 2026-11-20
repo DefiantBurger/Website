@@ -54,6 +54,8 @@ switch_to() {
 	activate "$target"
 	if healthy; then
 		echo "Now serving $target"
+		# Joins the tunnel on a fresh VM; does nothing if it's already up.
+		systemctl start cloudflared
 		return 0
 	fi
 
@@ -62,6 +64,11 @@ switch_to() {
 	if [[ -n "$previous" && "$previous" != "$target" ]]; then
 		echo "Rolling back to $previous" >&2
 		activate "$previous"
+	elif [[ -z "$previous" ]]; then
+		# Nothing to roll back to (a fresh VM): leave no release active, so cloudflared
+		# stays out of the tunnel even after a reboot, and the next boot retries.
+		rm -f "$CURRENT"
+		systemctl stop flaskapp
 	fi
 	exit 1
 }
@@ -70,9 +77,10 @@ switch_to() {
 prune() {
 	local active release
 	active="$(basename "$(readlink "$CURRENT")")"
+	# shellcheck disable=SC2012 # Names are checked with is_sha below; ls -t sorts by age.
 	ls -1t "$RELEASES" | tail -n "+$((KEEP_RELEASES + 1))" | while read -r release; do
 		if [[ "$release" != "$active" ]] && is_sha "$release"; then
-			rm -rf -- "$RELEASES/$release"
+			rm -rf -- "$${RELEASES:?}/$release"
 		fi
 	done
 }

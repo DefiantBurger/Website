@@ -1,0 +1,4 @@
+# check() takes its conditions as single-quoted strings and evaluates them later, on
+# purpose: shellcheck can't see expansions in them (SC2016) or variables they read (SC2034).
+disable=SC2016,SC2034
+source-path=SCRIPTDIR

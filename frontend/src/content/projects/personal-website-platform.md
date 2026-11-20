@@ -192,7 +192,7 @@ flowchart LR
 
 The newest five releases stay on disk, so rolling back is one command. Actions are pinned to commit SHAs.
 
-After a passing smoke test, the workflow also copies the release to the private Cloud Storage bucket. A replaced VM installs it on first boot through the same deploy script, so infrastructure changes don't need a follow-up deploy. One small object in the VM's region stays inside the free tier.
+After a passing smoke test, the workflow also copies the release to the private Cloud Storage bucket. Infrastructure changes that need a new VM are zero-downtime swaps: Terraform starts the new VM next to the old one, it installs this release through the same deploy script and joins the tunnel as a second replica, and only then is the old VM deleted. A new VM that never becomes healthy never replaces the old one. One small object in the VM's region stays inside the free tier.
 
 #### Hardening
 
@@ -211,7 +211,7 @@ Better Stack monitors uptime externally. The site footer links its public status
 - Low hosting cost
 - Few moving parts
 - Fast debugging thanks to a clear runtime topology
-- Safe, repeatable deploys with automatic rollback, and a VM that redeploys itself when replaced
+- Safe, repeatable deploys with automatic rollback, and zero-downtime VM replacements
 
 #### Operational Risks
 
@@ -335,7 +335,7 @@ The project prioritizes clarity and coherence over feature breadth. Every compon
 ## Results
 
 - One cohesive repository demonstrating frontend, backend, infrastructure, and CI/CD capability.
-- One-command deploys with automatic rollback on failed health checks, and a replacement VM that redeploys itself.
+- One-command deploys with automatic rollback on failed health checks, and VM replacements that swap in a new VM without downtime.
 - Multiple interactive utilities showcasing different problem domains and interaction patterns.
 - A content platform where write-ups are published by editing Markdown.
 - Public uptime monitoring and a status page.

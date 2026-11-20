@@ -1,0 +1,26 @@
+#!/bin/bash
+# Stub gcloud for the startup script. Secrets are fake (suffix from /etc/test/suffix),
+# except a tunnel token in /etc/test/tunnel-token; a release is "published" when
+# /etc/test/release/ holds one. /etc/test/fail fails everything.
+if [[ -e /etc/test/fail ]]; then
+	echo "gcloud stub: simulated failure" >&2
+	exit 1
+fi
+case "$1 $2" in
+	"secrets versions")
+		for arg in "$@"; do
+			[[ $arg == --secret=* ]] || continue
+			if [[ $arg == *tunnel* && -f /etc/test/tunnel-token ]]; then
+				cat /etc/test/tunnel-token
+			else
+				echo "fake-${arg#--secret=}-$(cat /etc/test/suffix 2>/dev/null)"
+			fi
+		done
+		;;
+	"storage objects") cat /etc/test/release/fields 2>/dev/null || true ;;
+	"storage cat") cat /etc/test/release/release.tar.gz ;;
+	*)
+		echo "gcloud stub: unexpected $*" >&2
+		exit 2
+		;;
+esac

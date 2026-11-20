@@ -71,29 +71,30 @@ resource "google_service_account_iam_member" "github_deployer_act_as_vm" {
 # Non-admin login: the only sudo it gets is the deploy script (see vm/sudoers.tftpl).
 resource "google_compute_instance_iam_member" "github_deployer_os_login" {
   project       = var.project_id
-  zone          = var.project_zone
+  zone          = google_compute_instance.default.zone
   instance_name = google_compute_instance.default.name
   role          = "roles/compute.osLogin"
   member        = "serviceAccount:${google_service_account.github_deployer.email}"
 
-  # Bound by name, so without this a replaced VM silently comes up without the grant.
+  # A swap moves the grant to the new VM only once it's ready, so after a failed swap
+  # the VM still serving keeps it. Without vm_ready, the old grant goes immediately.
+  depends_on = [terraform_data.vm_ready]
   lifecycle {
-    replace_triggered_by = [google_compute_instance.default.id]
+    create_before_destroy = true
   }
 }
 
 resource "google_iap_tunnel_instance_iam_member" "github_deployer_iap" {
   project  = var.project_id
-  zone     = var.project_zone
+  zone     = google_compute_instance.default.zone
   instance = google_compute_instance.default.name
   role     = "roles/iap.tunnelResourceAccessor"
   member   = "serviceAccount:${google_service_account.github_deployer.email}"
 
-  depends_on = [google_project_service.deploy]
-
-  # Same as above: the VM's IAM policy is lost when it's replaced.
+  # vm_ready: same as above.
+  depends_on = [google_project_service.deploy, terraform_data.vm_ready]
   lifecycle {
-    replace_triggered_by = [google_compute_instance.default.id]
+    create_before_destroy = true
   }
 }
 
