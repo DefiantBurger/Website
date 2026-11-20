@@ -75,10 +75,10 @@ Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates e
 
 ### Debian 13 and Python 3.13
 
-Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028 (confirm at https://wiki.debian.org/LTS before scheduling). Debian 13 (trixie) ships Python 3.13. This replaces the VM.
+Debian 12 left standard support in June 2026 and is on Debian LTS until mid-2028 (confirm at https://wiki.debian.org/LTS before scheduling). Debian 13 (trixie) ships Python 3.13 and kernel 6.12, which also ends the kernel pin in ISSUES.md #1. This replaces the VM.
 
-- `deployment/main.tf`: `image = "debian-cloud/debian-13"`.
-- `deployment/startup.sh.tftpl`: `python3.11` and `python3.11-venv` become `python3.13` and `python3.13-venv` (step 2 and the version check in step 3); the cloudflared apt line's `bookworm` becomes `trixie` (check that https://pkg.cloudflare.com/cloudflared has a `trixie` suite; the `bookworm` packages also run on trixie if not). `deployment/deploy.sh.tftpl`: `python3.11 -m venv` becomes `python3.13`.
+- `deployment/main.tf`: pin a specific `debian-cloud/debian-13-trixie-vYYYYMMDD` image, not the `debian-13` family (see the kernel note in ISSUES.md #1).
+- `deployment/startup.sh.tftpl`: `python3.11` and `python3.11-venv` become `python3.13` and `python3.13-venv` (step 2 and the version check in step 3); the cloudflared apt line's `bookworm` becomes `any` (Cloudflare's distro-agnostic suite; there's no `trixie` one, and unattended-upgrades matches it by site, not codename). `deployment/deploy.sh.tftpl`: `python3.11 -m venv` becomes `python3.13`.
 - Repo: `backend/.python-version` to `3.13`, `requires-python = ">=3.13"` and `target-version = "py313"` in `backend/pyproject.toml`, then `uv lock` and `uv run ruff check --fix .` (the `UP` rules may suggest newer syntax). CI reads `.python-version`, so it follows.
 - Docs: Debian 12 in `DEPLOYMENT.md` (Resources table) and `ARCHITECTURE.md` (Stack table); Python 3.11 in `CLAUDE.md`, `README.md` (badge and requirements line), and the *VM Bootstrap* list in `DEPLOYMENT.md`.
 
