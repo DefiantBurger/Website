@@ -7,13 +7,13 @@ map $sent_http_content_type $html_expires {
 	default off;
 }
 
-server_tokens off;
-
 # Only cloudflared on this VM connects here. Cloudflare terminates TLS for
 # visitors, and the tunnel encrypts traffic between Cloudflare and the VM.
 server {
 	listen 127.0.0.1:80;
 	server_name ${domain};
+	# Server level: Debian 13's nginx.conf already sets it at http level, and a second one there fails nginx -t.
+	server_tokens off;
 	root ${app_path}/current/frontend/dist;
 	index index.html;
 
