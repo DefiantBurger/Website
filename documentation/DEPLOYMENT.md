@@ -80,7 +80,7 @@ To add a file, put it in `vm/` and list it in `vm_files`. If its directory needs
     └── frontend/dist/
 ```
 
-`personalwebsite-deploy <sha> <sha256> < release.tar.gz` verifies the checksum, extracts the release, installs hash-pinned wheels (`pip install --require-hashes --only-binary :all:`), swaps `current` atomically, restarts `flaskapp`, and polls `/api/health/` and Nginx for ~30 s. If the check fails, it switches back to the previous release and exits 1. A release already on the VM is reactivated without rebuilding. Runs hold a lock, so a workflow deploy during the startup script's bootstrap waits for it.
+`personalwebsite-deploy <sha> <sha256> < release.tar.gz` verifies the checksum, extracts the release, installs hash-pinned wheels (`pip install --require-hashes --only-binary :all:`), swaps `current` atomically, restarts `flaskapp`, and polls `/api/health/` through Nginx, and the home page, for ~30 s. If the check fails, it switches back to the previous release and exits 1. A release already on the VM is reactivated without rebuilding. Runs hold a lock, so a workflow deploy during the startup script's bootstrap waits for it.
 
 ## Deploying Changes
 

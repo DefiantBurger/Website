@@ -26,7 +26,9 @@ is_sha() {
 healthy() {
 	local _
 	for _ in $(seq 1 30); do
-		if curl -fsS -o /dev/null http://127.0.0.1:${backend_port}/api/health/ \
+		# The API through Nginx, not Flask's port: Debian's default site also answers / with
+		# a 200, but only our config proxies /api/.
+		if curl -fsS -o /dev/null http://127.0.0.1/api/health/ \
 			&& curl -fsS -o /dev/null http://127.0.0.1/; then
 			return 0
 		fi

@@ -23,6 +23,9 @@ provision() {
 	apt-get autoremove -yq
 	apt-get update -yq
 	apt-get install -yq python3.13 python3.13-venv nginx curl ca-certificates unattended-upgrades
+	# The package starts Nginx on Debian's default site (0.0.0.0:80), and a reload can't
+	# rebind that to our 127.0.0.1:80. Keep it down until it starts on our config.
+	systemctl stop nginx
 
 	# A second update, since fetching Cloudflare's key needs the curl installed above.
 	install -d -m 755 /usr/share/keyrings

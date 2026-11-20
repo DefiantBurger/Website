@@ -56,7 +56,7 @@ Deploys don't touch the VM's config. After editing `deployment/startup.sh.tftpl`
      --command 'sudo google_metadata_script_runner startup'
    ```
 
-It prints each file it updated (also appended to `/var/log/startup-script.log`) and restarts only what those files affect. Unchanged files are left alone, so a rerun is safe. If `nginx -t` fails, it restores the previous Nginx files, leaves Nginx running, and exits with an error; fix the template and repeat.
+It prints each file it updated (also appended to `/var/log/startup-script.log`) and restarts only what those files affect. Unchanged files are left alone, so a rerun is safe. If `nginx -t` fails, it restores the previous Nginx files, leaves Nginx running, and exits with an error; fix the template and repeat. Nginx is reloaded, not restarted, and a reload can't rebind `listen` to another address: after changing it, also run `sudo systemctl restart nginx`.
 
 ## Incidents
 
