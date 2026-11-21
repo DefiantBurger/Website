@@ -43,15 +43,16 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 
 `startup.sh.tftpl` is the VM's `startup-script` metadata. It runs as root on every boot (logged to `/var/log/startup-script.log`) and can be [rerun by hand](./RUNBOOK.md#apply-vm-config-changes):
 
-1. **First boot only** (until `/var/lib/personalwebsite/.provisioned` exists): installs Python 3.13, Nginx, curl, `unattended-upgrades`, and `cloudflared` (from Cloudflare's apt repo), and creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700).
+1. **First boot only** (until `/var/lib/personalwebsite/.provisioned` exists): installs Python 3.13, Nginx, curl, `unattended-upgrades`, and `cloudflared` (from Cloudflare's apt repo), and creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700). On every boot, it also installs `nftables` if it's missing, so VMs provisioned before the firewall get it too.
 2. Installs the files listed in `vm_files` (`main.tf`, sources in `deployment/vm/`), replacing only those whose contents changed:
-   - The Nginx config, and the `flaskapp`, `cloudflared`, and `cloudflared-restart` units.
+   - The Nginx config, and the `flaskapp`, `flaskapp-firewall`, `cloudflared`, and `cloudflared-restart` units.
+   - `flaskapp-firewall.nft`, the [metadata block](#runtime-on-the-vm) that `flaskapp-firewall.service` loads.
    - `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
    - `unattended-upgrades.conf`: also install Debian point releases and `cloudflared`, but never kernels (`linux-image-*`; see [Kernel updates](#kernel-updates)), and reboot at 09:17 UTC when an update needs it.
    - `sysctl.conf`: `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung, and the larger UDP buffers QUIC wants.
 3. Checks a changed Nginx config with `nginx -t`. If it fails, it restores the previous files and stops with an error, so Nginx keeps serving the old config. A changed sudoers rule is checked with `visudo` before it goes live.
 4. Refreshes secrets from Secret Manager, using the `gcloud` that ships with Google's Debian images (as the VM's service account). If `gcloud` fails, the script stops and the old secrets stay.
-5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx, `sysctl -p` for kernel settings, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step. `flaskapp` and `cloudflared` stay idle until a release exists (`ConditionPathExists`): joining the tunnel puts the VM in Cloudflare's rotation.
+5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx and the firewall rules, `sysctl -p` for kernel settings, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step. `flaskapp` and `cloudflared` stay idle until a release exists (`ConditionPathExists`): joining the tunnel puts the VM in Cloudflare's rotation.
 6. If no release is active (`current` is missing), installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. The deploy script starts `cloudflared` once the release passes its health check. If the check fails with no earlier release to fall back on, it leaves none active. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*.
 7. Marks the VM ready for [swaps](#vm-swaps): once `cloudflared`'s `/ready` answers (up to 2 minutes), it sets the guest attribute `personalwebsite/ready` to the active release's commit SHA, or `none` if no release is published yet.
 
@@ -81,9 +82,10 @@ A swap takes about 6–8 minutes, and the overlap is its only cost beyond the fr
   - HTML is `Cache-Control: no-cache`; hashed `/assets/` are cached for a year, and a missing one gets a `404` (never the page shell with a `200`).
   - gzip for HTML, JSON, CSS, JS, and SVG, including API responses (the course catalog is ~3 MB raw).
   - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10 (`/api/fileshare/` with `nodelay`; other `/api/` delays requests past 5 instead), answered with `429`. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
+  - At most 2 uploads in flight per `CF-Connecting-IP` and 6 in total (`limit_conn`, also `429`). Each one can sit on disk about four times while it's in flight, so this keeps uploads from filling the boot disk.
   - Security headers: HSTS (with `includeSubDomains`, so every subdomain, `status` included, must serve HTTPS), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP. To enforce it, browse each page with the console open, fix or allow what it reports, then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`. Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
 - `/.well-known/security.txt` is `frontend/public/.well-known/security.txt`. Its `Expires` date must stay under a year out, so bump it yearly (next: before 2027-11-10).
-- **`flaskapp`** (systemd, `FLASK_ENV=production`, `PORT=backend_port`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
+- **`flaskapp`** (systemd, `FLASK_ENV=production`, `PORT=backend_port`) runs Waitress on `127.0.0.1:5000`, sandboxed (`ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `NoNewPrivileges`) with write access only to `/var/lib/personalwebsite`. It `Requires` `flaskapp-firewall.service`, which loads an nftables table that rejects `flaskapp`'s connections to the metadata server's HTTP port (`169.254.169.254:80`). Otherwise any code running as `flaskapp` could get the VM service account's token and read both secrets from Secret Manager. Port 53 stays open, because the metadata server is also the VM's DNS resolver. Stopping the firewall unit stops `flaskapp` too. File-share data lives in `/var/lib/personalwebsite/fileshare/` and survives reboots and deploys.
 
 ### Releases
 
@@ -96,7 +98,7 @@ A swap takes about 6–8 minutes, and the overlap is its only cost beyond the fr
     └── frontend/dist/
 ```
 
-`personalwebsite-deploy <sha> <sha256> < release.tar.gz` verifies the checksum, extracts the release, installs hash-pinned wheels (`pip install --require-hashes --only-binary :all:`), swaps `current` atomically, restarts `flaskapp`, and polls `/api/health/` through Nginx, and the home page, for ~30 s. If the check fails, it switches back to the previous release and exits 1. A release already on the VM is reactivated without rebuilding. Runs hold a lock, so a workflow deploy during the startup script's bootstrap waits for it.
+`personalwebsite-deploy <sha> <sha256> < release.tar.gz` verifies the checksum and extracts the release into a directory only root can open. It refuses a tarball containing anything other than regular files and directories (symlinks, device nodes, FIFOs), a `backend/.venv`, or a `requirements.txt` line that `uv export` wouldn't write (pip options, paths, URLs). Then it installs hash-pinned wheels (`pip install --require-hashes --only-binary :all:`), swaps `current` atomically, restarts `flaskapp`, and polls `/api/health/` through Nginx, and the home page, for ~30 s. If the check fails, it switches back to the previous release and exits 1. A release already on the VM is reactivated without rebuilding. Runs hold a lock, so a workflow deploy during the startup script's bootstrap waits for it.
 
 ## Deploying Changes
 
@@ -107,16 +109,16 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 | App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
 | Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A change to `vm_spec` (image, machine type, zone) is a zero-downtime [swap](#vm-swaps). |
-| VM config (startup script, or `vm/`: units, Nginx, deploy script, sudoers, apt and sysctl settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](./RUNBOOK.md#apply-vm-config-changes). |
+| VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt and sysctl settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](./RUNBOOK.md#apply-vm-config-changes). |
 | Roll back | [Runbook](./RUNBOOK.md#roll-back-a-release). |
 
 ### Testing VM changes
 
 `deployment/test/run.sh` checks everything that reaches the VM, locally, in about 5 minutes:
-- It runs the rendered startup script in Debian 13 containers with systemd, with `gcloud`, `sysctl`, and the metadata server stubbed. The scenarios cover first boot, reruns, config changes and their failure handling, and a new VM in a swap whose release is good, broken, or can't reach the tunnel.
+- It runs the rendered startup script in Debian 13 containers with systemd, with `gcloud`, `sysctl`, and the metadata server stubbed. The scenarios cover first boot, reruns, config changes and their failure handling, and a new VM in a swap whose release is good, broken, or can't reach the tunnel. They also check the metadata firewall, the upload caps, and that the deploy script refuses tarballs that could run code as root.
 - It also tests `wait-for-vm.sh`, and Terraform's swap ordering with a local stand-in config.
 
-It needs Docker, shellcheck, Terraform, and `tf.sh`'s gcloud login, because rendering reads Terraform state. Run it after changing anything in `deployment/` that reaches the VM. It can't model GCE itself (the guest environment, IAM, a real tunnel), so watch the first real run of anything new.
+It needs Docker, shellcheck, Terraform, uv, and `tf.sh`'s gcloud login (rendering reads Terraform state). Run it after changing anything in `deployment/` that reaches the VM. It can't model GCE itself (the guest environment, IAM, a real tunnel), so watch the first real run of anything new.
 
 ### Kernel updates
 

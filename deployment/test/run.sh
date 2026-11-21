@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Tests the VM's scripts and the swap mechanism locally (see "Testing VM changes" in
 # documentation/DEPLOYMENT.md). Only rendering the startup script reads anything remote:
-# Terraform state, through tf.sh. Needs Docker, shellcheck, Terraform, and tf.sh's gcloud
-# login. Takes about 5 minutes.
+# Terraform state, through tf.sh. Needs Docker, shellcheck, Terraform, uv,
+# and tf.sh's gcloud login. Takes about 5 minutes.
 #
 #   deployment/test/run.sh
 set -uo pipefail

@@ -1,4 +1,9 @@
 limit_req_zone $http_cf_connecting_ip zone=limit:10m rate=10r/s;
+# Concurrent uploads, per visitor and in total. Each one in flight sits on disk up to four
+# times (Nginx's buffer, Waitress's, Werkzeug's spool, the encrypted copy), so without a
+# cap a couple dozen at once fill the boot disk.
+limit_conn_zone $http_cf_connecting_ip zone=uploads_per_ip:1m;
+limit_conn_zone $server_name zone=uploads_total:1m;
 
 # Always revalidate HTML (the SPA shell and its per-route copies) so browsers never
 # reuse one that points at a previous release's assets.
@@ -33,6 +38,7 @@ server {
 
 	# 429 rather than the default 503, so rate limiting doesn't look like an outage.
 	limit_req_status 429;
+	limit_conn_status 429;
 
 	# CF-Visitor carries the visitor's original scheme through the tunnel.
 	if ($http_cf_visitor ~ '"scheme":"http"') {
@@ -65,6 +71,9 @@ server {
 	location /api/fileshare/upload/ {
 		include api_proxy_params.conf;
 		limit_req zone=limit burst=10 nodelay;
+		# Keep request buffering on: it stops slow uploads from tying up Waitress's threads.
+		limit_conn uploads_per_ip 2;
+		limit_conn uploads_total 6;
 		client_max_body_size 81M;
 	}
 

@@ -37,6 +37,8 @@ locals {
     "/etc/nginx/sites-available/default"              = { mode = "644", content = templatefile("${local.vm}/nginx.conf.tftpl", local.vm_template_vars) }
     "/etc/nginx/api_proxy_params.conf"                = { mode = "644", content = templatefile("${local.vm}/nginx_api_proxy_params.conf.tftpl", local.vm_template_vars) }
     "/etc/systemd/system/flaskapp.service"            = { mode = "644", content = templatefile("${local.vm}/flaskapp.service.tftpl", local.vm_template_vars) }
+    "/etc/systemd/system/flaskapp-firewall.service"   = { mode = "644", content = file("${local.vm}/flaskapp-firewall.service") }
+    "/etc/nftables.d/flaskapp-firewall.nft"           = { mode = "644", content = file("${local.vm}/flaskapp-firewall.nft") }
     "/etc/systemd/system/cloudflared.service"         = { mode = "644", content = templatefile("${local.vm}/cloudflared.service.tftpl", local.vm_template_vars) }
     "/etc/systemd/system/cloudflared-restart.path"    = { mode = "644", content = file("${local.vm}/cloudflared-restart.path") }
     "/etc/systemd/system/cloudflared-restart.service" = { mode = "644", content = file("${local.vm}/cloudflared-restart.service") }

@@ -132,7 +132,7 @@ refresh_secrets() {
 # Make each changed file take effect, by where it lives. Files not listed here (the apt
 # config, sudoers rule, deploy script) are read fresh on every use.
 apply_changes() {
-	local path daemon_reload=false reload_nginx=false
+	local path daemon_reload=false reload_nginx=false reload_firewall=false
 	local -A restart=()
 	for path in "$${CHANGED[@]}"; do
 		case "$path" in
@@ -143,6 +143,8 @@ apply_changes() {
 			/etc/personalwebsite/*) restart[flaskapp.service]=1 ;;
 			/etc/cloudflared/*) restart[cloudflared.service]=1 ;;
 			/etc/nginx/*) reload_nginx=true ;;
+			# A reload swaps the rules atomically; a restart would also restart flaskapp.
+			/etc/nftables.d/*) reload_firewall=true ;;
 			/etc/sysctl.d/*) sysctl -p "$path" ;;
 		esac
 	done
@@ -156,6 +158,9 @@ apply_changes() {
 	fi
 	if [[ "$reload_nginx" == true ]]; then
 		systemctl try-reload-or-restart nginx
+	fi
+	if [[ "$reload_firewall" == true ]]; then
+		systemctl try-reload-or-restart flaskapp-firewall
 	fi
 }
 
@@ -212,6 +217,12 @@ echo "===== Startup Script Begin ====="
 if [[ ! -f "$PROVISIONED_MARKER" ]]; then
 	echo "First boot: installing packages..."
 	provision
+fi
+# Every boot, not in provision, so VMs provisioned before the firewall get it too.
+if ! command -v nft >/dev/null; then
+	echo "Installing nftables..."
+	apt-get update -yq
+	DEBIAN_FRONTEND=noninteractive apt-get install -yq nftables
 fi
 
 echo "Installing config files..."

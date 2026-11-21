@@ -1,9 +1,10 @@
 # Close to a GCE Debian 13 image for the startup script: systemd as PID 1, sudo (visudo),
-# python3, and man-db (which the script removes). Unlike Docker's Debian image, GCE lets
-# packages start their services during install, so policy-rc.d goes.
+# python3, man-db (which the script removes), and iproute2 (for the firewall test). Unlike
+# Docker's Debian image, GCE lets packages start their services during install, so
+# policy-rc.d goes.
 FROM debian:trixie
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends systemd systemd-sysv dbus sudo man-db procps python3 \
+    && apt-get install -y --no-install-recommends systemd systemd-sysv dbus sudo man-db procps python3 iproute2 \
     && rm -rf /var/lib/apt/lists/* /usr/sbin/policy-rc.d
 
 # Stand-ins for Google's side: gcloud (secrets, release bucket) and the metadata server's

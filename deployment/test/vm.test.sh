@@ -28,7 +28,7 @@ x() { docker exec "$C" bash -c "$1"; }
 start_vm() {
 	C="$1"
 	docker rm -f "$C" >/dev/null 2>&1
-	docker run -d -t --name "$C" --cgroupns=private --cap-add SYS_ADMIN --security-opt apparmor=unconfined \
+	docker run -d -t --name "$C" --cgroupns=private --cap-add SYS_ADMIN --cap-add NET_ADMIN --security-opt apparmor=unconfined \
 		--tmpfs /run --tmpfs /run/lock --add-host metadata.google.internal:127.0.0.2 "$IMAGE" >/dev/null
 	local state
 	for _ in $(seq 1 30); do
@@ -54,10 +54,14 @@ variant() {
 	grep -q "$b64" "$4" || { echo "variant for $2 didn't apply"; exit 1; }
 }
 invocation() { x "systemctl show -p InvocationID --value $1"; }
-leftovers() { x "find /etc/nginx /etc/sudoers.d /etc/systemd/system /etc/sysctl.d /etc/apt/apt.conf.d /usr/local/sbin /etc/personalwebsite /etc/cloudflared -name '.*.??????' | wc -l"; }
+leftovers() { x "find /etc/nginx /etc/nftables.d /etc/sudoers.d /etc/systemd/system /etc/sysctl.d /etc/apt/apt.conf.d /usr/local/sbin /etc/personalwebsite /etc/cloudflared -name '.*.??????' | wc -l"; }
 ready_attr() { x "grep '^personalwebsite/ready ' /var/log/guest-attributes 2>/dev/null | tail -1 | cut -d' ' -f2"; }
 started_at() { x "systemctl show -p ActiveEnterTimestampMonotonic --value $1"; }
 http_code() { x "curl -s -o /dev/null -w %{http_code} http://127.0.0.1$1"; }
+# slow_upload <visitor ip>: an upload throttled so it stays in flight (needs /tmp/body).
+slow_upload() { docker exec -d "$C" curl -s -o /dev/null -H "CF-Connecting-IP: $1" --limit-rate 20k --data-binary @/tmp/body http://127.0.0.1/api/fileshare/upload/; }
+# upload_code <visitor ip>: a tiny upload's status; the stub app answers 501 to anything Nginx lets through.
+upload_code() { x "curl -s -o /dev/null -w %{http_code} -H 'CF-Connecting-IP: $1' --data-binary x http://127.0.0.1/api/fileshare/upload/"; }
 # publish <good|broken>: put that release in the stub bucket.
 publish() { docker cp -q "$OUT/$1" "$C:/etc/test/release"; }
 # install_release <name>: a healthy release on disk, as if deployed earlier.
@@ -83,6 +87,23 @@ class H(http.server.BaseHTTPRequestHandler):
 		self.end_headers()
 http.server.HTTPServer(('127.0.0.1', int(os.environ['PORT'])), H).serve_forever()"
 make_release broken "$BROKEN" "raise SystemExit('broken on purpose')"
+(cd "$HERE/../../backend" && uv export --frozen --no-dev --no-emit-project --format requirements-txt -q) > "$OUT/requirements.txt" \
+	|| { echo "uv export failed"; exit 1; }
+
+# variant_release <name> <command>: the good release with <command> run in a copy of it.
+variant_release() {
+	local src="$OUT/src-$1"
+	rm -rf "$src" && cp -a "$OUT/src-good" "$src"
+	(cd "$src" && eval "$2")
+	mkdir -p "$OUT/$1"
+	tar -czf "$OUT/$1/release.tar.gz" -C "$src" backend frontend
+}
+# deploy <name> <commit sha> [dir]: run the deploy script on that release from [dir]; sets RC and LOG.
+deploy() {
+	docker cp -q "$OUT/$1/release.tar.gz" "$C:/root/$1.tar.gz"
+	LOG="$(x "cd ${3:-/root} && personalwebsite-deploy $2 $(sha256sum "$OUT/$1/release.tar.gz" | cut -d' ' -f1) < /root/$1.tar.gz" 2>&1)"
+	RC=$?
+}
 
 group_main() {
 	start_vm pw-vm-main
@@ -90,7 +111,9 @@ group_main() {
 	echo "A. First boot, no release published yet"
 	run "$BASE"
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
-	check "10 files + 2 secrets updated (got $(updated))" '[[ $(updated) == 12 ]]'
+	check "12 files + 2 secrets updated (got $(updated))" '[[ $(updated) == 14 ]]'
+	check "nftables installed" 'logged "Installing nftables" && x "command -v nft" >/dev/null'
+	check "metadata firewall loaded even before a release" 'x "systemctl is-active -q flaskapp-firewall && nft list table inet flaskapp_firewall" >/dev/null'
 	check "no published release logged" 'logged "No release published"'
 	check "Nginx started during install, as on GCE" '(( $(x "journalctl -u nginx -o cat | grep -c \"^Started nginx.service\"") >= 2 )) && ! logged "policy-rc.d"'
 	check "sysctl applied" 'logged "sysctl stub: -p /etc/sysctl.d/99-personalwebsite.conf"'
@@ -124,9 +147,10 @@ TUNNEL_TOKEN=fake-cloudflare-tunnel-token-v1" ]]'
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
 	check "nothing updated (got $(updated))" '[[ $(updated) == 0 ]]'
 	check "no sysctl reapply" '! logged "sysctl stub"'
+	check "nftables not reinstalled" '! logged "Installing nftables"'
 	check "nginx untouched" '[[ "$(x "systemctl show -p MainPID --value nginx")" == "$nginx_pid" ]]'
 	check "watcher not restarted" '[[ "$(invocation cloudflared-restart.path)" == "$path_inv" ]]'
-	check "no unit looks changed on disk" '[[ "$(x "systemctl show -p NeedDaemonReload --value flaskapp cloudflared cloudflared-restart.path cloudflared-restart.service" | grep . | sort -u)" == no ]]'
+	check "no unit looks changed on disk" '[[ "$(x "systemctl show -p NeedDaemonReload --value flaskapp flaskapp-firewall cloudflared cloudflared-restart.path cloudflared-restart.service" | grep . | sort -u)" == no ]]'
 
 	echo "C. Drifted ownership and mode are corrected without counting as changes"
 	x 'chmod 600 /etc/systemd/system/flaskapp.service && chown nobody /etc/nginx/api_proxy_params.conf'
@@ -225,6 +249,35 @@ group_swap() {
 	check "serves it through Nginx" '[[ "$(http_code /api/health/)" == 200 ]]'
 	check "joins the tunnel only after the app is up" '(( $(started_at cloudflared) > $(started_at flaskapp) && $(started_at flaskapp) > 0 ))'
 	check "marks itself ready with the release" '[[ "$(ready_attr)" == "$GOOD" ]]'
+
+	echo "N. flaskapp can't reach the metadata server over HTTP"
+	# A stand-in on the real address, on port 80 and on 53 (DNS, which must stay open).
+	x 'ip addr add 169.254.169.254/32 dev lo'
+	docker exec -d "$C" python3 -m http.server --bind 169.254.169.254 80
+	docker exec -d "$C" python3 -m http.server --bind 169.254.169.254 53
+	local metadata='curl -s -o /dev/null -w %{http_code} --max-time 5 http://169.254.169.254'
+	x "for _ in \$(seq 1 20); do $metadata/ | grep -q 200 && $metadata:53/ | grep -q 200 && exit; sleep 0.5; done"
+	check "root still reaches it" '[[ "$(x "$metadata/")" == 200 ]]'
+	check "flaskapp is refused" '[[ "$(x "runuser -u flaskapp -- $metadata/")" == 000 ]]'
+	check "flaskapp still reaches port 53" '[[ "$(x "runuser -u flaskapp -- $metadata:53/")" == 200 ]]'
+	x 'systemctl stop flaskapp-firewall'
+	check "stopping the firewall stops flaskapp" '! x "systemctl is-active -q flaskapp"'
+	x 'systemctl start flaskapp'
+	check "starting flaskapp brings the firewall back" 'x "systemctl is-active -q flaskapp-firewall" && [[ "$(x "runuser -u flaskapp -- $metadata/")" == 000 ]]'
+
+	echo "P. Concurrent uploads are capped per visitor and in total"
+	x 'head -c 1000000 /dev/zero > /tmp/body'
+	slow_upload 198.51.100.1
+	slow_upload 198.51.100.1
+	sleep 2
+	check "a visitor's third upload gets 429" '[[ "$(upload_code 198.51.100.1)" == 429 ]]'
+	check "another visitor's goes through" '[[ "$(upload_code 198.51.100.2)" == 501 ]]'
+	for ip in 3 4 5 6; do slow_upload "198.51.100.$ip"; done
+	sleep 2
+	check "a seventh upload in total gets 429" '[[ "$(upload_code 198.51.100.7)" == 429 ]]'
+	x 'pkill -x curl'
+	sleep 1
+	check "the slots free up once they end" '[[ "$(upload_code 198.51.100.1)" == 501 ]]'
 }
 
 group_broken() {
@@ -239,6 +292,35 @@ group_broken() {
 	check "not marked ready" '[[ -z "$(ready_attr)" ]] && logged "no release is active"'
 	x 'systemctl start cloudflared'
 	check "a reboot wouldn't join it either" '[[ "$(x "systemctl show -p ConditionResult --value cloudflared")" == no ]]'
+
+	echo "Q. Deploy script refuses tarballs that could run code as root"
+	local name sha=3333333333333333333333333333333333333330 n=0
+	local -A setups=(
+		[symlink]='ln -s /etc/shadow frontend/dist/leak'
+		[fifo]='mkfifo backend/fifo'
+		[venv]='mkdir -p backend/.venv/lib/python3.13/site-packages && echo "import os; os.system(\"touch /pwned\")" > backend/.venv/lib/python3.13/site-packages/x.pth'
+		[pip-option]='printf "%s\n" "--no-binary :all:" > backend/requirements.txt'
+		[direct-ref]='printf "%s\n" "flask @ https://example.com/flask.whl" > backend/requirements.txt'
+	)
+	local -A errors=([symlink]='other than regular files' [fifo]='other than regular files' [venv]='contains backend/.venv' [pip-option]='requirements.txt has lines' [direct-ref]='requirements.txt has lines')
+	for name in "${!setups[@]}"; do
+		sha="${sha%?}$((++n))"
+		variant_release "$name" "${setups[$name]}"
+		deploy "$name" "$sha"
+		check "$name: refused (got $RC)" '[[ $RC == 1 ]] && grep -q "${errors[$name]}" <<< "$LOG"'
+		check "$name: nothing left behind" '! x "test -e /opt/personalwebsite/releases/$sha || test -e /pwned"'
+	done
+
+	# A real `uv export` (pip installs it from PyPI), plus a setuid file, deployed from a
+	# directory with a planted `venv` module that `python -m venv` would import.
+	sha=4444444444444444444444444444444444444444
+	variant_release real "cp '$OUT/requirements.txt' backend/requirements.txt && chmod 4755 frontend/dist/index.html"
+	x 'mkdir -p /tmp/cwd/venv && touch /tmp/cwd/venv/__init__.py && echo "open(\"/pwned\", \"w\")" > /tmp/cwd/venv/__main__.py'
+	deploy real "$sha" /tmp/cwd
+	check "real requirements deploy (got $RC)" '[[ $RC == 0 ]] && grep -q "Now serving $sha" <<< "$LOG"'
+	check "Flask installed in the venv" 'x "/opt/personalwebsite/current/backend/.venv/bin/python3 -c \"import flask\""'
+	check "planted module in the caller's directory not run" '! x "test -e /pwned"'
+	check "setuid bit stripped" '[[ "$(x "stat -c %a /opt/personalwebsite/current/frontend/dist/index.html")" == 755 ]]'
 }
 
 group_tunnel() {

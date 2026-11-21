@@ -1,0 +1,12 @@
+[Unit]
+Description=Block flaskapp from the metadata server
+# No [Install]: flaskapp.service Requires this, so it never runs without the rules, and
+# stopping or restarting this stops or restarts flaskapp too.
+Before=flaskapp.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables.d/flaskapp-firewall.nft
+ExecReload=/usr/sbin/nft -f /etc/nftables.d/flaskapp-firewall.nft
+ExecStop=/usr/sbin/nft destroy table inet flaskapp_firewall

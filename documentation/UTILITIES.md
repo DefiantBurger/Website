@@ -68,7 +68,7 @@ Temporary file sharing keyed by an access key: files are encrypted at rest and e
 
 A file record is `{id, originalFilename, sizeBytes, uploadedAt, expiresAt}`; `id` is random.
 
-Errors: `400` missing key or file, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `503` too many concurrent transfers.
+Errors: `400` missing key or file, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `429` too many uploads in flight (Nginx: 2 per visitor, 6 in total), `503` too many concurrent transfers.
 
 ### Behavior
 

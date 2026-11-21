@@ -173,7 +173,7 @@ resource "cloudflare_zone_settings_override" "website" {
 
 ### Edge rate limit for uploads
 
-Cloudflare's free plan includes one rate-limiting rule. Pointing it at `/api/fileshare/upload/` (a few requests per IP per 10 s) would drop upload floods at the edge, before they cross the tunnel and fill Nginx's buffers (the disk-fill entry in [Issues](./ISSUES.md#infrastructure)). Nginx's `limit_conn` is still needed, since the edge counts requests, not concurrent ones.
+Cloudflare's free plan includes one rate-limiting rule. Pointing it at `/api/fileshare/upload/` (a few requests per IP per 10 s) would drop upload floods at the edge, before they cross the tunnel. It complements Nginx's per-visitor and total caps on concurrent uploads (`limit_conn`), since the edge counts requests, not concurrent ones.
 
 - In Terraform it's a `cloudflare_ruleset` with phase `http_ratelimit`; like `www_redirect`, a zone gets one ruleset per phase. Check the free plan's limits first (it counts by IP only, with short fixed periods and block times) and pick values that fit.
 - The API token needs permission to edit the zone's WAF rules; add it to the token list under *Secrets* in DEPLOYMENT.md.

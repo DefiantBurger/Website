@@ -1,0 +1,14 @@
+# Loaded by flaskapp-firewall.service. Keeps flaskapp from getting the VM service account's
+# token from the metadata server, which can read every secret in Secret Manager. Only
+# port 80: the metadata server is also the VM's DNS resolver. The fd20:ce::254 rule
+# covers the metadata server's address on IPv6-enabled VMs.
+
+# One transaction, so a reload never leaves flaskapp unblocked.
+destroy table inet flaskapp_firewall
+table inet flaskapp_firewall {
+	chain output {
+		type filter hook output priority filter; policy accept;
+		meta skuid "flaskapp" ip daddr 169.254.169.254 tcp dport 80 reject with tcp reset
+		meta skuid "flaskapp" ip6 daddr fd20:ce::254 tcp dport 80 reject with tcp reset
+	}
+}

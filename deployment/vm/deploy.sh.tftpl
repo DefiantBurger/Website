@@ -8,6 +8,8 @@
 
 set -euo pipefail
 umask 022
+# sudo keeps the caller's directory, and `python -m` would import modules from it.
+cd /
 
 APP_PATH="${app_path}"
 RELEASES="$APP_PATH/releases"
@@ -73,6 +75,30 @@ switch_to() {
 	exit 1
 }
 
+# Succeeds if requirements file $1 holds only what `uv export` writes: `name==version`
+# lines with an optional marker, `--hash` continuation lines, and comments. Anything else
+# (pip options like --no-binary or --index-url, paths, URLs) could make pip build from
+# source as root. Checked line by line, tracking pip's backslash continuations.
+valid_requirements() {
+	local req='^[A-Za-z0-9][A-Za-z0-9._-]*(\[[A-Za-z0-9._,-]+\])?==[A-Za-z0-9.!+_-]+'
+	local marker="( ; [A-Za-z0-9_ .'\"=<>!~()]+)?"
+	local hash='^[[:space:]]+--hash=sha256:[0-9a-f]{64}'
+	local end='( \\)?$'
+	# pip never continues a comment line, so one ending in a backslash would let the
+	# next line through as an option.
+	local comment='^[[:space:]]*(#(.*[^\\])?)?$'
+	local line continued=false
+	while IFS= read -r line || [[ -n "$line" ]]; do
+		if [[ "$continued" == true ]]; then
+			[[ "$line" =~ $hash$end ]] || return 1
+		elif [[ ! "$line" =~ $req$marker$end && ! "$line" =~ $comment ]]; then
+			return 1
+		fi
+		if [[ "$line" == *\\ ]]; then continued=true; else continued=false; fi
+	done < "$1"
+	[[ "$continued" == false ]]
+}
+
 # Keep the newest releases plus whatever `current` points at.
 prune() {
 	local active release
@@ -121,19 +147,27 @@ cat > "$work/release.tar.gz"
 echo "$checksum  $work/release.tar.gz" | sha256sum --check --quiet - || die "checksum mismatch"
 
 rm -rf -- "$release"
-mkdir "$release"
+# Private until the final chmod, so no other user can reach the tarball's contents.
+mkdir -m 700 "$release"
 tar -xzf "$work/release.tar.gz" -C "$release" --no-same-owner --no-same-permissions
 [[ -f "$release/backend/main.py" && -f "$release/frontend/dist/index.html" && -f "$release/backend/requirements.txt" ]] \
 	|| die "tarball is missing backend/main.py, backend/requirements.txt or frontend/dist/index.html"
+# Symlinks could point outside the release, and device nodes would be world-readable after
+# the chmod below. A shipped venv's .pth files or pip.conf would run as root in pip below.
+[[ -z "$(find "$release" ! -type f ! -type d -print -quit)" ]] \
+	|| die "tarball contains something other than regular files and directories"
+[[ ! -e "$release/backend/.venv" ]] || die "tarball contains backend/.venv"
+valid_requirements "$release/backend/requirements.txt" \
+	|| die "requirements.txt has lines uv export doesn't write (pip options, paths, or URLs)"
 
 # Hash-pinned wheels only: no sdist builds, nothing resolved beyond uv.lock.
-python3.13 -m venv "$release/backend/.venv"
+python3.13 -I -m venv "$release/backend/.venv"
 "$release/backend/.venv/bin/pip" install --quiet --disable-pip-version-check \
 	--require-hashes --only-binary :all: --no-deps -r "$release/backend/requirements.txt"
 
 # Root-owned and read-only to flaskapp.
 chown -R root:root "$release"
-chmod -R u+rwX,go+rX,go-w "$release"
+chmod -R u+rwX,go+rX,go-w,ug-s "$release"
 touch "$release/.complete"
 
 switch_to "$sha"

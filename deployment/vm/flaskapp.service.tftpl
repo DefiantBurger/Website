@@ -1,6 +1,8 @@
 [Unit]
 Description=Flask Application
-After=network.target
+After=network.target flaskapp-firewall.service
+# Never run without the metadata-server block.
+Requires=flaskapp-firewall.service
 # Nothing to run until GitHub Actions deploys the first release.
 ConditionPathExists=${app_path}/current/backend/main.py
 
