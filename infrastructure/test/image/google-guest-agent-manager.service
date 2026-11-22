@@ -1,0 +1,8 @@
+[Unit]
+Description=Stub Google guest agent plugin manager
+
+[Service]
+ExecStart=/usr/local/lib/test/google-guest-agent-manager
+
+[Install]
+WantedBy=multi-user.target

@@ -115,6 +115,7 @@ The kernel comes only from the boot image pinned in `main.tf`, since an automati
 - **`google-github-actions/auth` fails:** the `GCP_WIF_PROVIDER` / `GCP_DEPLOYER_SA` repository variables are missing or wrong, or the job didn't run on `main` in the `production` environment (the provider rejects anything else).
 - **"Find the VM" fails with `Found 2 VMs`:** a swap is in progress or failed; see [Swap the VM](#swap-the-vm). With `Found 0 VMs`, the VM is missing its `app=personalwebsite` label.
 - **`gcloud compute ssh` fails:** check the deployer's IAP and OS Login roles in `github_deploy.tf`, and that the VM has finished provisioning (`/var/log/startup-script.log`).
+- **`gcloud compute ssh` fails with `Permission denied (publickey)`** and the serial log shows `google_authorized_keys` (not `google_authorized_principals`) for the deployer: the legacy `google-guest-agent.service` is running beside the plugin manager, and the two break OS Login's certificate check. Starting it by hand (`systemctl restart google-guest-agent`) does this. Fix with `infrastructure/ssh.sh 'sudo systemctl stop google-guest-agent && sudo systemctl restart google-guest-agent-manager'`.
 - **`personalwebsite-deploy` fails its health check:** the step log includes the last 50 `flaskapp` journal lines. The previous release is still serving.
 
 ### Frontend reports "Expected JSON" or fails to load data

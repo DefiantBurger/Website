@@ -1,7 +1,0 @@
-#!/bin/bash
-# Stub Google guest agent: like the real plugin manager, it relaunches its mwlid_extension
-# plugin whenever it exits. The plugin is sleep under that name (a symlink, so pkill -x matches).
-while true; do
-	/usr/local/lib/test/mwlid_extension infinity &
-	wait $!
-done

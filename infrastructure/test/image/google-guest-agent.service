@@ -1,10 +1,9 @@
+# Stub legacy guest agent: installed but disabled, as on GCE's Debian 13 image.
 [Unit]
-Description=Stub Google guest agent
+Description=Stub legacy Google guest agent
 
 [Service]
-ExecStart=/usr/local/lib/test/google-guest-agent
-# As in the real unit: a restart leaves the plugins running.
-KillMode=process
+ExecStart=/bin/sleep infinity
 
 [Install]
 WantedBy=multi-user.target

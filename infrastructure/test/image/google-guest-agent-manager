@@ -1,0 +1,5 @@
+#!/bin/bash
+# Stub guest agent plugin manager: runs a plugin as a child in its cgroup, so restarting the
+# unit relaunches it, as on GCE. The plugin is sleep under the name mwlid_extension (a symlink).
+/usr/local/lib/test/mwlid_extension infinity &
+wait

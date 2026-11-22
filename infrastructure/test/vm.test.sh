@@ -114,8 +114,9 @@ group_main() {
 	run "$BASE"
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
 	check "13 files + 2 secrets updated (got $(updated))" '[[ $(updated) == 15 ]]'
-	# The stub agent relaunches its plugin right away; allow it a moment.
+	# The restarted manager relaunches its plugin right away; allow it a moment.
 	check "guest agent plugin relaunched on the new config" '(for _ in {1..20}; do p="$(x "pgrep -x mwlid_extension")" && [[ -n "$p" && "$p" != "$mwlid_pid" ]] && exit 0; sleep 0.1; done; exit 1)'
+	check "legacy guest agent left off" '! x "systemctl is-active -q google-guest-agent"'
 	check "nftables installed" 'logged "Installing nftables" && x "command -v nft" >/dev/null'
 	check "metadata firewall loaded even before a release" 'x "systemctl is-active -q flaskapp-firewall && nft list table inet flaskapp_firewall" >/dev/null'
 	check "no published release logged" 'logged "No release published"'
@@ -147,7 +148,7 @@ TUNNEL_TOKEN=fake-cloudflare-tunnel-token-v1" ]]'
 	local nginx_pid path_inv agent_inv flask_inv before
 	nginx_pid="$(x 'systemctl show -p MainPID --value nginx')"
 	path_inv="$(invocation cloudflared-restart.path)"
-	agent_inv="$(invocation google-guest-agent)"
+	agent_inv="$(invocation google-guest-agent-manager)"
 	mwlid_pid="$(x 'pgrep -x mwlid_extension')"
 	run "$BASE"
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
@@ -156,7 +157,7 @@ TUNNEL_TOKEN=fake-cloudflare-tunnel-token-v1" ]]'
 	check "nftables not reinstalled" '! logged "Installing nftables"'
 	check "nginx untouched" '[[ "$(x "systemctl show -p MainPID --value nginx")" == "$nginx_pid" ]]'
 	check "watcher not restarted" '[[ "$(invocation cloudflared-restart.path)" == "$path_inv" ]]'
-	check "guest agent and its plugin untouched" '[[ "$(invocation google-guest-agent)" == "$agent_inv" && "$(x "pgrep -x mwlid_extension")" == "$mwlid_pid" ]]'
+	check "guest agent and its plugin untouched" '[[ "$(invocation google-guest-agent-manager)" == "$agent_inv" && "$(x "pgrep -x mwlid_extension")" == "$mwlid_pid" ]]'
 	check "no unit looks changed on disk" '[[ "$(x "systemctl show -p NeedDaemonReload --value flaskapp flaskapp-firewall cloudflared cloudflared-restart.path cloudflared-restart.service" | grep . | sort -u)" == no ]]'
 
 	echo "C. Drifted ownership and mode are corrected without counting as changes"
