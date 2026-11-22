@@ -27,28 +27,71 @@
   }
 
   // The nav is sticky, so anchor targets must stop below it; its height varies as links wrap.
+  // The mobile menu is absolutely positioned, so opening it doesn't change this.
   let navHeight = $state(0);
   $effect(() => {
     document.documentElement.style.scrollPaddingTop = `${navHeight}px`;
   });
+
+  let menuOpen = $state(false);
+  let menuButton: HTMLButtonElement;
+  let menu: HTMLElement;
+
+  // Covers navigation the menu didn't start: Back/Forward and the shell's `cd`.
+  $effect(() => {
+    void router.path;
+    menuOpen = false;
+  });
+
+  function closeMenuOnLink(event: MouseEvent) {
+    // Same-page links don't change the path, so the effect above wouldn't fire.
+    if (event.target instanceof Element && event.target.closest('a')) {
+      menuOpen = false;
+    }
+  }
+
+  function closeMenuOnOutsideClick(event: MouseEvent) {
+    const target = event.target as Node;
+    if (menuOpen && !menu.contains(target) && !menuButton.contains(target)) {
+      menuOpen = false;
+    }
+  }
+
+  function closeMenuOnEscape(event: KeyboardEvent) {
+    if (menuOpen && event.key === 'Escape') {
+      menuOpen = false;
+      menuButton.focus();
+    }
+  }
 </script>
+
+<svelte:window onclick={closeMenuOnOutsideClick} onkeydown={closeMenuOnEscape} />
+
+<!-- Rendered once in the desktop bar and once in the mobile menu; CSS hides the copy that doesn't apply. -->
+{#snippet navLinks()}
+  <ul class="nav-links">
+    {#each links as link (link.path)}
+      <li>
+        <a href={link.path} class:active={isActive(link.path)} aria-current={ariaCurrent(link.path)}
+          >{link.label}</a
+        >
+      </li>
+    {/each}
+  </ul>
+{/snippet}
+
+{#snippet themeButton()}
+  <button type="button" class="nav-button" onclick={() => theme.toggle()}>
+    {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
+  </button>
+{/snippet}
 
 <nav class="nav" aria-label="Main" bind:offsetHeight={navHeight}>
   <div class="nav-container">
     <div class="nav-brand">
       <a href={pathFor('home')} class="prompt">{SITE_NAME}</a>
     </div>
-    <ul class="nav-links">
-      {#each links as link (link.path)}
-        <li>
-          <a
-            href={link.path}
-            class:active={isActive(link.path)}
-            aria-current={ariaCurrent(link.path)}>{link.label}</a
-          >
-        </li>
-      {/each}
-    </ul>
+    <div class="desktop-only nav-links-bar">{@render navLinks()}</div>
 
     <div class="nav-actions">
       <button
@@ -58,10 +101,29 @@
         aria-expanded={shell.isOpen}
         onclick={() => shell.toggle()}>&gt;_</button
       >
-      <button type="button" class="nav-button" onclick={() => theme.toggle()}>
-        {theme.current === 'dark' ? 'Light Mode' : 'Dark Mode'}
-      </button>
+      <div class="desktop-only">{@render themeButton()}</div>
+      <button
+        type="button"
+        class="nav-button menu-button mobile-only"
+        aria-expanded={menuOpen}
+        aria-controls="nav-menu"
+        bind:this={menuButton}
+        onclick={() => (menuOpen = !menuOpen)}>menu</button
+      >
     </div>
+  </div>
+
+  <!-- After the menu button in the DOM, so Tab moves from the button into the open menu. -->
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+  <div
+    id="nav-menu"
+    class="nav-menu mobile-only"
+    hidden={!menuOpen}
+    bind:this={menu}
+    onclick={closeMenuOnLink}
+  >
+    {@render navLinks()}
+    {@render themeButton()}
   </div>
 </nav>
 
@@ -99,13 +161,16 @@
     border: none;
   }
 
+  .nav-links-bar {
+    margin-right: auto;
+    margin-left: 1.5rem;
+  }
+
   .nav-links {
     display: flex;
     list-style: none;
     gap: 1.5rem;
     flex-wrap: wrap;
-    margin-right: auto;
-    margin-left: 1.5rem;
   }
 
   .nav-actions {
@@ -122,6 +187,22 @@
     border-width: 1px;
   }
 
+  /* Brackets drawn in CSS so screen readers announce just "menu" (same trick as .prompt). */
+  .menu-button::before {
+    content: '[';
+    content: '[' / '';
+  }
+
+  .menu-button::after {
+    content: ']';
+    content: ']' / '';
+  }
+
+  .menu-button[aria-expanded='true'] {
+    background-color: var(--color-primary-opacity-20);
+    color: var(--color-text-hover);
+  }
+
   .nav-links a {
     border-bottom: 2px solid transparent;
     padding-bottom: 0.25rem;
@@ -132,16 +213,83 @@
     border-bottom: 2px solid var(--color-text-primary);
   }
 
+  .mobile-only {
+    display: none;
+  }
+
   @media (max-width: 768px) {
-    .nav-container {
-      flex-direction: column;
-      gap: 1rem;
+    .desktop-only {
+      display: none;
     }
 
-    .nav-links {
-      margin: 0;
-      justify-content: center;
-      gap: 1rem;
+    .mobile-only {
+      display: revert;
+    }
+
+    .nav-container {
+      padding: 0 1rem;
+      gap: 0.75rem;
+    }
+
+    .nav-brand a {
+      font-size: 1rem;
+    }
+
+    .nav-actions {
+      gap: 0.5rem;
+    }
+
+    /* Drawn over the page, so opening it doesn't push content down or change the nav's height. */
+    .nav-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      /* Covers the nav's bottom border so the two read as one panel. */
+      margin-top: -2px;
+      padding: 0.5rem 1rem 1rem;
+      background-color: var(--color-bg-dark);
+      border-bottom: 2px solid var(--color-text-primary);
+      box-shadow: 0 6px 12px var(--color-primary-opacity-10);
+    }
+
+    /* .mobile-only's display would otherwise beat the hidden attribute. */
+    .nav-menu[hidden] {
+      display: none;
+    }
+
+    .nav-menu .nav-links {
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 0.75rem;
+    }
+
+    /* Full-width rows make comfortable tap targets. */
+    .nav-menu .nav-links a {
+      display: block;
+      padding: 0.6rem 0;
+    }
+
+    .nav-menu .nav-links a.active,
+    .nav-menu .nav-links a:hover {
+      border-bottom-color: transparent;
+      color: var(--color-text-hover);
+    }
+
+    .nav-menu .nav-links a.active::before {
+      content: '> ';
+      content: '> ' / '';
+    }
+  }
+
+  /* Keeps the one-row bar from overflowing on 360px phones. */
+  @media (max-width: 400px) {
+    .nav-brand a {
+      font-size: 0.875rem;
+    }
+
+    .nav-button {
+      padding: 0.4rem 0.5rem;
     }
   }
 </style>

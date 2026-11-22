@@ -52,7 +52,7 @@ A terminal panel docked to the bottom of every page, opened with `` ` `` or `/` 
 
 ### Shared Code
 
-- `lib/components/Nav.svelte`: navigation, the shell button, and the theme toggle.
+- `lib/components/Nav.svelte`: navigation, the shell button, and the theme toggle. Below 768px the links and theme toggle move into a `[menu]` dropdown drawn over the page, so the sticky bar stays one row.
 - `lib/components/Footer.svelte`: build commit and date (`__BUILD_SHA__`/`__BUILD_DATE__`, from `define` in `vite.config.ts`; CI's `GITHUB_SHA`, else `git rev-parse HEAD`), and uptime from `/api/site-info/`, which links to the status page (a plain "status" link if uptime is unavailable).
 - `lib/theme.svelte.ts`: the current theme (persisted in `localStorage`, applied via `data-theme`).
 - `lib/components/PageHeader.svelte`: page title, optional description, and an `actions` snippet.

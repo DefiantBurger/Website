@@ -25,15 +25,6 @@ The build already writes `<route>/index.html` for every route (`plugins/routeHtm
 - **Costs:** anything that touches `window`, `localStorage`, or `document` while rendering breaks the build (theme handling, About You, the utilities), so it has to move into `onMount` or be guarded. The browser's render has to match the build's HTML or the page flickers. The theme is the main risk: `index.html` hard-codes `data-theme="light"`, so this needs a small inline script that sets the theme before the first paint. The CSP blocks inline scripts, and a blocking external script was already tried and made the flash worse (Issues appendix), so allow the inline one by hash: add its `'sha256-...'` to `script-src` in `nginx.conf.tftpl`, and have the build fail if the script's hash stops matching. Keep the script tiny and stable: the Nginx config ships through Terraform, not with releases, so a new hash needs a [config apply](./RUNBOOK.md#apply-vm-config-changes) alongside the deploy. It's also a second render path, which CI's `pnpm build` now covers.
 - **Scope:** start with the static pages (home, about, projects, project detail, contact). Utilities need JS and live data anyway, so they keep the plain shell. Mermaid diagrams stay client-side.
 
-### Mobile nav menu
-
-Below 768px, `Nav.svelte` stacks the brand, links, and buttons into three rows (about 260px), and the nav is sticky, so it covers roughly a quarter of a phone screen on every page, even while scrolling. Collapse it to one row on mobile: the brand plus a menu button in the terminal style (e.g. `[menu]`), which opens the links and the shell/theme buttons as a dropdown.
-
-- The menu button needs `aria-expanded` and `aria-controls`. The menu closes on a route change, on Escape (returning focus to the button), and on a click outside it.
-- Draw the open menu over the page (absolutely positioned) instead of letting it push content down. The nav's measured height then stays one row, and `scroll-padding-top` (set from that height) stays correct.
-- A cheaper alternative is to keep the current layout but make the nav non-sticky on mobile, or tighten it to two rows.
-- It's the shared layout, so run `pnpm smoke` and `pnpm a11y`.
-
 ### OG images
 
 Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, which is currently the same 512px site icon for every page. Generate a 1200×630 image per project at build time (title + summary in the terminal style) and point each project's `og:image` at it, with a site-wide default for other pages. Turning an SVG template into a PNG needs a renderer, which probably means a build-only dependency (e.g. `@resvg/resvg-js`); the alternative is to make the images by hand once per project.

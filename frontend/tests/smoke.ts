@@ -8,7 +8,7 @@
 //   TEST_BASE_URL=https://... pnpm smoke
 import assert from 'node:assert/strict';
 
-import type { Browser, Page } from 'playwright-core';
+import type { Browser, BrowserContextOptions, Page } from 'playwright-core';
 
 import { BASE_URL, MISSING_PATHS, assertServerUp, launchBrowser, routePaths } from './browser.ts';
 
@@ -31,8 +31,12 @@ function watchForErrors(page: Page): string[] {
   return errors;
 }
 
-async function withPage(browser: Browser, body: (page: Page) => Promise<void>): Promise<void> {
-  const context = await browser.newContext();
+async function withPage(
+  browser: Browser,
+  body: (page: Page) => Promise<void>,
+  options?: BrowserContextOptions,
+): Promise<void> {
+  const context = await browser.newContext(options);
   try {
     await body(await context.newPage());
   } finally {
@@ -87,6 +91,35 @@ const siteChecks: Check[] = [
           'navigation reloaded the page',
         );
       }),
+  },
+  {
+    name: 'mobile nav menu opens, routes, and closes',
+    run: (browser) =>
+      withPage(
+        browser,
+        async (page) => {
+          await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle' });
+          const nav = page.getByRole('navigation', { name: 'Main' });
+          const menuButton = nav.getByRole('button', { name: 'menu' });
+          const menu = page.locator('#nav-menu');
+
+          await menuButton.click();
+          assert.equal(await menuButton.getAttribute('aria-expanded'), 'true');
+          await page.keyboard.press('Escape');
+          await menu.waitFor({ state: 'hidden' });
+          assert.equal(
+            await page.locator(':focus').getAttribute('aria-controls'),
+            'nav-menu',
+            'Escape should return focus to the menu button',
+          );
+
+          await menuButton.click();
+          await menu.getByRole('link', { name: 'Projects' }).click();
+          await page.waitForURL(`${BASE_URL}/projects`);
+          await menu.waitFor({ state: 'hidden' });
+        },
+        { viewport: { width: 400, height: 850 } },
+      ),
   },
   {
     name: 'trailing slashes redirect to the canonical path',
