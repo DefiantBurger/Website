@@ -24,20 +24,20 @@ Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), Node.js 22.18+ (the tes
 (cd frontend && pnpm install)
 ./start-dev.sh   # backend on :5000, Vite dev server on :5173
 ./test.sh        # all tests and checks (--no-browser to skip the browser checks)
-./format.sh      # format every file
-./gen-icons.sh   # regenerate PNG/ICO icons from frontend/public/favicon.svg
-./deploy.sh      # deploy origin/main (runs the Deploy workflow via gh)
 ```
+
+The other scripts are listed in [Development](./documentation/DEVELOPMENT.md#scripts).
 
 ## Documentation
 
 | Document | Covers |
 | --- | --- |
 | [Architecture](./documentation/ARCHITECTURE.md) | Topology, stack, runtime flows, security boundaries |
-| [Implementation](./documentation/IMPLEMENTATION.md) | Local development, testing, backend/frontend structure, API reference |
+| [Development](./documentation/DEVELOPMENT.md) | Scripts, environment, tests and CI, dependency updates |
+| [Implementation](./documentation/IMPLEMENTATION.md) | Backend/frontend code structure, project rendering, API reference |
 | [Utilities](./documentation/UTILITIES.md) | Scheduler, File Share, and Message Board behavior and APIs |
-| [Deployment](./documentation/DEPLOYMENT.md) | Terraform resources, secrets, VM bootstrap, deploy procedures |
-| [Runbook](./documentation/RUNBOOK.md) | Health checks, routine procedures, incidents |
+| [Infrastructure](./documentation/INFRASTRUCTURE.md) | Terraform resources, secrets, VM bootstrap and swaps, production runtime, deploy workflow |
+| [Runbook](./documentation/RUNBOOK.md) | Shipping changes, health checks, maintenance, incidents |
 | [Issues](./documentation/ISSUES.md) | Open bugs, gaps, and tech debt across the stack |
 | [Ideas](./documentation/IDEAS.md) | Planned features and improvements, not yet started |
 

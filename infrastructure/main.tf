@@ -56,10 +56,10 @@ locals {
   })
 
   # Everything that would need a new VM or a stop/start. Changing any of it renames the
-  # VM, which makes the change a zero-downtime swap (see "VM swaps" in DEPLOYMENT.md).
+  # VM, which makes the change a zero-downtime swap (see "VM Swaps" in INFRASTRUCTURE.md).
   vm_spec = {
     # A pinned image, not the debian-13 family, so the kernel only changes on purpose
-    # (unattended-upgrades skips kernels). See "Kernel updates" in DEPLOYMENT.md.
+    # (unattended-upgrades skips kernels). See "Update the Kernel" in RUNBOOK.md.
     image        = "debian-cloud/debian-13-trixie-v20261116"
     machine_type = "e2-micro"
     zone         = var.project_zone

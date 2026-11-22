@@ -6,7 +6,7 @@ Features and improvements worth building, none of them started. Bugs and tech de
 
 ### Interactive demos in the research write-up
 
-`quantum-scattering-research.md` marks each future demo with a "coming soon" blockquote naming an id (`boundary-conditions`, `tfsf`, `inverse-problem`, `som-vs-fdtd`, `wigner`). Replace those with live demos embedded the same way as `wavepacket-2d` (see [Implementation](./IMPLEMENTATION.md)).
+`quantum-scattering-research.md` marks each future demo with a "coming soon" blockquote naming an id (`boundary-conditions`, `tfsf`, `inverse-problem`, `som-vs-fdtd`, `wigner`). Replace those with live demos embedded the same way as `wavepacket-2d` (see [Demos](./IMPLEMENTATION.md#demos)).
 
 - **1D barrier:** a 1D Gaussian wavepacket hitting a potential barrier, drawn on a canvas, with sliders for barrier height/width and packet energy, so tunneling and reflection play out live. The split-step Fourier method is simple and stable (it needs a small FFT, which is easy to write by hand rather than add as a dependency). Crank–Nicolson is the alternative if a tridiagonal solve is easier to reason about.
 - Show transmission/reflection probability next to the analytic result, so the demo also checks itself.
@@ -47,7 +47,7 @@ The 3 MB course catalog goes through Flask (`/api/scheduler/course-data/`) and i
 - Import it with Vite's `?url` suffix, so the build emits `assets/course_data-<hash>.json`, which Nginx serves from `/assets/` with `expires max`. A plain JSON import would inline 3 MB into a JS chunk. `my_courses.json` (1 KB) can be a plain import.
 - Precompress it at build time (a `.gz` next to it, written by a small plugin with `node:zlib`, no dependency) and turn on `gzip_static` in Nginx, so the VM never compresses it per request. The Nginx change reaches the VM only through an in-place update or a replacement.
 - Cloudflare doesn't cache `.json` by default; a Cache Rule for `/assets/*` would let the edge serve it.
-- The scheduler then needs nothing from the backend. Remove both routes, their tests, and `backend/app/static/json/`. Update the API tables in IMPLEMENTATION.md and UTILITIES.md, UTILITIES.md's catalog update steps (the `cp` target), and the `course_data.json` rule in CLAUDE.md.
+- The scheduler then needs nothing from the backend. Remove both routes, their tests, and `backend/app/static/json/`, and update the `course_data.json` rule in CLAUDE.md.
 
 ### File Share: upload progress
 
@@ -76,7 +76,7 @@ Terraform state is local to the operator's machine (gitignored): no remote backe
 
 ### Cloudflare provider v5
 
-Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing (Issues, Infrastructure #1).
+Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates eventually, and v5 can import Email Routing, which is configured outside Terraform today ([Infrastructure](./INFRASTRUCTURE.md#resources)).
 
 - **Breaking changes:** `cloudflare_record` becomes `cloudflare_dns_record` (`moved` blocks handle state); nested blocks become attributes (tunnel config, ruleset rules, CAA `data`); `cloudflare_managed_headers` becomes `cloudflare_managed_transforms`; the `cloudflare_record` data sources change shape. Cloudflare's `tf-migrate` tool does most of the rewrite.
 - **Main risk:** `tunnel_token` moves off the tunnel resource to the `cloudflare_zero_trust_tunnel_cloudflared_token` data source, and it feeds the Secret Manager version the VM reads. `plan` must show no replacement of the tunnel or the VM, or the site goes down until a redeploy.
@@ -91,10 +91,8 @@ New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_reque
 1. `actions/checkout` (same SHA pin and `persist-credentials: false` as `test.yaml`).
 2. `hashicorp/setup-terraform`, pinned to a commit SHA, with `terraform_version` matching `versions.tf`.
 3. In `infrastructure/`: `terraform fmt -check -recursive -diff` (warn, like the other format checks), then `terraform init -backend=false -input=false` and `terraform validate` (fail: these are build errors, like `pnpm check`).
-4. `shellcheck deploy.sh test.sh start-dev.sh format.sh infrastructure/*.sh infrastructure/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `infrastructure/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, so CI can't.
+4. `shellcheck deploy.sh test.sh start-dev.sh format.sh doc-test.sh infrastructure/*.sh infrastructure/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `infrastructure/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, so CI can't.
 5. `infrastructure/test/swap-order.test.sh` and `wait-for-vm.test.sh` need only Terraform and bash, so they can run here too (fail).
-
-Docs: add the workflow to the *Pipeline* list in `DEPLOYMENT.md` and the workflows bullet in `ARCHITECTURE.md`.
 
 ### Shielded VM
 
@@ -108,7 +106,7 @@ shielded_instance_config {
 }
 ```
 
-Debian's GCE images are UEFI and support Shielded VM; e2 machines do too. vTPM and integrity monitoring are already GCP's defaults, so the real change is Secure Boot, which refuses unsigned kernel modules (none are used). Changing it in place would need a stop/start; through `vm_spec` it's a zero-downtime [swap](./DEPLOYMENT.md#vm-swaps) instead, and a VM that won't boot with it never replaces the old one. `./tf.sh plan` should show a swap. Docs: the Compute row of the Resources table in `DEPLOYMENT.md`.
+Debian's GCE images are UEFI and support Shielded VM; e2 machines do too. vTPM and integrity monitoring are already GCP's defaults, so the real change is Secure Boot, which refuses unsigned kernel modules (none are used). Changing it in place would need a stop/start; through `vm_spec` it's a zero-downtime [swap](./INFRASTRUCTURE.md#vm-swaps) instead, and a VM that won't boot with it never replaces the old one. `./tf.sh plan` should show a swap.
 
 ### Tighter systemd sandboxing
 
@@ -138,7 +136,6 @@ UMask=077
 - `UMask=077` makes file-share files mode 600, which is fine because only `flaskapp` reads them.
 - `vm/cloudflared.service.tftpl` already gets most of this from `DynamicUser=yes`; the `Protect*`, `Restrict*`, `LockPersonality`, `CapabilityBoundingSet=`, and `SystemCallFilter` lines apply there too. It needs `AF_INET AF_INET6 AF_UNIX` for the QUIC tunnel.
 - **Test on the VM first:** edit `/etc/systemd/system/flaskapp.service`, `systemctl daemon-reload && systemctl restart flaskapp`, then `systemd-analyze security flaskapp`, `curl http://127.0.0.1:5000/api/health/`, and a file-share upload and download through the site. Only then commit the same lines to the templates and [apply them](./RUNBOOK.md#apply-vm-config-changes), which overwrites the hand edit.
-- Docs: the `flaskapp` bullet under *Runtime on the VM* in `DEPLOYMENT.md` lists the sandbox directives.
 
 ### Cloudflare zone settings in Terraform
 
@@ -166,16 +163,15 @@ resource "cloudflare_zone_settings_override" "website" {
 ```
 
 - Check the dashboard values first (SSL/TLS → Edge Certificates, Speed → Optimization) and write the same ones, so the first `apply` changes nothing unintended; `plan` can't show that diff because the resource is new. Bot Fight Mode is a separate resource, `cloudflare_bot_management` with `fight_mode = true`, and is optional.
-- The API token needs an extra permission, Zone → Zone Settings → Edit; add it to the token list under *Secrets* in `DEPLOYMENT.md`.
+- The API token needs an extra permission, Zone → Zone Settings → Edit.
 - Keep the Nginx `CF-Visitor` redirect and HSTS header: they're redundant once the edge settings are on, but they still work if the zone settings are ever lost.
 - Provider v5 replaces this resource with one `cloudflare_zone_setting` per setting, so either do this as part of the v5 upgrade above or accept rewriting it then.
-- Docs: a Zone settings row in the Resources table in `DEPLOYMENT.md`.
 
 ### Trim the production venv
 
 `flask-cors` and `python-dotenv` only matter under `FLASK_ENV=development`, yet both ship in every release. `backend/pyproject.toml` also still carries the setuptools `[build-system]` block, although `uv export --no-emit-project` means the package is never built.
 
-- **Drop `python-dotenv`.** `start-dev.sh` already exports every variable, the README shows them inline, and uv can load a file itself: `uv run --env-file .env main.py`. Remove `load_dotenv()` from `backend/main.py`, the dependency from `pyproject.toml`, and the "loads `.env`" mentions in `IMPLEMENTATION.md` (the environment table intro and the `main.py` row), replacing them with the `--env-file` form. The alternative, if the owner wants `.env` to keep working with a bare `uv run main.py`, is to move it to the `dev` group and guard the import with `try: from dotenv import load_dotenv / except ImportError`.
+- **Drop `python-dotenv`.** `start-dev.sh` already exports every variable, the README shows them inline, and uv can load a file itself: `uv run --env-file .env main.py`. Remove `load_dotenv()` from `backend/main.py` and the dependency from `pyproject.toml`. The alternative, if the owner wants `.env` to keep working with a bare `uv run main.py`, is to move it to the `dev` group and guard the import with `try: from dotenv import load_dotenv / except ImportError`.
 - **Move `flask-cors` to the `dev` group** and import it where it's used, inside the `development` branch of `create_app` in `backend/app/__init__.py` (`from flask_cors import CORS`), so production never imports it. Ruff doesn't flag function-level imports with the current rule set.
 - **Stop treating the backend as a package:** delete `[build-system]` and `[tool.setuptools.packages.find]`, and add `[tool.uv]` with `package = false`. Tests then no longer get `app` from an installed package, so add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. `main.py` is unaffected: it's run from `backend/`, which puts the script's directory on `sys.path`.
 - Run `uv lock` after each manifest change (never hand-edit `uv.lock`), then `uv run pytest` and the Ruff checks. Confirm the release still builds: `uv export --frozen --no-dev --no-emit-project --format requirements-txt` must list neither package.
@@ -185,6 +181,5 @@ resource "cloudflare_zone_settings_override" "website" {
 Cloudflare's free plan includes one rate-limiting rule. Pointing it at `/api/fileshare/upload/` (a few requests per IP per 10 s) would drop upload floods at the edge, before they cross the tunnel. It complements Nginx's per-visitor and total caps on concurrent uploads (`limit_conn`), since the edge counts requests, not concurrent ones.
 
 - In Terraform it's a `cloudflare_ruleset` with phase `http_ratelimit`; like `www_redirect`, a zone gets one ruleset per phase. Check the free plan's limits first (it counts by IP only, with short fixed periods and block times) and pick values that fit.
-- The API token needs permission to edit the zone's WAF rules; add it to the token list under *Secrets* in DEPLOYMENT.md.
+- The API token needs permission to edit the zone's WAF rules.
 - Provider v5 changes ruleset syntax (nested blocks become attributes), so either write it during the v5 upgrade or accept rewriting it then.
-- Docs: a row in the Resources table in DEPLOYMENT.md.

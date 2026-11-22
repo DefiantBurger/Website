@@ -28,7 +28,9 @@ Semester planner that validates prerequisites and draws them as a dependency gra
 - `not_open_with_credit_for` is treated as symmetric, since the catalog usually lists a pair on one side only.
 - `times_offered` (`{"Fall": n, "Spring": n}`) counts the terms of each season a course ran in during the top-level `offered_window` (`{from, to, Fall, Spring}`, where `Fall`/`Spring` are the maximum counts). Read the maxima from the file; the window grows with new data. A course with both counts 0 has unknown history (independent study, summer-only, not run lately), not "never offered". `terms_offered` and `last_taught` are loaded but unused.
 
-**Updating the catalog.** The catalog is a snapshot of [guide.wisc.edu/courses](https://guide.wisc.edu/courses/), so regenerate it each term. The scraper lives in [`course-data-scraper`](https://github.com/DefiantBurger/course-data-scraper), cloned next to this repo:
+### Updating the Catalog
+
+The catalog is a snapshot of [guide.wisc.edu/courses](https://guide.wisc.edu/courses/), so regenerate it each term. The scraper lives in [`course-data-scraper`](https://github.com/DefiantBurger/course-data-scraper), cloned next to this repo:
 
 ```bash
 uv run main.py fetch --refresh     # re-download the subject pages

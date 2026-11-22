@@ -1,6 +1,20 @@
 # Runbook
 
-For deploys and VM access, see [Deployment](./DEPLOYMENT.md#deploying-changes).
+Procedures against production. How the pieces work is in [Infrastructure](./INFRASTRUCTURE.md).
+
+## Ship a Change
+
+Deploys ship only the release tarball; the VM's config ships through Terraform ([why](./INFRASTRUCTURE.md#releases)).
+
+| Change | How |
+| --- | --- |
+| App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
+| Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
+| Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A change to `vm_spec` (image, machine type, zone) is a zero-downtime [swap](./INFRASTRUCTURE.md#vm-swaps). |
+| VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt, sysctl and guest agent settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](#apply-vm-config-changes). |
+| Roll back | [Roll Back a Release](#roll-back-a-release). |
+
+Before applying a change to anything in `infrastructure/` that reaches the VM, run its [local tests](./DEVELOPMENT.md#vm-script-tests).
 
 ## Verify Service Health
 
@@ -25,12 +39,6 @@ sudo tail -n 100 /var/log/startup-script.log
 Then load `/`, `/projects`, and each `/utilities/*` page in a browser.
 
 If the VM is hung or SSH fails, read its serial console, which carries kernel and journald output. Google captures it outside the guest and copies it to Cloud Logging, kept for 30 days: in Logs Explorer, query `logName="projects/<project>/logs/serial_port_1_output"`. For the live buffer, run `gcloud compute instances get-serial-port-output <VM> --zone <zone>` (the name is the `vm_name` Terraform output, or `gcloud compute instances list`).
-
-## Update Project Content
-
-1. Edit or add `frontend/src/content/projects/<slug>.md` ([frontmatter](./IMPLEMENTATION.md#project-frontmatter)).
-2. Check it at `http://localhost:5173/projects/<slug>`, and run `pnpm build` to catch slug errors.
-3. Push to `main`, then deploy.
 
 ## Roll Back a Release
 
@@ -59,7 +67,7 @@ It prints each file it updated (also appended to `/var/log/startup-script.log`) 
 
 ## Swap the VM
 
-Changing `vm_spec` in `main.tf` swaps the VM ([how it works](./DEPLOYMENT.md#vm-swaps)). To swap without changing anything, say to replace a misbehaving VM, run `./tf.sh apply -replace=random_id.vm`. Don't `-replace` the instance itself: the new VM would get the old one's name, which it can't share while the old one exists.
+Changing `vm_spec` in `main.tf` swaps the VM ([how it works](./INFRASTRUCTURE.md#vm-swaps)). To swap without changing anything, say to replace a misbehaving VM, run `./tf.sh apply -replace=random_id.vm`. Don't `-replace` the instance itself: the new VM would get the old one's name, which it can't share while the old one exists.
 
 While it runs, watch the site from another terminal. It should stay at `200` throughout:
 
@@ -76,6 +84,30 @@ To find out why, read the new VM's startup log: `gcloud compute instances get-se
 - **Fix it and retry.** Changes to the startup script or `infrastructure/vm/` reach the new VM through `./tf.sh apply`, followed by `infrastructure/ssh.sh --vm <new VM> 'sudo google_metadata_script_runner startup'` while the apply waits. If the new VM recovered on its own, say the tunnel connected late, rerun its startup script the same way to mark it ready, then apply.
 - **Roll back.** Revert the `vm_spec` change and apply. That's another swap: a third VM replaces both once it's ready.
 
+## Update the Kernel
+
+The kernel comes only from the boot image pinned in `main.tf`, since an automatically installed kernel once crashed the VM on every boot (Debian 12 kernel `6.1.0-55`, November 2026). To update it:
+
+1. Find the newest image: `gcloud compute images describe-from-family debian-13 --project debian-cloud --format='value(name)'`.
+2. Set it in `vm_spec` in `main.tf`, then `./tf.sh apply`, which [swaps](#swap-the-vm) the VM. A kernel that crashes on boot never marks the new VM ready, so the old one keeps serving.
+3. Watch the new VM's serial log (`serial_port_1_output` in Logs Explorer) for at least 30 minutes, since an oops after the swap has no old VM to fall back on. If the kernel oopses, the VM reboots in a loop; pin the previous image and apply again.
+
+## Recurring Maintenance
+
+| Task | When | How |
+| --- | --- | --- |
+| Update dependencies | On a Dependabot security alert (the only notification), and periodically | [Development](./DEVELOPMENT.md#updating-dependencies) |
+| Update the kernel image | Every month or two, or for a kernel security fix | [Update the Kernel](#update-the-kernel) |
+| Bump `Expires` in `frontend/public/.well-known/security.txt` | Yearly; it must stay under a year out (next: before 2027-11-10) | Edit, then [ship](#ship-a-change) |
+| Regenerate the scheduler catalog | Each term | [Utilities](./UTILITIES.md#updating-the-catalog) |
+
+## First-Time Setup
+
+1. `./tf.sh apply`. With the bucket empty, the VM marks itself ready with no release, so the apply can finish.
+2. In GitHub → Settings → Environments, create `production` (no required reviewers).
+3. In GitHub → Settings → Variables → Actions, set `GCP_WIF_PROVIDER` and `GCP_DEPLOYER_SA` from the Terraform outputs.
+4. Run *Deploy* on `main`. The release bucket is empty until then, so this first deploy is manual.
+
 ## Incidents
 
 ### Deploy workflow fails
@@ -90,13 +122,6 @@ To find out why, read the new VM's startup log: `gcloud compute instances get-se
 1. `curl -i` the endpoint (a `308` just means the trailing slash is missing). An HTML body usually means a `502` from Nginx because Flask is down, or a path outside `/api/` that Nginx served as a page or a `404`.
 2. Check `journalctl -u flaskapp` for exceptions.
 3. Confirm the build's `VITE_BACKEND_URL` matches the site's origin.
-
-### Project page shows "not found"
-
-1. The file exists in `frontend/src/content/projects/`.
-2. Its `slug` (or file name, if no slug) matches the URL.
-3. It isn't `published: false`.
-4. The deployed build includes it (it was deployed after the file was added).
 
 ### File-share upload returns 503
 

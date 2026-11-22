@@ -1,12 +1,3 @@
 # Frontend
 
-Svelte 5 + TypeScript + Vite single-page app.
-
-```bash
-pnpm install
-pnpm run dev     # dev server; API calls go to VITE_BACKEND_URL (default http://localhost:5000 in dev, same-origin in production builds)
-pnpm run check   # svelte-check + tsc
-pnpm run build   # production build to dist/
-```
-
-See [Implementation](../documentation/IMPLEMENTATION.md#frontend) for structure.
+Svelte 5 + TypeScript + Vite single-page app. Setup and commands are in [Development](../documentation/DEVELOPMENT.md); code structure is in [Implementation](../documentation/IMPLEMENTATION.md#frontend).

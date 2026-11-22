@@ -35,8 +35,9 @@ flowchart LR
 - `frontend/`: SPA, page components, per-utility logic in `src/lib/<utility>/`, project Markdown in `src/content/projects/`, build-time Vite plugins in `plugins/`.
 - `backend/`: Flask app (`app/`), scheduler data (`app/static/json/`), tests.
 - `infrastructure/`: Terraform and the VM startup script. `infrastructure/vm/` holds the files the script installs: the release deploy script, systemd units, Nginx config, sudoers rule, apt and sysctl settings, and the guest agent config.
-- `.github/workflows/`: `test.yaml` and the manual `deploy.yaml` ([Deployment](./DEPLOYMENT.md#deploying-changes)).
-- Root scripts: `start-dev.sh`, `test.sh`, `format.sh`, `gen-icons.sh`, `deploy.sh` ([Implementation](./IMPLEMENTATION.md)).
+- `.github/workflows/`: `test.yaml` ([Development](./DEVELOPMENT.md#ci)) and the manual `deploy.yaml` ([Infrastructure](./INFRASTRUCTURE.md#deploy-workflow)).
+- `documentation/`: these docs.
+- Root scripts: `start-dev.sh`, `test.sh`, `format.sh`, `doc-test.sh`, `gen-icons.sh`, `deploy.sh` ([Development](./DEVELOPMENT.md#scripts)).
 
 ## Runtime Flows
 
@@ -47,17 +48,17 @@ flowchart LR
 ## Security and Trust Boundaries
 
 1. **No open web ports.** All traffic arrives through the Cloudflare Tunnel; Nginx and Flask listen only on loopback. Cloudflare-set headers (`CF-Connecting-IP`, visitor location headers) are therefore trustworthy.
-2. **HTTPS** is enforced by Cloudflare plus an Nginx redirect and HSTS. Nginx also sets security headers and rate-limits `/api/` per visitor IP (CSP is currently report-only).
+2. **HTTPS** is enforced by Cloudflare plus an Nginx redirect and HSTS. Nginx also sets security headers and rate-limits `/api/` per visitor IP ([details](./INFRASTRUCTURE.md#runtime-on-the-vm); CSP is currently report-only).
 3. **CORS** is enabled only when `FLASK_ENV=development`; production is same-origin.
 4. **Untrusted content.** Project Markdown is sanitized at build time; message-board text has control and invisible characters stripped and is rendered as plain text; file-share downloads are always `application/octet-stream`.
-5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output.
-6. **Deploys.** Only GitHub Actions jobs on `main` in the `production` environment can get credentials, through Workload Identity Federation (no stored keys). The deployer reaches the VM only over IAP SSH as a non-admin OS Login user; its one root action is the deploy script, which checks the release checksum, refuses tarballs with links, special files, a virtualenv, or pip options, and installs only hash-pinned wheels. After a passing smoke test it also writes the release to a private Cloud Storage bucket that only it can write and only the VM can read.
+5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output ([Secrets](./INFRASTRUCTURE.md#secrets)).
+6. **Deploys.** Only GitHub Actions jobs on `main` in the `production` environment can get credentials, through Workload Identity Federation (no stored keys). The deployer reaches the VM only over IAP SSH as a non-admin OS Login user whose one root action is a deploy script that accepts only app code and hash-pinned wheels ([details](./INFRASTRUCTURE.md#releases)). Only the deployer can write the release bucket that new VMs install from.
 7. **Outbound calls.** The only one the backend makes is to the public Better Stack status page (`/api/site-info/`), with no credentials. Its result is cached, so visitors can't make the VM call out per request.
-8. **Least privilege on the VM.** Releases are root-owned and read-only to `flaskapp`, which runs under systemd sandboxing and can write only `/var/lib/personalwebsite`. A firewall rule keeps it from the metadata server, so it can't get the VM's service-account token or the secrets that token can read.
+8. **Least privilege on the VM.** Releases are root-owned and read-only to `flaskapp`, which runs sandboxed, can write only `/var/lib/personalwebsite`, and is firewalled from the metadata server and so from the VM's credentials ([details](./INFRASTRUCTURE.md#runtime-on-the-vm)).
 
 ## Tradeoffs
 
-1. A single VM is simple and cheap but is a single failure domain. Planned replacements are zero-downtime [swaps](./DEPLOYMENT.md#vm-swaps), but a crash takes the site down until the VM recovers.
+1. A single VM is simple and cheap but is a single failure domain. Planned replacements are zero-downtime [swaps](./INFRASTRUCTURE.md#vm-swaps), but a crash takes the site down until the VM recovers.
 2. Build-time Markdown keeps pages fast and free of runtime sanitizing, but content changes need a deploy.
 3. In-browser utility logic keeps interactions fast at the cost of a heavier client.
 4. File-share and message-board state is local to one process/disk, which rules out horizontal scaling.

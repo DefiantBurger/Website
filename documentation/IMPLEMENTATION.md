@@ -1,52 +1,6 @@
 # Implementation
 
-## Local Development
-
-Setup is in the [README](../README.md#quick-start). `start-dev.sh` runs the backend and the Vite dev server together, stops both on Ctrl+C, and defaults these if unset:
-
-| Variable | Default | Effect |
-| --- | --- | --- |
-| `FLASK_ENV` | `development` | `development`: Flask debug server + CORS on `/api/*`. `production` (the default when running `main.py` directly): Waitress on `127.0.0.1`. |
-| `PORT` | `5000` | Backend port. |
-| `SECRET_KEY` | `local-dev-secret` | Required by the backend; also the file-share label pepper. |
-| `VITE_BACKEND_URL` | `http://localhost:$PORT` | API base URL. If unset, dev builds use `http://localhost:5000` and production builds use the page's own origin. |
-
-`backend/main.py` also loads `backend/.env` if present.
-
-### Checks
-
-```bash
-./test.sh                                # everything below; --no-browser skips smoke + a11y
-cd backend && uv run pytest --cov=app
-cd backend && uv run ruff check --fix . && uv run ruff format .
-cd frontend && pnpm test                 # unit tests (node:test)
-cd frontend && pnpm check                # svelte-check + tsc
-cd frontend && pnpm lint && pnpm format  # ESLint + Prettier (format:check to verify only)
-cd frontend && pnpm smoke                # browser smoke test
-cd frontend && pnpm a11y                 # axe-core scan
-```
-
-- **`test.sh`** continues past failures and prints a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000/:5173, or starts `start-dev.sh` itself (log in `$TMPDIR/test-sh-dev.log`).
-- **Config:** Ruff in `backend/pyproject.toml`; Prettier and ESLint in `frontend/.prettierrc.json` and `frontend/eslint.config.js` (`eslint-config-prettier` keeps them from conflicting). Prettier covers all of `frontend/` except `dist/` and the lockfile, project Markdown included.
-- **Backend tests** (`backend/tests/`) get a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage. A test that builds its own app should pass `instance_path` too, since creating an app empties its file-share directory.
-- **Unit tests** (`frontend/tests/unit/*.test.ts`) use Node's built-in runner and cover pure logic only: code using runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep testable logic in plain `.ts` modules. `tests/unit/resolve-ts.ts` lets Node resolve the source's extensionless imports. A test marked `{ todo }` documents a known bug without failing the suite.
-- **`pnpm smoke`** loads every route and fails on a missing heading, an uncaught exception, a console error, or a 4xx/5xx API response, then checks client-side navigation, trailing-slash redirects, the 404 suggestion, theme persistence, and opening the shell to run `cd`.
-- **`pnpm a11y`** runs axe-core (WCAG 2.2 A/AA plus best practices) on every route, one project page, and two 404 paths (an unknown page and an unknown project), in both themes at desktop and phone width, with the shell open on the home page. Nothing is excluded, Mermaid diagrams included. Screen-reader flow, focus handling, and drag-and-drop still need a manual check.
-- Both browser scripts need the dev servers running, drive the installed Google Chrome through `playwright-core` (or run `pnpm exec playwright-core install chromium`), and accept `TEST_BASE_URL` to target another host.
-- **CI** (`test.yaml`) runs everything except the browser checks. Lint and format problems only warn.
-
-### Updating Dependencies
-
-There's no update bot; GitHub's Dependabot security alerts (Security tab, email) are the only notification. Update by hand, then run `./test.sh`:
-
-```bash
-cd frontend && pnpm outdated && pnpm update -i --latest
-cd backend && uv tree --outdated --depth 1 && uv lock --upgrade && uv sync
-```
-
-Both package managers skip releases younger than three days, so a freshly compromised version can't land in a lockfile: `minimumReleaseAge` in `frontend/pnpm-workspace.yaml` and `exclude-newer` under `[tool.uv]` in `backend/pyproject.toml`. To take an urgent fix sooner, exempt that one package (`minimumReleaseAgeExclude: [<name>]` or `exclude-newer-package = { <name> = false }`) and remove the exemption once the release is three days old.
-
-GitHub Actions are pinned by commit SHA in `.github/workflows/` and `.github/actions/`; bump those by hand too.
+How the code is organized. Running and testing it is in [Development](./DEVELOPMENT.md).
 
 ## Backend
 
@@ -86,7 +40,7 @@ A terminal panel docked to the bottom of every page, opened with `` ` `` or `/` 
 
 - `lib/shell/filesystem.ts` builds the virtual filesystem from `routeDefinitions` plus the published projects, one entry per page, so new pages show up on their own.
 - `lib/shell/commands.ts` holds the commands as pure functions over a `ShellHost`, unit-tested with a fake host. `grep` and `whoami` get their data through the host. `grep` searches only the project write-ups, since the static pages' text lives in Svelte components, not in data.
-- `sudo` (with or without a command) is an easter egg left out of `help` on purpose: the whole page, shell included, breaks and falls off the screen, then shows a fake segfault until any key or click, and the shell is cleared and closed. `lib/shell/shatterMath.ts` is the pure geometry and physics (unit-tested). `lib/shell/shatter.ts` clones `#app` once per shard and clips each clone to its polygon, so the shards look exactly like the page and the real page is never touched. To keep the start instant on long pages, it first builds one pruned copy (blocks outside the viewport gutted, KaTeX's hidden MathML removed) and clones that. Under `prefers-reduced-motion` it skips straight to the segfault screen.
+- `sudo` (with or without a command) is an easter egg left out of `help` on purpose: the whole page, shell included, breaks and falls off the screen, then shows a fake segfault until any key or click, and the shell is cleared and closed. `lib/shell/shatterMath.ts` is the pure geometry and physics (unit-tested); `lib/shell/shatter.ts` runs the effect, and its comments explain how it stays fast on long pages.
 - `lib/shell/shell.svelte.ts` keeps the state (open, scrollback, history; they survive closing the panel) and builds the real host. `lib/components/Shell.svelte` is the panel and the global hotkey.
 
 ### Accessibility Conventions
@@ -116,13 +70,50 @@ Requests go through `fetchWithTimeout` (`lib/fetchTimeout.ts`), which gives up i
 
 ### Project Rendering
 
-`plugins/projects.ts` reads `src/content/projects/*.md` ([frontmatter](#project-frontmatter)), drops unpublished ones, and exposes two virtual modules: `virtual:projects` (summaries, highest `priority` first, plus a loader per slug, in the main bundle) and `virtual:project/<slug>` (one project's HTML and grep text, its own chunk). `src/lib/projects/content.ts` wraps them. The build fails on a duplicate or invalid slug (lowercase letters, digits, hyphens). In dev, editing a write-up reloads the page.
+`plugins/projects.ts` reads `src/content/projects/*.md` ([frontmatter](#adding-a-write-up)), drops unpublished ones, and exposes two virtual modules: `virtual:projects` (summaries, highest `priority` first, plus a loader per slug, in the main bundle) and `virtual:project/<slug>` (one project's HTML and grep text, its own chunk). `src/lib/projects/content.ts` wraps them. The build fails on a duplicate or invalid slug (lowercase letters, digits, hyphens). In dev, editing a write-up reloads the page.
 
-`plugins/renderMarkdown.ts` runs remark → GFM → math (`remark-math`) → rehype → Mermaid fences to `<div class="mermaid">` → `rehype-sanitize` → grep text → KaTeX (`rehype-katex`) → focusable scroll regions → heading ids (`rehype-slug`) → heading anchor links. Order matters: KaTeX runs after sanitizing because the sanitizer would strip its inline styles (its own `trust: false` default blocks `\href` and similar), and ids are added after sanitizing so the anchors' `href`s match them. The shell's `grep` text is collected (one line per heading, paragraph, list item, table cell, or code line) before KaTeX and the anchors run, so an equation appears once, as LaTeX, and headings carry no `#`. The build fails if a math block has invalid LaTeX, and unit tests check that Mermaid fences survive sanitizing as diagrams. Math is written as `$…$` inline and `$$…$$` on its own lines, so a literal dollar sign in prose needs escaping (`\$`). Tables get a `.table-scroll` wrapper, and tables and display equations both become focusable regions (`tabindex="0"`, `role="region"`), so keyboard users can scroll them when they overflow on a phone. `ProjectDetail.svelte` loads KaTeX's CSS and fonts on demand, only for pages with math (`hasMath`), so they stay out of the global stylesheet. `ProjectDetail.svelte` injects the HTML, then loads Mermaid on demand (only when the page has a diagram) and renders it in the current theme, re-rendering on theme change. Wide diagrams stop shrinking at 60% of their natural width and scroll horizontally instead.
+`plugins/renderMarkdown.ts` turns each write-up into sanitized HTML; the stage order, and why it matters, is in its comments. What that means for write-ups and `ProjectDetail.svelte`:
 
-Interactive demos live in `src/lib/demos/`. A write-up embeds one with a fence whose body is the demo id (` ```demo ` / `wavepacket-2d` / ` ``` `). The pipeline turns it into `<div class="project-demo" data-demo="…">` (the build fails on an id missing from `demos/ids.ts`), and `ProjectDetail.svelte` mounts the component from `demos/registry.ts` into it, imported on demand so the demo code loads only on that page. To add a demo, add its id to `ids.ts` and its loader to `registry.ts`; the type check fails if one is missing. Keep the simulation math in plain `.ts` modules so it can be unit-tested, and build canvas colors from the `--color-*` variables with `demos/colormap.ts`, redrawing when `theme.current` changes. The `--color-*` variables a demo reads must be written as hex or `rgb()` in `app.css`: `colormap.ts` parses them as written, and throws on anything else.
+- **Math** is written as `$…$` inline and `$$…$$` on its own lines, so a literal dollar sign in prose needs escaping (`\$`). KaTeX renders it at build time, and the build fails if a math block has invalid LaTeX. `ProjectDetail.svelte` loads KaTeX's CSS and fonts on demand, only for pages with math (`hasMath`), so they stay out of the global stylesheet.
+- **Mermaid** fences become `<div class="mermaid">`, and unit tests check that they survive sanitizing. `ProjectDetail.svelte` loads Mermaid on demand (only when the page has a diagram) and renders it in the current theme, re-rendering on theme change. Wide diagrams stop shrinking at 60% of their natural width and scroll horizontally instead.
+- **The shell's `grep` text** (one line per heading, paragraph, list item, table cell, or code line) is collected before KaTeX and the heading anchors run, so an equation appears once, as LaTeX, and headings carry no `#`.
+- **Tables** get a `.table-scroll` wrapper, and tables and display equations both become focusable regions (`tabindex="0"`, `role="region"`), so keyboard users can scroll them when they overflow on a phone.
 
-`wavepacket-2d` (`Wavepacket2D.svelte`) is a 2D split-operator Schrödinger solver (`demos/wavepacket.ts`, Strang splitting) on a 128×128 grid with a hand-written FFT (`demos/fft.ts`; it leaves the spectrum transposed, which is much faster than strided column passes). A complex absorbing potential at the edges stands in for open boundaries. It targets 30 fps at 3 steps per frame, plays once when first scrolled into view (not under `prefers-reduced-motion`), and pauses while offscreen. The double-slit wall has a fixed height (6× the packet energy) and ignores the height slider, because a wall that thin leaks by tunnelling at lower heights.
+#### Adding a Write-Up
+
+1. Edit or add `frontend/src/content/projects/<slug>.md`, starting with this frontmatter:
+
+   ```yaml
+   ---
+   title: "Readable title"        # default: slug in Title Case
+   slug: "url-slug"               # default: file name without .md
+   summary: "Short card summary"
+   priority: 20                   # integer, default 0; higher sorts first (ties by slug)
+   tags: ["Tag1", "Tag2"]
+   repo: "https://..."            # omit or leave empty for no link
+   demo: "https://..."            # omit or leave empty for no link
+   published: true                # default: true; set false to hide
+   ---
+   ```
+
+2. Check it at `http://localhost:5173/projects/<slug>`, and run `pnpm build` to catch slug errors.
+3. Push to `main`, then [deploy](./RUNBOOK.md#ship-a-change).
+
+If a project page shows "not found", check that:
+
+1. The file exists in `frontend/src/content/projects/`.
+2. Its `slug` (or file name, if no slug) matches the URL.
+3. It isn't `published: false`.
+4. The deployed build includes it (it was deployed after the file was added).
+
+#### Demos
+
+Interactive demos live in `src/lib/demos/`.
+
+- **Embedding.** A write-up embeds one with a fence whose body is the demo id (` ```demo ` / `wavepacket-2d` / ` ``` `). The pipeline turns it into `<div class="project-demo" data-demo="…">` (the build fails on an id missing from `demos/ids.ts`), and `ProjectDetail.svelte` mounts the component from `demos/registry.ts` into it, imported on demand so the demo code loads only on that page.
+- **Adding one.** Add its id to `ids.ts` and its loader to `registry.ts`; the type check fails if one is missing. Keep the simulation math in plain `.ts` modules so it can be unit-tested.
+- **Colors.** Build canvas colors from the `--color-*` variables with `demos/colormap.ts`, redrawing when `theme.current` changes. The `--color-*` variables a demo reads must be written as hex or `rgb()` in `app.css`: `colormap.ts` parses them as written, and throws on anything else.
+- **`wavepacket-2d`** (`Wavepacket2D.svelte`) is a 2D split-operator Schrödinger solver (`demos/wavepacket.ts`) on a 128×128 grid with a hand-written FFT (`demos/fft.ts`). It plays once when first scrolled into view (not under `prefers-reduced-motion`) and pauses while offscreen. The reasoning behind its numerics is in those files' comments.
 
 ### About You
 
@@ -140,18 +131,3 @@ All routes end in a trailing slash; requests without one get a `308`. Errors are
 | GET | `/api/scheduler/...` | Scheduler data ([Utilities](./UTILITIES.md#class-scheduler)) |
 | GET, POST | `/api/fileshare/...` | File share ([Utilities](./UTILITIES.md#file-share)) |
 | GET, POST | `/api/messageboard/...` | Message board ([Utilities](./UTILITIES.md#message-board)) |
-
-### Project Frontmatter
-
-```yaml
----
-title: "Readable title"        # default: slug in Title Case
-slug: "url-slug"               # default: file name without .md
-summary: "Short card summary"
-priority: 20                   # integer, default 0; higher sorts first (ties by slug)
-tags: ["Tag1", "Tag2"]
-repo: "https://..."            # omit or leave empty for no link
-demo: "https://..."            # omit or leave empty for no link
-published: true                # default: true; set false to hide
----
-```

@@ -1,7 +1,7 @@
 # Manual only (Actions → Deploy → Run workflow, or `gh workflow run deploy.yaml`)
 # on main: builds a release and deploys it to the VM. It doesn't rerun the tests;
 # test.yaml already ran them on the push to main.
-# See documentation/DEPLOYMENT.md#deploying-changes.
+# See documentation/RUNBOOK.md#ship-a-change.
 name: Deploy
 
 on:

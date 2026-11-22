@@ -2,7 +2,7 @@
 # Run by Terraform after it creates a VM (terraform_data.vm_ready in main.tf): waits for
 # the VM's startup script to mark it ready, meaning it serves a release through the
 # tunnel. On a swap, Terraform destroys the old VM only if this succeeds. See "VM swaps"
-# in documentation/DEPLOYMENT.md.
+# in documentation/INFRASTRUCTURE.md.
 #
 #   VM=<name> ZONE=<zone> PROJECT=<project> infrastructure/wait-for-vm.sh
 set -euo pipefail
