@@ -70,9 +70,7 @@ describe('fact values', () => {
 
 describe('serverFacts', () => {
   const base: RequestContextSnapshot = {
-    timestamp: '2026-11-10T00:00:00Z',
-    request: { method: 'GET', path: '/api/about-you/request-context/' },
-    network: { clientIp: '203.0.113.5', ipSource: 'CF-Connecting-IP', hasForwardedHeaders: true },
+    network: { clientIp: '203.0.113.5' },
     geolocation: { available: false, reason: 'No lookup in dev.' },
     headers: { userAgent: UA.firefox, acceptLanguage: 'en-US', referer: '', doNotTrack: '' },
   };

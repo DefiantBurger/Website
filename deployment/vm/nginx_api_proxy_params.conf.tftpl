@@ -1,6 +1,5 @@
 proxy_pass http://127.0.0.1:${backend_port};
 proxy_set_header Host $host;
-proxy_set_header X-Real-IP $remote_addr;
 # Only cloudflared connects to Nginx, so $remote_addr is always 127.0.0.1 and
 # $scheme is always http. Forward the visitor's IP from Cloudflare, and https
 # (plain-http visitors are redirected before reaching a proxied location).

@@ -1,5 +1,4 @@
 import unicodedata
-from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -48,15 +47,6 @@ _DEV_GEOLOCATION = {
 	'latitude': 40.7128,
 	'longitude': -74.006,
 }
-
-
-def _resolve_client_ip() -> tuple[str, str]:
-	"""Return (ip, header it came from). Headers are trusted because the origin is only reachable via Cloudflare."""
-	cf_connecting_ip = request.headers.get('CF-Connecting-IP', '').strip()
-	if cf_connecting_ip:
-		return cf_connecting_ip, 'CF-Connecting-IP'
-	# Local dev has no Cloudflare; Nginx's X-Forwarded-For is already in remote_addr via ProxyFix.
-	return (request.remote_addr or '').strip(), 'remote_addr'
 
 
 def _cloudflare_header(name: str) -> str:
@@ -201,27 +191,11 @@ def fileshare_list():
 @views.route('/api/about-you/request-context/', methods=['GET'])
 def about_you_request_context():
 	# Everything the server can see about this request, for the About You page.
-	raw_ip, ip_source = _resolve_client_ip()
-	geolocation = _cloudflare_geolocation()
-
-	has_forwarded_headers = any(
-		bool(request.headers.get(header_name, '').strip())
-		for header_name in ['CF-Connecting-IP', 'X-Forwarded-For', 'X-Real-IP', 'Forwarded']
-	)
-
+	# In production Waitress has already set remote_addr from Nginx's X-Forwarded-For.
 	return jsonify(
 		{
-			'timestamp': datetime.now(UTC).isoformat(),
-			'request': {
-				'method': request.method,
-				'path': request.path,
-			},
-			'network': {
-				'clientIp': raw_ip or 'Unavailable',
-				'ipSource': ip_source,
-				'hasForwardedHeaders': has_forwarded_headers,
-			},
-			'geolocation': geolocation,
+			'network': {'clientIp': request.remote_addr or 'Unavailable'},
+			'geolocation': _cloudflare_geolocation(),
 			'headers': {
 				'userAgent': request.headers.get('User-Agent', ''),
 				'acceptLanguage': request.headers.get('Accept-Language', ''),
@@ -239,7 +213,7 @@ def messageboard_messages():
 
 @views.route('/api/messageboard/messages/', methods=['POST'])
 def messageboard_post_message():
-	raw_ip, _ = _resolve_client_ip()
+	raw_ip = request.remote_addr or ''
 
 	# Rate limit before validating so rejected posts still count toward the limit.
 	if not board_rate_limiter.check_and_record(raw_ip):

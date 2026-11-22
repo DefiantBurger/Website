@@ -87,7 +87,7 @@ Anonymous board where messages expire 60 seconds after posting.
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
 | GET | `/api/messageboard/messages/` | | `{messages, serverTime, retentionSeconds, maxMessageLength}`, messages newest first |
-| POST | `/api/messageboard/messages/` | JSON or form: `{"text": "..."}` | `201` with the message |
+| POST | `/api/messageboard/messages/` | JSON: `{"text": "..."}` | `201` with the message |
 
 A message is `{id, text, createdAt, expiresAt}`. Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` rate limit.
 

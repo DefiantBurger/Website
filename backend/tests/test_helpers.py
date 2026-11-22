@@ -1,29 +1,4 @@
-import pytest
-
-from app.views import _cloudflare_geolocation, _resolve_client_ip
-
-
-@pytest.mark.parametrize(
-	('headers', 'expected'),
-	[
-		(
-			{
-				'CF-Connecting-IP': '203.0.113.1',
-				'X-Forwarded-For': '203.0.113.2',
-				'X-Real-IP': '203.0.113.3',
-			},
-			('203.0.113.1', 'CF-Connecting-IP'),
-		),
-		(
-			{'X-Forwarded-For': '203.0.113.10', 'X-Real-IP': '203.0.113.30'},
-			('127.0.0.1', 'remote_addr'),
-		),
-		({}, ('127.0.0.1', 'remote_addr')),
-	],
-)
-def test_resolve_client_ip_precedence(app, headers, expected):
-	with app.test_request_context('/', headers=headers, environ_base={'REMOTE_ADDR': '127.0.0.1'}):
-		assert _resolve_client_ip() == expected
+from app.views import _cloudflare_geolocation
 
 
 def test_geolocation_missing_headers_unavailable(app):

@@ -2,7 +2,6 @@ import re
 from pathlib import Path
 
 import pytest
-from flask import request
 
 from app import create_app
 from app.fileshare import MAX_FILE_BYTES
@@ -33,25 +32,6 @@ def test_test_config_secret_key_wins_over_env(monkeypatch, tmp_path):
 
 def test_create_app_custom_instance_path(app, tmp_path):
 	assert app.instance_path == str(tmp_path)
-
-
-def test_redirect_uses_forwarded_scheme(client):
-	res = client.get('/api/health', headers={'X-Forwarded-Proto': 'https', 'Host': 'example.com'})
-	assert res.status_code == 308
-	assert res.headers['Location'] == 'https://example.com/api/health/'
-
-
-def test_remote_addr_uses_forwarded_for(app, client):
-	# ProxyFix runs as WSGI middleware, so check through a real request.
-	captured = {}
-
-	@app.get('/_test_remote_addr')
-	def _remote_addr():
-		captured['addr'] = request.remote_addr
-		return ''
-
-	client.get('/_test_remote_addr', headers={'X-Forwarded-For': '203.0.113.7'})
-	assert captured['addr'] == '203.0.113.7'
 
 
 def test_404_handler_returns_json(client):

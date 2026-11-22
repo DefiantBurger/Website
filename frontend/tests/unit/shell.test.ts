@@ -41,9 +41,7 @@ const PAGE_LINES: Record<string, string[]> = {
 };
 
 const context: RequestContextSnapshot = {
-  timestamp: '2026-01-01T00:00:00Z',
-  request: { method: 'GET', path: '/api/about-you/request-context/' },
-  network: { clientIp: '203.0.113.7', ipSource: 'remote_addr', hasForwardedHeaders: false },
+  network: { clientIp: '203.0.113.7' },
   geolocation: { available: true, city: 'Madison', region: 'Wisconsin', country: 'US' },
   headers: { userAgent: 'test', acceptLanguage: 'en', referer: '', doNotTrack: '' },
 };

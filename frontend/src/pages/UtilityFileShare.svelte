@@ -36,6 +36,8 @@
   // List and download share one task, so only one access request runs at a time.
   const access = new AsyncTask("Couldn't retrieve files.");
   let accessFiles = $state<FileShareRecord[]>([]);
+  // Downloads use the key the list came from, so editing the box afterwards doesn't break them.
+  let listedKey = '';
   let selectedFileId = $state('');
 
   // Limits come from the backend, so the page can't drift from it; '—' until loaded.
@@ -105,20 +107,11 @@
     await loadStatus();
   }
 
-  /** The trimmed access key, or null (with `missingKeyMessage` shown) if it is empty. */
-  function requireAccessKey(missingKeyMessage: string): string | null {
-    const key = accessPassword.trim();
-    if (!key) {
-      access.fail(missingKeyMessage);
-      return null;
-    }
-    return key;
-  }
-
   async function handleListSubmit(event: SubmitEvent): Promise<void> {
     event.preventDefault();
-    const key = requireAccessKey('Enter the access key to retrieve files.');
+    const key = accessPassword.trim();
     if (!key) {
+      access.fail('Enter the access key to retrieve files.');
       accessFiles = [];
       return;
     }
@@ -127,16 +120,13 @@
       accessFiles = []; // so a failed lookup doesn't leave the previous key's files listed
       // The API answers 404 when there are none, so this list is never empty.
       accessFiles = (await listFileShareFiles(key)).files;
+      listedKey = key;
       selectedFileId = accessFiles[0].id;
       access.success = `Found ${accessFiles.length} file(s) for this access key.`;
     });
   }
 
   async function startDownloads(files: FileShareRecord[]): Promise<void> {
-    const key = requireAccessKey('Enter the access key to retrieve files.');
-    if (!key) {
-      return;
-    }
     if (files.length === 0) {
       access.fail('No files available for download.');
       return;
@@ -146,7 +136,7 @@
       const failures: string[] = [];
       for (const file of files) {
         try {
-          saveBlob(await downloadFileShare(key, file.id), file.originalFilename);
+          saveBlob(await downloadFileShare(listedKey, file.id), file.originalFilename);
         } catch (error) {
           failures.push(`- ${file.originalFilename}: ${errorMessage(error, 'Download failed.')}`);
         }

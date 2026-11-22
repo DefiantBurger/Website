@@ -4,15 +4,8 @@ import type { InteractionState } from './interactionStore';
 
 // Response of /api/about-you/request-context/.
 export type RequestContextSnapshot = {
-  timestamp: string;
-  request: {
-    method: string;
-    path: string;
-  };
   network: {
     clientIp: string;
-    ipSource: string;
-    hasForwardedHeaders: boolean;
   };
   geolocation: {
     available: boolean;
@@ -221,15 +214,14 @@ export function hasCoordinates(
 }
 
 export function serverFacts(context: RequestContextSnapshot): Fact[] {
-  const { request, network, headers, geolocation } = context;
+  const { network, headers, geolocation } = context;
   const coordinates =
     geolocation.available && hasCoordinates(geolocation)
       ? `${geolocation.latitude}, ${geolocation.longitude}`
       : null;
 
   return [
-    fact(FACT_LABELS.ip, network.clientIp, `Source: ${network.ipSource}`),
-    fact('Via Proxy', network.hasForwardedHeaders ? 'Yes (forwarded headers)' : 'No'),
+    fact(FACT_LABELS.ip, network.clientIp),
     ...(geolocation.available
       ? [
           fact(FACT_LABELS.country, countryName(geolocation.country)),
@@ -244,7 +236,6 @@ export function serverFacts(context: RequestContextSnapshot): Fact[] {
           ),
         ]
       : [fact('Geolocation', null, geolocation.reason || 'Lookup not available.')]),
-    fact('Request', `${request.method} ${request.path}`, context.timestamp),
     fact('User-Agent Header', headers.userAgent),
     fact('Accept-Language', headers.acceptLanguage),
     fact('Referer Header', headers.referer),

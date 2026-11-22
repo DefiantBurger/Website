@@ -114,7 +114,7 @@
 
 <PageHeader
   title="About You"
-  description="Everything below is what this site can learn about you just from your visit. Nothing here is stored, and no analytics profile is created."
+  description="What any website can learn about you the moment you load it."
 >
   <div class="snapshot">
     <p class="refresh-time">Snapshot taken {refreshedAt}</p>

@@ -52,8 +52,8 @@ GitHub Actions are pinned by commit SHA in `.github/workflows/` and `.github/act
 
 | File | Role |
 | --- | --- |
-| `main.py` | Loads `.env`, builds the app, and starts the dev server or Waitress based on `FLASK_ENV`. In production it also logs each request (Waitress has no access log) and starts the file-share expiry sweeper. |
-| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at `MAX_FILE_BYTES` + 1 MiB (~81 MB), trusts Nginx's `X-Forwarded-For`/`-Proto` (`ProxyFix`), enables CORS in development, registers the `views` blueprint, returns JSON 404s and 413s. |
+| `main.py` | Loads `.env`, builds the app, and starts the dev server or Waitress based on `FLASK_ENV`. In production Waitress trusts only Nginx's `X-Forwarded-For`/`-Proto`, so `request.remote_addr` is the visitor's IP; `main.py` also logs each request (Waitress has no access log) and starts the file-share expiry sweeper. |
+| `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at `MAX_FILE_BYTES` + 1 MiB (~81 MB), enables CORS in development, registers the `views` blueprint, returns JSON 404s and 413s. |
 | `app/views.py` | All routes and the client-IP/Cloudflare-header helpers. Turns any `ApiError` into a JSON `{error}` response. |
 | `app/errors.py` | `ApiError(message, status_code)`, the base for `FileShareError` and `MessageBoardError`. |
 | `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |

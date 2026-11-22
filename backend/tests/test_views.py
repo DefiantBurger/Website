@@ -48,21 +48,21 @@ def test_about_you_request_context(client):
 	headers = {
 		'CF-IPCountry': 'US',
 		'CF-IPCity': 'Dallas',
-		'CF-Connecting-IP': '198.51.100.1',
 		'User-Agent': 'TestBrowser/1.0',
 		'Accept-Language': 'en-US,en;q=0.9',
 		'Referer': 'https://example.com/ref',
 		'DNT': '1',
 	}
-	res = client.get('/api/about-you/request-context/', headers=headers)
+	# In production Waitress sets REMOTE_ADDR from Nginx's X-Forwarded-For.
+	res = client.get(
+		'/api/about-you/request-context/',
+		headers=headers,
+		environ_base={'REMOTE_ADDR': '198.51.100.1'},
+	)
 	assert res.status_code == 200
 	data = res.get_json()
 
-	assert data['network'] == {
-		'clientIp': '198.51.100.1',
-		'ipSource': 'CF-Connecting-IP',
-		'hasForwardedHeaders': True,
-	}
+	assert data['network'] == {'clientIp': '198.51.100.1'}
 	assert data['headers'] == {
 		'userAgent': 'TestBrowser/1.0',
 		'acceptLanguage': 'en-US,en;q=0.9',
