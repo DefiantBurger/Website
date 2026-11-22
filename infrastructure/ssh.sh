@@ -2,9 +2,9 @@
 # SSH into the site's VM over IAP. Its name changes on every swap, so this finds it by
 # label, like the Deploy workflow. Arguments after the options run as a command.
 #
-#   deployment/ssh.sh                                 # interactive shell
-#   deployment/ssh.sh 'sudo systemctl status nginx'
-#   deployment/ssh.sh --vm flask-vm-3fa9c2 'sudo tail /var/log/startup-script.log'
+#   infrastructure/ssh.sh                                 # interactive shell
+#   infrastructure/ssh.sh 'sudo systemctl status nginx'
+#   infrastructure/ssh.sh --vm flask-vm-3fa9c2 'sudo tail /var/log/startup-script.log'
 #
 # --vm picks a VM by name, e.g. the new one during a failed swap.
 set -euo pipefail

@@ -1,8 +1,8 @@
 # Deployment
 
-Provisioning and releases are separate. **Terraform** (`deployment/`) provisions the infrastructure and the VM, rarely. **GitHub Actions** ships releases: `deploy.yaml` runs only by hand on `main`, so pushes and merges never deploy.
+Provisioning and releases are separate. **Terraform** (`infrastructure/`) provisions the infrastructure and the VM, rarely. **GitHub Actions** ships releases: `deploy.yaml` runs only by hand on `main`, so pushes and merges never deploy.
 
-Always run Terraform through `./tf.sh` from `deployment/`; it fetches the Cloudflare API token first ([Secrets](#secrets)). Inputs and their defaults are in `variables.tf`; versions are in `versions.tf`.
+Always run Terraform through `./tf.sh` from `infrastructure/`; it fetches the Cloudflare API token first ([Secrets](#secrets)). Inputs and their defaults are in `variables.tf`; versions are in `versions.tf`.
 
 > **Replacing the VM is a zero-downtime swap.** A new VM starts next to the old one, installs the last release *Deploy* published to the release bucket, and joins the tunnel. Only then does Terraform delete the old VM. If the new VM never gets ready, the apply fails and the old VM keeps serving. See [VM Swaps](#vm-swaps).
 
@@ -44,7 +44,7 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
 `startup.sh.tftpl` is the VM's `startup-script` metadata. It runs as root on every boot (logged to `/var/log/startup-script.log`) and can be [rerun by hand](./RUNBOOK.md#apply-vm-config-changes):
 
 1. **First boot only** (until `/var/lib/personalwebsite/.provisioned` exists): installs Python 3.13, Nginx, curl, `unattended-upgrades`, and `cloudflared` (from Cloudflare's apt repo), and creates the `flaskapp` user, root-owned `/opt/personalwebsite/releases` (`app_path`), and `/var/lib/personalwebsite` (`data_path`; `flaskapp`, mode 700). On every boot, it also installs `nftables` if it's missing, so VMs provisioned before the firewall get it too.
-2. Installs the files listed in `vm_files` (`main.tf`, sources in `deployment/vm/`), replacing only those whose contents changed:
+2. Installs the files listed in `vm_files` (`main.tf`, sources in `infrastructure/vm/`), replacing only those whose contents changed:
    - The Nginx config, and the `flaskapp`, `flaskapp-firewall`, `cloudflared`, and `cloudflared-restart` units.
    - `flaskapp-firewall.nft`, the [metadata block](#runtime-on-the-vm) that `flaskapp-firewall.service` loads.
    - `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
@@ -103,7 +103,7 @@ A swap takes about 6–8 minutes, and the overlap is its only cost beyond the fr
 
 ## Deploying Changes
 
-Only the release tarball (backend app code and `frontend/dist`) ships on deploy. The VM's config (the startup script and `deployment/vm/`) ships through Terraform, never in the tarball: a systemd unit or Nginx `load_module` there would let whoever can deploy run code as root.
+Only the release tarball (backend app code and `frontend/dist`) ships on deploy. The VM's config (the startup script and `infrastructure/vm/`) ships through Terraform, never in the tarball: a systemd unit or Nginx `load_module` there would let whoever can deploy run code as root.
 
 | Change | How |
 | --- | --- |
@@ -115,11 +115,11 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 
 ### Testing VM changes
 
-`deployment/test/run.sh` checks everything that reaches the VM, locally, in about 5 minutes:
+`infrastructure/test/run.sh` checks everything that reaches the VM, locally, in about 5 minutes:
 - It runs the rendered startup script in Debian 13 containers with systemd, with `gcloud`, `sysctl`, and the metadata server stubbed. The scenarios cover first boot, reruns, config changes and their failure handling, and a new VM in a swap whose release is good, broken, or can't reach the tunnel. They also check the metadata firewall, the upload caps, and that the deploy script refuses tarballs that could run code as root.
 - It also tests `wait-for-vm.sh`, and Terraform's swap ordering with a local stand-in config.
 
-It needs Docker, shellcheck, Terraform, uv, and `tf.sh`'s gcloud login (rendering reads Terraform state). Run it after changing anything in `deployment/` that reaches the VM. It can't model GCE itself (the guest environment, IAM, a real tunnel), so watch the first real run of anything new.
+It needs Docker, shellcheck, Terraform, uv, and `tf.sh`'s gcloud login (rendering reads Terraform state). Run it after changing anything in `infrastructure/` that reaches the VM. It can't model GCE itself (the guest environment, IAM, a real tunnel), so watch the first real run of anything new.
 
 ### Kernel updates
 

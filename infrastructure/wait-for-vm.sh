@@ -4,11 +4,11 @@
 # tunnel. On a swap, Terraform destroys the old VM only if this succeeds. See "VM swaps"
 # in documentation/DEPLOYMENT.md.
 #
-#   VM=<name> ZONE=<zone> PROJECT=<project> deployment/wait-for-vm.sh
+#   VM=<name> ZONE=<zone> PROJECT=<project> infrastructure/wait-for-vm.sh
 set -euo pipefail
 
 : "${VM:?}" "${ZONE:?}" "${PROJECT:?}"
-# Overridable for deployment/test/; a first boot takes about 4 minutes.
+# Overridable for infrastructure/test/; a first boot takes about 4 minutes.
 TIMEOUT_SECONDS="${TIMEOUT_SECONDS:-900}"
 POLL_SECONDS="${POLL_SECONDS:-10}"
 

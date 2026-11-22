@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Tests deployment/wait-for-vm.sh against a stub gcloud.
+# Tests infrastructure/wait-for-vm.sh against a stub gcloud.
 #
-#   deployment/test/wait-for-vm.test.sh <scratch dir>
+#   infrastructure/test/wait-for-vm.test.sh <scratch dir>
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh

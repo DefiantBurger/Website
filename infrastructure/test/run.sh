@@ -4,7 +4,7 @@
 # Terraform state, through tf.sh. Needs Docker, shellcheck, Terraform, uv,
 # and tf.sh's gcloud login. Takes about 5 minutes.
 #
-#   deployment/test/run.sh
+#   infrastructure/test/run.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WORK="$(mktemp -d)"

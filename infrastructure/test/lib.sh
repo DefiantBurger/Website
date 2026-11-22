@@ -1,5 +1,5 @@
 # shellcheck shell=bash
-# Shared by the deployment/test/*.test.sh scripts.
+# Shared by the infrastructure/test/*.test.sh scripts.
 FAILS=0
 ok() { echo "  ok:   $1"; }
 bad() {

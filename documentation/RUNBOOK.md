@@ -12,7 +12,7 @@ curl https://josephcicalese.com/api/health/
 curl https://josephcicalese.com/api/fileshare/status/
 ```
 
-On the VM (`deployment/ssh.sh` finds it and opens a shell over IAP; `--vm <name>` picks one during a swap):
+On the VM (`infrastructure/ssh.sh` finds it and opens a shell over IAP; `--vm <name>` picks one during a swap):
 
 ```bash
 sudo systemctl status flaskapp nginx cloudflared
@@ -45,14 +45,14 @@ It stays rolled back until the next manual deploy, so revert or fix the bad comm
 
 ## Apply VM Config Changes
 
-Deploys don't touch the VM's config. After editing `deployment/startup.sh.tftpl` or anything in `deployment/vm/` (Nginx, units, the deploy script, sudoers, apt, sysctl or guest agent settings):
+Deploys don't touch the VM's config. After editing `infrastructure/startup.sh.tftpl` or anything in `infrastructure/vm/` (Nginx, units, the deploy script, sudoers, apt, sysctl or guest agent settings):
 
 1. `./tf.sh plan` should show the VM (`google_compute_instance.default`) updated in place (`~ metadata`). If it shows a replacement, that's a [swap](#swap-the-vm); make sure you meant one.
 2. `./tf.sh apply`.
 3. Run the new startup script now rather than waiting for a reboot:
 
    ```bash
-   deployment/ssh.sh 'sudo google_metadata_script_runner startup'
+   infrastructure/ssh.sh 'sudo google_metadata_script_runner startup'
    ```
 
 It prints each file it updated (also appended to `/var/log/startup-script.log`) and restarts only what those files affect. Unchanged files are left alone, so a rerun is safe. If `nginx -t` fails, it restores the previous Nginx files, leaves Nginx running, and exits with an error; fix the template and repeat. Nginx is reloaded, not restarted, and a reload can't rebind `listen` to another address: after changing it, also run `sudo systemctl restart nginx`.
@@ -71,9 +71,9 @@ while sleep 1; do curl -s -o /dev/null -w '%{http_code} ' https://josephcicalese
 
 The apply fails after 15 minutes. The old VM keeps serving, and *Deploy* refuses to run until the swap is resolved. `./tf.sh plan` shows the old VM as a deposed object and `terraform_data.vm_ready` as tainted; both clear on the next successful apply.
 
-To find out why, read the new VM's startup log: `gcloud compute instances get-serial-port-output <new VM> --zone us-central1-a | grep startup-script`, or `deployment/ssh.sh --vm <new VM>`. Then either:
+To find out why, read the new VM's startup log: `gcloud compute instances get-serial-port-output <new VM> --zone us-central1-a | grep startup-script`, or `infrastructure/ssh.sh --vm <new VM>`. Then either:
 
-- **Fix it and retry.** Changes to the startup script or `deployment/vm/` reach the new VM through `./tf.sh apply`, followed by `deployment/ssh.sh --vm <new VM> 'sudo google_metadata_script_runner startup'` while the apply waits. If the new VM recovered on its own, say the tunnel connected late, rerun its startup script the same way to mark it ready, then apply.
+- **Fix it and retry.** Changes to the startup script or `infrastructure/vm/` reach the new VM through `./tf.sh apply`, followed by `infrastructure/ssh.sh --vm <new VM> 'sudo google_metadata_script_runner startup'` while the apply waits. If the new VM recovered on its own, say the tunnel connected late, rerun its startup script the same way to mark it ready, then apply.
 - **Roll back.** Revert the `vm_spec` change and apply. That's another swap: a third VM replaces both once it's ready.
 
 ## Incidents

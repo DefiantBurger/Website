@@ -46,7 +46,7 @@ frontend/dist/
 frontend/.vite/
 frontend/.cache/
 
-# Terraform deployment
+# Terraform (infrastructure/)
 .terraform/
 *.tfstate
 *.tfstate.*

@@ -3,7 +3,7 @@
 # and its IAM binding are destroyed only after the new VM's readiness check succeeds,
 # and never while it fails. Guards against a Terraform upgrade changing that.
 #
-#   deployment/test/swap-order.test.sh <scratch dir>
+#   infrastructure/test/swap-order.test.sh <scratch dir>
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh

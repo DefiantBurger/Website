@@ -83,7 +83,7 @@ resource "google_compute_instance" "default" {
   machine_type = local.vm_spec.machine_type
   zone         = local.vm_spec.zone
   tags         = ["ssh"]
-  # How the Deploy workflow and deployment/ssh.sh find the VM, since its name changes.
+  # How the Deploy workflow and infrastructure/ssh.sh find the VM, since its name changes.
   labels = { app = "personalwebsite" }
 
   boot_disk {

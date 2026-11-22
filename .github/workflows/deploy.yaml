@@ -98,7 +98,7 @@ jobs:
           fi
           echo "name=${vms[0]}" >> "$GITHUB_OUTPUT"
 
-      # The deployer's only sudo right is this script (deployment/vm/deploy.sh.tftpl).
+      # The deployer's only sudo right is this script (infrastructure/vm/deploy.sh.tftpl).
       # It verifies the checksum, installs the release, and rolls back if the
       # health check fails.
       #

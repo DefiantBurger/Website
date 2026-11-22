@@ -3,7 +3,7 @@
 # what's stubbed): first boot, reruns, config changes, failures, and the new VM in a swap.
 # Four VMs run in parallel. KEEP=1 leaves the containers up for poking at.
 #
-#   deployment/test/vm.test.sh <render dir>   # startup.sh and files/, from run.sh
+#   infrastructure/test/vm.test.sh <render dir>   # startup.sh and files/, from run.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib.sh
