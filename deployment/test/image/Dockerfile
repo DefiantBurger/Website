@@ -14,6 +14,10 @@ COPY gcloud /usr/local/bin/gcloud
 COPY metadata-server.py fake-cloudflared.py /usr/local/lib/test/
 COPY metadata-server.service metadata-server.path /etc/systemd/system/
 RUN systemctl enable metadata-server.path
+# The guest agent and its mwlid_extension plugin, which apply_changes restarts.
+COPY google-guest-agent /usr/local/lib/test/
+COPY google-guest-agent.service /etc/systemd/system/
+RUN ln -s /bin/sleep /usr/local/lib/test/mwlid_extension && systemctl enable google-guest-agent.service
 # Answers cloudflared's /ready without a real tunnel; vm.test.sh removes it to test the real one.
 COPY fake-cloudflared.conf /etc/systemd/system/cloudflared.service.d/fake.conf
 # /proc/sys is read-only in an unprivileged container, which also keeps the host's

@@ -132,7 +132,7 @@ refresh_secrets() {
 # Make each changed file take effect, by where it lives. Files not listed here (the apt
 # config, sudoers rule, deploy script) are read fresh on every use.
 apply_changes() {
-	local path daemon_reload=false reload_nginx=false reload_firewall=false
+	local path daemon_reload=false reload_nginx=false reload_firewall=false restart_mwlid=false
 	local -A restart=()
 	for path in "$${CHANGED[@]}"; do
 		case "$path" in
@@ -146,6 +146,10 @@ apply_changes() {
 			# A reload swaps the rules atomically; a restart would also restart flaskapp.
 			/etc/nftables.d/*) reload_firewall=true ;;
 			/etc/sysctl.d/*) sysctl -p "$path" ;;
+			/etc/default/instance_configs.cfg)
+				restart[google-guest-agent.service]=1
+				restart_mwlid=true
+				;;
 		esac
 	done
 
@@ -155,6 +159,11 @@ apply_changes() {
 	# try-: units that aren't running yet (first boot) start at the end of the script.
 	if (( $${#restart[@]} )); then
 		systemctl try-restart "$${!restart[@]}"
+	fi
+	# The agent's KillMode=process leaves its plugins running on the old config through a
+	# restart. Killed, the extension is relaunched by the agent and rereads it.
+	if [[ "$restart_mwlid" == true ]]; then
+		pkill -x mwlid_extension || true
 	fi
 	if [[ "$reload_nginx" == true ]]; then
 		systemctl try-reload-or-restart nginx

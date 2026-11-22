@@ -45,7 +45,7 @@ It stays rolled back until the next manual deploy, so revert or fix the bad comm
 
 ## Apply VM Config Changes
 
-Deploys don't touch the VM's config. After editing `deployment/startup.sh.tftpl` or anything in `deployment/vm/` (Nginx, units, the deploy script, sudoers, apt or sysctl settings):
+Deploys don't touch the VM's config. After editing `deployment/startup.sh.tftpl` or anything in `deployment/vm/` (Nginx, units, the deploy script, sudoers, apt, sysctl or guest agent settings):
 
 1. `./tf.sh plan` should show the VM (`google_compute_instance.default`) updated in place (`~ metadata`). If it shows a replacement, that's a [swap](#swap-the-vm); make sure you meant one.
 2. `./tf.sh apply`.

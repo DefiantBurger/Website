@@ -50,9 +50,10 @@ Not in Terraform: Cloudflare Email Routing (inbound forwarding only), which owns
    - `deploy.sh.tftpl` as `/usr/local/sbin/personalwebsite-deploy`, plus a sudoers rule letting the `github-deployer` OS Login user run that script, and nothing else, as root.
    - `unattended-upgrades.conf`: also install Debian point releases and `cloudflared`, but never kernels (`linux-image-*`; see [Kernel updates](#kernel-updates)), and reboot at 09:17 UTC when an update needs it.
    - `sysctl.conf`: `kernel.panic_on_oops`, so a kernel oops reboots the VM after 10 s instead of leaving it hung, and the larger UDP buffers QUIC wants.
+   - `instance_configs.cfg`: turns off the Google guest agent's Cloud Logging. The VM's service account can't write logs, so every attempt logged a permission error to the serial console.
 3. Checks a changed Nginx config with `nginx -t`. If it fails, it restores the previous files and stops with an error, so Nginx keeps serving the old config. A changed sudoers rule is checked with `visudo` before it goes live.
 4. Refreshes secrets from Secret Manager, using the `gcloud` that ships with Google's Debian images (as the VM's service account). If `gcloud` fails, the script stops and the old secrets stay.
-5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx and the firewall rules, `sysctl -p` for kernel settings, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step. `flaskapp` and `cloudflared` stay idle until a release exists (`ConditionPathExists`): joining the tunnel puts the VM in Cloudflare's rotation.
+5. Applies what changed, by destination: `daemon-reload` and restart for units, a reload for Nginx and the firewall rules, `sysctl -p` for kernel settings, a restart of the guest agent and its `mwlid_extension` plugin for the agent config, and a restart for a service whose secret changed. It then enables and starts the units without waiting on them, so a failing `cloudflared` doesn't block the next step. `flaskapp` and `cloudflared` stay idle until a release exists (`ConditionPathExists`): joining the tunnel puts the VM in Cloudflare's rotation.
 6. If no release is active (`current` is missing), installs `latest.tar.gz` from the release bucket through `personalwebsite-deploy`, using the commit SHA and checksum from the object's metadata. The deploy script starts `cloudflared` once the release passes its health check. If the check fails with no earlier release to fall back on, it leaves none active. A failure is logged and doesn't stop the boot; reboot to retry, or run *Deploy*.
 7. Marks the VM ready for [swaps](#vm-swaps): once `cloudflared`'s `/ready` answers (up to 2 minutes), it sets the guest attribute `personalwebsite/ready` to the active release's commit SHA, or `none` if no release is published yet.
 
@@ -109,7 +110,7 @@ Only the release tarball (backend app code and `frontend/dist`) ships on deploy.
 | App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
 | Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A change to `vm_spec` (image, machine type, zone) is a zero-downtime [swap](#vm-swaps). |
-| VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt and sysctl settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](./RUNBOOK.md#apply-vm-config-changes). |
+| VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt, sysctl and guest agent settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](./RUNBOOK.md#apply-vm-config-changes). |
 | Roll back | [Runbook](./RUNBOOK.md#roll-back-a-release). |
 
 ### Testing VM changes

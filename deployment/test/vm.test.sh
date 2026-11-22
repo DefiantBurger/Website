@@ -54,7 +54,7 @@ variant() {
 	grep -q "$b64" "$4" || { echo "variant for $2 didn't apply"; exit 1; }
 }
 invocation() { x "systemctl show -p InvocationID --value $1"; }
-leftovers() { x "find /etc/nginx /etc/nftables.d /etc/sudoers.d /etc/systemd/system /etc/sysctl.d /etc/apt/apt.conf.d /usr/local/sbin /etc/personalwebsite /etc/cloudflared -name '.*.??????' | wc -l"; }
+leftovers() { x "find /etc/default /etc/nginx /etc/nftables.d /etc/sudoers.d /etc/systemd/system /etc/sysctl.d /etc/apt/apt.conf.d /usr/local/sbin /etc/personalwebsite /etc/cloudflared -name '.*.??????' | wc -l"; }
 ready_attr() { x "grep '^personalwebsite/ready ' /var/log/guest-attributes 2>/dev/null | tail -1 | cut -d' ' -f2"; }
 started_at() { x "systemctl show -p ActiveEnterTimestampMonotonic --value $1"; }
 http_code() { x "curl -s -o /dev/null -w %{http_code} http://127.0.0.1$1"; }
@@ -109,9 +109,13 @@ group_main() {
 	start_vm pw-vm-main
 
 	echo "A. First boot, no release published yet"
+	local mwlid_pid
+	mwlid_pid="$(x 'pgrep -x mwlid_extension')"
 	run "$BASE"
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
-	check "12 files + 2 secrets updated (got $(updated))" '[[ $(updated) == 14 ]]'
+	check "13 files + 2 secrets updated (got $(updated))" '[[ $(updated) == 15 ]]'
+	# The stub agent relaunches its plugin right away; allow it a moment.
+	check "guest agent plugin relaunched on the new config" '(for _ in {1..20}; do p="$(x "pgrep -x mwlid_extension")" && [[ -n "$p" && "$p" != "$mwlid_pid" ]] && exit 0; sleep 0.1; done; exit 1)'
 	check "nftables installed" 'logged "Installing nftables" && x "command -v nft" >/dev/null'
 	check "metadata firewall loaded even before a release" 'x "systemctl is-active -q flaskapp-firewall && nft list table inet flaskapp_firewall" >/dev/null'
 	check "no published release logged" 'logged "No release published"'
@@ -140,9 +144,11 @@ TUNNEL_TOKEN=fake-cloudflare-tunnel-token-v1" ]]'
 	check "no temp files left" '[[ $(leftovers) == 0 ]]'
 
 	echo "B. Rerun, nothing changed"
-	local nginx_pid path_inv flask_inv before
+	local nginx_pid path_inv agent_inv flask_inv before
 	nginx_pid="$(x 'systemctl show -p MainPID --value nginx')"
 	path_inv="$(invocation cloudflared-restart.path)"
+	agent_inv="$(invocation google-guest-agent)"
+	mwlid_pid="$(x 'pgrep -x mwlid_extension')"
 	run "$BASE"
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
 	check "nothing updated (got $(updated))" '[[ $(updated) == 0 ]]'
@@ -150,6 +156,7 @@ TUNNEL_TOKEN=fake-cloudflare-tunnel-token-v1" ]]'
 	check "nftables not reinstalled" '! logged "Installing nftables"'
 	check "nginx untouched" '[[ "$(x "systemctl show -p MainPID --value nginx")" == "$nginx_pid" ]]'
 	check "watcher not restarted" '[[ "$(invocation cloudflared-restart.path)" == "$path_inv" ]]'
+	check "guest agent and its plugin untouched" '[[ "$(invocation google-guest-agent)" == "$agent_inv" && "$(x "pgrep -x mwlid_extension")" == "$mwlid_pid" ]]'
 	check "no unit looks changed on disk" '[[ "$(x "systemctl show -p NeedDaemonReload --value flaskapp flaskapp-firewall cloudflared cloudflared-restart.path cloudflared-restart.service" | grep . | sort -u)" == no ]]'
 
 	echo "C. Drifted ownership and mode are corrected without counting as changes"

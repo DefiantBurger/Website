@@ -1,0 +1,10 @@
+[Unit]
+Description=Stub Google guest agent
+
+[Service]
+ExecStart=/usr/local/lib/test/google-guest-agent
+# As in the real unit: a restart leaves the plugins running.
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target

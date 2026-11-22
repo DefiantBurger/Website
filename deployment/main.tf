@@ -32,6 +32,7 @@ locals {
   vm_files = {
     "/etc/apt/apt.conf.d/52personalwebsite"           = { mode = "644", content = file("${local.vm}/unattended-upgrades.conf") }
     "/etc/sysctl.d/99-personalwebsite.conf"           = { mode = "644", content = file("${local.vm}/sysctl.conf") }
+    "/etc/default/instance_configs.cfg"               = { mode = "644", content = file("${local.vm}/instance_configs.cfg") }
     "/etc/sudoers.d/personalwebsite-deploy"           = { mode = "440", content = templatefile("${local.vm}/sudoers.tftpl", local.vm_template_vars) }
     "/usr/local/sbin/personalwebsite-deploy"          = { mode = "755", content = templatefile("${local.vm}/deploy.sh.tftpl", local.vm_template_vars) }
     "/etc/nginx/sites-available/default"              = { mode = "644", content = templatefile("${local.vm}/nginx.conf.tftpl", local.vm_template_vars) }
@@ -100,6 +101,10 @@ resource "google_compute_instance" "default" {
     # Copies serial port 1 (kernel + journald console output) to Cloud Logging from
     # outside the guest, so logs survive a hung VM. Volume is far below the free tier.
     serial-port-logging-enable = "TRUE"
+    # Overrides the project's enable-osconfig=TRUE. VM Manager (inventory, patch jobs,
+    # OS policies) goes unused, since unattended-upgrades patches the VM, and its
+    # inventory report logged to the serial console every 10 minutes.
+    enable-osconfig = "FALSE"
     # This key, unlike metadata_startup_script, updates in place instead of replacing the
     # VM. A change reaches the VM on its next boot or a manual run (see RUNBOOK.md).
     startup-script = local.startup_script
