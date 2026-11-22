@@ -33,6 +33,7 @@ locals {
     "/etc/apt/apt.conf.d/52personalwebsite"           = { mode = "644", content = file("${local.vm}/unattended-upgrades.conf") }
     "/etc/sysctl.d/99-personalwebsite.conf"           = { mode = "644", content = file("${local.vm}/sysctl.conf") }
     "/etc/default/instance_configs.cfg"               = { mode = "644", content = file("${local.vm}/instance_configs.cfg") }
+    "/etc/rsyslog.d/10-personalwebsite.conf"          = { mode = "644", content = file("${local.vm}/rsyslog.conf") }
     "/etc/sudoers.d/personalwebsite-deploy"           = { mode = "440", content = templatefile("${local.vm}/sudoers.tftpl", local.vm_template_vars) }
     "/usr/local/sbin/personalwebsite-deploy"          = { mode = "755", content = templatefile("${local.vm}/deploy.sh.tftpl", local.vm_template_vars) }
     "/etc/nginx/sites-available/default"              = { mode = "644", content = templatefile("${local.vm}/nginx.conf.tftpl", local.vm_template_vars) }

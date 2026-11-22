@@ -146,6 +146,7 @@ apply_changes() {
 			# A reload swaps the rules atomically; a restart would also restart flaskapp.
 			/etc/nftables.d/*) reload_firewall=true ;;
 			/etc/sysctl.d/*) sysctl -p "$path" ;;
+			/etc/rsyslog.d/*) restart[rsyslog.service]=1 ;;
 			# The manager runs the agent (core_plugin) and its extensions in its cgroup, so a
 			# restart relaunches them all on the new config. google-guest-agent.service is the
 			# legacy agent and must stay off: running both breaks OS Login SSH (see RUNBOOK.md).

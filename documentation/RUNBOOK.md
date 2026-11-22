@@ -11,7 +11,7 @@ Deploys ship only the release tarball; the VM's config ships through Terraform (
 | App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
 | Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A change to `vm_spec` (image, machine type, zone) is a zero-downtime [swap](./INFRASTRUCTURE.md#vm-swaps). |
-| VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt, sysctl and guest agent settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](#apply-vm-config-changes). |
+| VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt, sysctl, rsyslog and guest agent settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](#apply-vm-config-changes). |
 | Roll back | [Roll Back a Release](#roll-back-a-release). |
 
 Before applying a change to anything in `infrastructure/` that reaches the VM, run its [local tests](./DEVELOPMENT.md#vm-script-tests).
@@ -53,7 +53,7 @@ It stays rolled back until the next manual deploy, so revert or fix the bad comm
 
 ## Apply VM Config Changes
 
-Deploys don't touch the VM's config. After editing `infrastructure/startup.sh.tftpl` or anything in `infrastructure/vm/` (Nginx, units, the deploy script, sudoers, apt, sysctl or guest agent settings):
+Deploys don't touch the VM's config. After editing `infrastructure/startup.sh.tftpl` or anything in `infrastructure/vm/` (Nginx, units, the deploy script, sudoers, apt, sysctl, rsyslog or guest agent settings):
 
 1. `./tf.sh plan` should show the VM (`google_compute_instance.default`) updated in place (`~ metadata`). If it shows a replacement, that's a [swap](#swap-the-vm); make sure you meant one.
 2. `./tf.sh apply`.
