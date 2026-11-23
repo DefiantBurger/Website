@@ -1,7 +1,7 @@
 // Accessibility scan: runs axe-core on every route, in both themes, at desktop
 // and phone width, against a running dev server. Exits 1 on any violation.
 //
-//   ./start-dev.sh                  # from the repo root, in another terminal
+//   just dev                        # from the repo root, in another terminal
 //   pnpm a11y                       # scans http://localhost:5173
 //   TEST_BASE_URL=https://... pnpm a11y
 //

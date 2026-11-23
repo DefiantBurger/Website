@@ -3,10 +3,10 @@
 # backend, and Prettier on the frontend. Only formatting changes; lint fixes
 # that change code (unused imports, ESLint rules) are left to you.
 #
-#   ./format.sh
+#   just format              # or scripts/format.sh
 set -uo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 case "${1:-}" in
   "") ;;

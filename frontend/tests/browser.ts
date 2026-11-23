@@ -30,9 +30,7 @@ export async function assertServerUp(): Promise<void> {
   try {
     await fetch(BASE_URL);
   } catch {
-    console.error(
-      `Can't reach ${BASE_URL}. Start the site first (./start-dev.sh from the repo root).`,
-    );
+    console.error(`Can't reach ${BASE_URL}. Start the site first (just dev from the repo root).`);
     process.exit(2);
   }
 }

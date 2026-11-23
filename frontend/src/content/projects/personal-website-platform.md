@@ -168,12 +168,12 @@ The VM has no open web ports. `cloudflared` dials out to Cloudflare, and Nginx a
 
 #### Deployment Pipeline
 
-Provisioning and releases are separate. Terraform builds the VM rarely. GitHub Actions tests every push, but pushes never deploy: I run `./deploy.sh`, which starts the Deploy workflow on `main` and follows it to the end.
+Provisioning and releases are separate. Terraform builds the VM rarely. GitHub Actions tests every push, but pushes never deploy: I run `just deploy`, which starts the Deploy workflow on `main` and follows it to the end.
 
 ```mermaid
 flowchart LR
     P[Push or PR] --> T[Test: lint, types, unit tests, pytest, build]
-    M[./deploy.sh] --> PK[package: build + tarball]
+    M[just deploy] --> PK[package: build + tarball]
     PK --> D[deploy over IAP SSH]
     D --> H{health check}
     H -->|pass| S[smoke test via Cloudflare]
@@ -182,7 +182,7 @@ flowchart LR
 ```
 
 1. Pull requests and pushes to `main` run the Test workflow: Ruff and pytest on the backend; ESLint, Prettier, svelte-check, unit tests, and a production build on the frontend. Docs-only pushes skip it.
-2. `./deploy.sh` refuses to run unless local `main` matches `origin/main`, then triggers the manual Deploy workflow. Deploy doesn't rerun the tests, so I check that Test passed first.
+2. `just deploy` refuses to run unless local `main` matches `origin/main`, then triggers the manual Deploy workflow. Deploy doesn't rerun the tests, so I check that Test passed first.
 3. The package job builds the frontend, exports hash-pinned backend requirements from `uv.lock`, and packages a release tarball.
 4. The deploy job authenticates with Workload Identity Federation (no stored keys) and streams the tarball to the VM over IAP SSH.
 5. On the VM, the deployer's only sudo right is a deploy script. It verifies the checksum, builds a venv from hash-pinned wheels, swaps the `current` symlink atomically, and restarts the service.
@@ -240,7 +240,7 @@ Originally, editing a project write-up meant changing frontend source code and r
 Once deploys became fast and zero-downtime, that tradeoff stopped paying for itself. Runtime rendering meant an extra API round trip, a loading state on every project page, and the whole Markdown pipeline shipped to every visitor. So rendering moved to build time:
 
 1. Edit a Markdown file in `frontend/src/content/projects/`. The dev server reloads the page on save.
-2. Push to `main` and run `./deploy.sh`.
+2. Push to `main` and run `just deploy`.
 
 ### Content Contract
 
@@ -349,7 +349,7 @@ Observed strengths:
 - low coordination overhead,
 - small initial bundle: each write-up is its own chunk, and Mermaid loads only on pages with diagrams,
 - hashed assets cached for a year and gzipped at build time, so Nginx sends a stored copy instead of compressing per request (the course catalog shrinks from about 3 MB to 250 KB),
-- fast local iteration with a single `start-dev.sh` script, and every check in one `test.sh` run.
+- fast local iteration with one `just dev` command, and every check in one `just test` run.
 
 Current constraints:
 

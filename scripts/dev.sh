@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$SCRIPT_DIR/backend"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BACKEND_DIR="$ROOT_DIR/backend"
 BACKEND_PYTHON="$BACKEND_DIR/.venv/bin/python"
 
-FRONTEND_DIR="$SCRIPT_DIR/frontend"
+FRONTEND_DIR="$ROOT_DIR/frontend"
 FRONTEND_CMD=(pnpm run dev)
 
 # Load nvm so pnpm can use the correct Node version

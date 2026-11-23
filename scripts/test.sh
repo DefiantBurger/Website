@@ -3,11 +3,11 @@
 # tests, type check and build, doc links, and the browser checks (smoke test and
 # a11y scan). Keeps going after a failure, then exits 1 if anything failed.
 #
-#   ./test.sh                # all checks
-#   ./test.sh --no-browser   # skip the browser checks (faster, no Chrome needed)
+#   just test                # all checks (or scripts/test.sh)
+#   just test --no-browser   # skip the browser checks (faster, no Chrome needed)
 set -uo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_BROWSER=1
 
 for arg in "$@"; do
@@ -44,12 +44,12 @@ run_check "frontend check" frontend pnpm check
 run_check "frontend lint" frontend pnpm lint
 run_check "frontend format" frontend pnpm format:check
 run_check "frontend build" frontend pnpm build
-run_check "doc links" . ./doc-test.sh
+run_check "doc links" . scripts/check-docs.sh
 
 DEV_PID=""
 stop_dev() {
   if [ -n "$DEV_PID" ] && kill -0 "$DEV_PID" 2>/dev/null; then
-    # start-dev.sh traps TERM and stops both servers' process groups itself.
+    # dev.sh traps TERM and stops both servers' process groups itself.
     kill "$DEV_PID" 2>/dev/null
     wait "$DEV_PID" 2>/dev/null
   fi
@@ -62,7 +62,7 @@ up() { curl -s -o /dev/null --max-time 2 "$1"; }
 
 if [ "$RUN_BROWSER" -eq 1 ]; then
   # The browser checks need both servers. Reuse ones that are already running so this
-  # works alongside an open ./start-dev.sh instead of fighting it for ports.
+  # works alongside an open `just dev` instead of fighting it for ports.
   if up http://localhost:5173 && up http://localhost:5000/api/health/; then
     echo
     echo "==> Using dev servers already running"
@@ -71,7 +71,7 @@ if [ "$RUN_BROWSER" -eq 1 ]; then
     echo "==> Starting dev servers for browser checks"
     DEV_LOG="${TMPDIR:-/tmp}/test-sh-dev.log"
     echo "    (server output: $DEV_LOG)"
-    "$ROOT_DIR/start-dev.sh" >"$DEV_LOG" 2>&1 &
+    "$ROOT_DIR/scripts/dev.sh" >"$DEV_LOG" 2>&1 &
     DEV_PID=$!
     for _ in $(seq 1 60); do
       up http://localhost:5173 && up http://localhost:5000/api/health/ && break

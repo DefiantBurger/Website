@@ -8,7 +8,7 @@ Deploys ship only the release tarball; the VM's config ships through Terraform (
 
 | Change | How |
 | --- | --- |
-| App code or project content | Push to `main`, check that *Test* passed, then `./deploy.sh` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
+| App code or project content | Push to `main`, check that *Test* passed, then `just deploy` (needs `gh`; refuses unless local `main` matches `origin/main`, follows the run, exits non-zero on failure). Also retries a failed deploy. |
 | Docs only (`documentation/**`, any `README.md`) | Push. *Test* is skipped. |
 | Terraform config | `./tf.sh plan`, then `./tf.sh apply`. A change to `vm_spec` (image, machine type, zone) is a zero-downtime [swap](./INFRASTRUCTURE.md#vm-swaps). |
 | VM config (startup script, or `vm/`: units, Nginx, firewall rules, deploy script, sudoers, apt, sysctl, rsyslog and guest agent settings) | `./tf.sh apply` updates the VM in place; then [apply the changes](#apply-vm-config-changes). |

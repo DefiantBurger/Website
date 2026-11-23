@@ -3,7 +3,7 @@
 # follows the run and exits non-zero if it fails. Refuses to run unless local
 # main matches origin/main, since the workflow ships GitHub's copy, not yours.
 #
-#   ./deploy.sh
+#   just deploy              # or scripts/deploy.sh
 set -euo pipefail
 
 case "${1:-}" in
@@ -12,7 +12,7 @@ case "${1:-}" in
   *) echo "Unknown option: $1" >&2; exit 2 ;;
 esac
 
-cd "$(dirname "${BASH_SOURCE[0]}")"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 if ! command -v gh >/dev/null 2>&1; then
   echo "gh (GitHub CLI) is required: https://cli.github.com" >&2

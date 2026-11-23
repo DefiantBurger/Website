@@ -4,18 +4,23 @@ Setup is in the [README](../README.md#quick-start); how the code is organized is
 
 ## Scripts
 
-| Script | Does |
-| --- | --- |
-| `./start-dev.sh` | Runs the backend on :5000 and the Vite dev server on :5173, stops both on Ctrl+C, and defaults the [environment](#environment). |
-| `./test.sh` | Every [check](#checks) except the VM script tests; `--no-browser` skips smoke + a11y. |
-| `./format.sh` | Formats every file (Ruff + Prettier). |
-| `./doc-test.sh` | Checks that links between docs resolve, and that doc names and headings mentioned in code still exist. |
-| `./gen-icons.sh` | Regenerates the PNG/ICO icons from `frontend/public/favicon.svg` ([details](./IMPLEMENTATION.md#routing)). |
-| `./deploy.sh` | Deploys `origin/main` ([Runbook](./RUNBOOK.md#ship-a-change)). |
+Scripts live in `scripts/` (Terraform's stay in `infrastructure/`), and the root `justfile` runs them all. Run `just` to list the recipes; each script also runs directly and takes `--help`.
+
+| Recipe | Script | Does |
+| --- | --- | --- |
+| `just dev` | `dev.sh` | Runs the backend on :5000 and the Vite dev server on :5173, stops both on Ctrl+C, and defaults the [environment](#environment). |
+| `just test` | `test.sh` | Every [check](#checks) except the VM script tests; `--no-browser` skips smoke + a11y. |
+| `just format` | `format.sh` | Formats every file (Ruff + Prettier). |
+| `just check-docs` | `check-docs.sh` | Checks that links between docs resolve, and that doc names and headings mentioned in code still exist. |
+| `just icons` | `gen-icons.sh` | Regenerates the PNG/ICO icons from `frontend/public/favicon.svg` ([details](./IMPLEMENTATION.md#routing)). |
+| `just deploy` | `deploy.sh` | Asks for confirmation, then deploys `origin/main` ([Runbook](./RUNBOOK.md#ship-a-change)). |
+| `just tf <args>` | `infrastructure/tf.sh` | Terraform with the Cloudflare token loaded ([Infrastructure](./INFRASTRUCTURE.md)). |
+| `just ssh [args]` | `infrastructure/ssh.sh` | Shell or command on the VM ([Runbook](./RUNBOOK.md#verify-service-health)). |
+| `just test-infra` | `infrastructure/test/run.sh` | The [VM script tests](#vm-script-tests). |
 
 ## Environment
 
-`start-dev.sh` defaults these if unset:
+`dev.sh` defaults these if unset:
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -36,10 +41,10 @@ cd frontend && pnpm check                # svelte-check + tsc
 cd frontend && pnpm lint && pnpm format  # ESLint + Prettier (format:check to verify only)
 cd frontend && pnpm smoke                # browser smoke test
 cd frontend && pnpm a11y                 # axe-core scan
-./doc-test.sh                            # doc links
+just check-docs                          # doc links
 ```
 
-- **`test.sh`** continues past failures and prints a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000/:5173, or starts `start-dev.sh` itself (log in `$TMPDIR/test-sh-dev.log`).
+- **`just test`** continues past failures and prints a pass/fail summary (exit 1 if any failed). For the browser checks it reuses dev servers already on :5000/:5173, or starts `dev.sh` itself (log in `$TMPDIR/test-sh-dev.log`).
 - **Config:** Ruff in `backend/pyproject.toml`; Prettier and ESLint in `frontend/.prettierrc.json` and `frontend/eslint.config.js` (`eslint-config-prettier` keeps them from conflicting). Prettier covers all of `frontend/` except `dist/`, the lockfile, and the generated course catalog, project Markdown included.
 - **Backend tests** (`backend/tests/`) get a temporary instance directory per test (`conftest.py`), so they never touch real file-share storage. A test that builds its own app should pass `instance_path` too, since creating an app empties its file-share directory.
 - **Unit tests** (`frontend/tests/unit/*.test.ts`) use Node's built-in runner and cover pure logic only: code using runes (`.svelte.ts`) or `import.meta.env` can't load outside Vite, so keep testable logic in plain `.ts` modules. `tests/unit/resolve-ts.ts` lets Node resolve the source's extensionless imports. A test marked `{ todo }` documents a known bug without failing the suite.
@@ -57,11 +62,11 @@ It needs Docker, shellcheck, Terraform, uv, and `tf.sh`'s gcloud login (renderin
 
 ### CI
 
-Both workflows set up uv, pnpm, and Node through `.github/actions/setup`. ***Test*** (`test.yaml`) runs on PRs and on pushes to `main` that change more than docs: backend `ruff check`, `ruff format --check`, and `pytest --cov=app` (coverage to Codecov); frontend `lint`, `format:check`, `check`, `test`, and `build`. Lint and format problems only warn. It skips the browser checks, the VM script tests, and `doc-test.sh`. *Deploy* is described under [Infrastructure](./INFRASTRUCTURE.md#deploy-workflow).
+Both workflows set up uv, pnpm, and Node through `.github/actions/setup`. ***Test*** (`test.yaml`) runs on PRs and on pushes to `main` that change more than docs: backend `ruff check`, `ruff format --check`, and `pytest --cov=app` (coverage to Codecov); frontend `lint`, `format:check`, `check`, `test`, and `build`. Lint and format problems only warn. It skips the browser checks, the VM script tests, and `check-docs.sh`. *Deploy* is described under [Infrastructure](./INFRASTRUCTURE.md#deploy-workflow).
 
 ## Updating Dependencies
 
-There's no update bot; GitHub's Dependabot security alerts (Security tab, email) are the only notification. Update by hand, then run `./test.sh`:
+There's no update bot; GitHub's Dependabot security alerts (Security tab, email) are the only notification. Update by hand, then run `just test`:
 
 ```bash
 cd frontend && pnpm outdated && pnpm update -i --latest

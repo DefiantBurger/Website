@@ -3,10 +3,10 @@
 # apple-touch-icon.png, og-image.png) from frontend/public/favicon.svg.
 # Needs rsvg-convert (librsvg) and ImageMagick 7 (magick).
 #
-#   ./gen-icons.sh
+#   just icons               # or scripts/gen-icons.sh
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PUBLIC="$ROOT_DIR/frontend/public"
 SRC="$PUBLIC/favicon.svg"
 

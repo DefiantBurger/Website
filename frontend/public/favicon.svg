@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960">
-  <!-- Source for every site icon; run ./gen-icons.sh after editing. Shape: Material Symbols Outlined "developer_board" (Apache 2.0). -->
+  <!-- Source for every site icon; run `just icons` after editing. Shape: Material Symbols Outlined "developer_board" (Apache 2.0). -->
   <defs>
     <!-- Inner glow: blur the inverted shape and keep what bleeds back inside the edges -->
     <filter id="glow" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB">

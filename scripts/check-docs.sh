@@ -3,7 +3,7 @@
 # mentioned anywhere in the repo (NAME.md, NAME.md#anchor, or "Heading" in NAME.md,
 # as code comments do) still exist. Exits 1 and lists each broken reference.
 set -euo pipefail
-cd "$(dirname "${BASH_SOURCE[0]}")"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 exec python3 -I - <<'EOF'
 import re
@@ -75,7 +75,7 @@ for doc in md_files:
 NAME = re.compile(r'\b([A-Z][A-Z_-]*\.md)(?:#([\w-]+))?')
 OLD_NAMES = {'KNOWN-ISSUES.md'}  # cited on purpose in CLAUDE.md's commit message examples
 QUOTED = re.compile(r'\\?"([^"\\]+)\\?" in (?:[\w./-]*/)?([A-Z][A-Z_-]*\.md)')
-hits = git('grep', '--untracked', '-nIE', r'[A-Z][A-Z_-]*\.md', '--', '.', ':!doc-test.sh')
+hits = git('grep', '--untracked', '-nIE', r'[A-Z][A-Z_-]*\.md', '--', '.', ':!scripts/check-docs.sh')
 hits += [f'{f}:{n}:{line}' for f in LOCAL for n, line in enumerate(f.read_text().splitlines(), 1)]
 for hit in hits:
     file, n, text = hit.split(':', 2)

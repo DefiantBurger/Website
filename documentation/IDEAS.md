@@ -68,12 +68,12 @@ Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates e
 
 Nothing runs `terraform fmt -check` or `terraform validate`, so a typo in `infrastructure/` surfaces only at `./tf.sh plan` with a live Cloudflare token. Neither needs credentials: `init -backend=false` downloads the providers from `.terraform.lock.hcl` and `validate` never calls an API.
 
-New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_request` with `paths: ['infrastructure/**', '*.sh', '.github/workflows/infra.yaml']` and `permissions: contents: read`:
+New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_request` with `paths: ['infrastructure/**', 'scripts/**', '.github/workflows/infra.yaml']` and `permissions: contents: read`:
 
 1. `actions/checkout` (same SHA pin and `persist-credentials: false` as `test.yaml`).
 2. `hashicorp/setup-terraform`, pinned to a commit SHA, with `terraform_version` matching `versions.tf`.
 3. In `infrastructure/`: `terraform fmt -check -recursive -diff` (warn, like the other format checks), then `terraform init -backend=false -input=false` and `terraform validate` (fail: these are build errors, like `pnpm check`).
-4. `shellcheck deploy.sh test.sh start-dev.sh format.sh doc-test.sh infrastructure/*.sh infrastructure/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `infrastructure/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, so CI can't.
+4. `shellcheck scripts/*.sh infrastructure/*.sh infrastructure/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `infrastructure/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, so CI can't.
 5. `infrastructure/test/swap-order.test.sh` and `wait-for-vm.test.sh` need only Terraform and bash, so they can run here too (fail).
 
 ### Shielded VM

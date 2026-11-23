@@ -36,7 +36,7 @@ flowchart LR
 - `infrastructure/`: Terraform and the VM startup script. `infrastructure/vm/` holds the files the script installs: the release deploy script, systemd units, Nginx config, sudoers rule, apt, sysctl and rsyslog settings, and the guest agent config.
 - `.github/workflows/`: `test.yaml` ([Development](./DEVELOPMENT.md#ci)) and the manual `deploy.yaml` ([Infrastructure](./INFRASTRUCTURE.md#deploy-workflow)).
 - `documentation/`: these docs.
-- Root scripts: `start-dev.sh`, `test.sh`, `format.sh`, `doc-test.sh`, `gen-icons.sh`, `deploy.sh` ([Development](./DEVELOPMENT.md#scripts)).
+- `scripts/`: dev, test, format, doc-check, icon and deploy scripts, run through the root `justfile` ([Development](./DEVELOPMENT.md#scripts)).
 
 ## Runtime Flows
 

@@ -3,7 +3,7 @@
 // checks can't, like a page that throws on mount or an API call that 500s.
 // Exits 1 if any check fails.
 //
-//   ./start-dev.sh                  # from the repo root, in another terminal
+//   just dev                        # from the repo root, in another terminal
 //   pnpm smoke                      # tests http://localhost:5173
 //   TEST_BASE_URL=https://... pnpm smoke
 import assert from 'node:assert/strict';
