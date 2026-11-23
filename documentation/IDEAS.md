@@ -8,9 +8,6 @@ Features and improvements worth building, none of them started. Bugs and tech de
 
 `quantum-scattering-research.md` marks each future demo with a "coming soon" blockquote naming an id (`tfsf`, `inverse-problem`, `som-vs-fdtd`, `wigner`). Replace those with live demos embedded the same way as `wavepacket-2d` (see [Demos](./IMPLEMENTATION.md#demos)).
 
-- **1D barrier:** a 1D Gaussian wavepacket hitting a potential barrier, drawn on a canvas, with sliders for barrier height/width and packet energy, so tunneling and reflection play out live. The split-step Fourier method is simple and stable (it needs a small FFT, which is easy to write by hand rather than add as a dependency). Crank–Nicolson is the alternative if a tridiagonal solve is easier to reason about.
-- Show transmission/reflection probability next to the analytic result, so the demo also checks itself.
-
 ### Robotics hardware showcase (maybe)
 
 For the Wisconsin Robotics electrical work: export boards to SVG and show them in a viewer with toggleable layers (copper, silkscreen, etc.). Not decided yet.
