@@ -47,12 +47,6 @@ describe('fetchWithTimeout', () => {
     await assert.rejects(fetchWithTimeout('/x', { timeoutMs: 10 }), { message: TIMEOUT_MESSAGE });
   });
 
-  test('null timeout never aborts', async () => {
-    stubFetch(40);
-    const response = await fetchWithTimeout('/x', { timeoutMs: null });
-    assert.equal(response.ok, true);
-  });
-
   test('turns a network TypeError into a message about reaching the server', async () => {
     stubFetch(null, new TypeError('Failed to fetch'));
     await assert.rejects(fetchWithTimeout('/x'), { message: NETWORK_MESSAGE });

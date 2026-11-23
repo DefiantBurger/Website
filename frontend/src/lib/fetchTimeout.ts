@@ -6,8 +6,8 @@ export const TIMEOUT_MESSAGE = 'The server took too long to respond. Please try 
 export const NETWORK_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
 export type TimedRequestInit = RequestInit & {
-  /** Max wait for the response headers; `null` waits forever (e.g. large uploads). */
-  timeoutMs?: number | null;
+  /** Max wait for the response headers. */
+  timeoutMs?: number;
 };
 
 /**
@@ -32,13 +32,10 @@ export async function fetchWithTimeout(
     });
   }
 
-  const timer =
-    timeoutMs === null
-      ? undefined
-      : setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-        }, timeoutMs);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   try {
     return await fetch(url, { ...rest, signal: controller.signal });

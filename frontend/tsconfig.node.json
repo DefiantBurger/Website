@@ -2,7 +2,8 @@
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
     "target": "es2024",
-    "lib": ["ES2024"],
+    /* DOM: unit tests import browser modules (e.g. src/lib/postWithProgress.ts). */
+    "lib": ["ES2024", "DOM"],
     "module": "esnext",
     "types": ["node"],
     "skipLibCheck": true,

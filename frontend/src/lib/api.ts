@@ -1,5 +1,6 @@
 // Shared fetch helpers for every feature's API client.
 import { fetchWithTimeout, type TimedRequestInit } from './fetchTimeout';
+import { postWithProgress, type ProgressRequestInit } from './postWithProgress';
 
 // Without VITE_BACKEND_URL, dev talks to the local Flask server and production
 // builds use the page's own origin (never the visitor's localhost).
@@ -53,7 +54,10 @@ async function readErrorMessage(response: Response): Promise<string> {
  * Gives up after `DEFAULT_TIMEOUT_MS` without response headers unless `init.timeoutMs` says otherwise.
  */
 export async function apiFetch(path: string, init?: TimedRequestInit): Promise<Response> {
-  const response = await fetchWithTimeout(`${BACKEND_BASE_URL}${path}`, init);
+  return ensureOk(await fetchWithTimeout(`${BACKEND_BASE_URL}${path}`, init));
+}
+
+async function ensureOk(response: Response): Promise<Response> {
   if (!response.ok) {
     throw new ApiError(response.status, await readErrorMessage(response));
   }
@@ -65,7 +69,19 @@ export async function apiFetch(path: string, init?: TimedRequestInit): Promise<R
  * server's index.html when the backend URL is wrong) is reported explicitly.
  */
 export async function apiJson<T>(path: string, init?: TimedRequestInit): Promise<T> {
-  const response = await apiFetch(path, init);
+  return readJson<T>(await apiFetch(path, init), path);
+}
+
+/** Like `apiJson` for a POST that reports upload progress; see `postWithProgress` for its timeouts. */
+export async function apiPostJsonWithProgress<T>(
+  path: string,
+  init: ProgressRequestInit,
+): Promise<T> {
+  const response = await ensureOk(await postWithProgress(`${BACKEND_BASE_URL}${path}`, init));
+  return readJson<T>(response, path);
+}
+
+async function readJson<T>(response: Response, path: string): Promise<T> {
   const contentType = contentTypeOf(response);
   if (!contentType.includes('application/json')) {
     const preview = (await response.text()).slice(0, 120).replace(/\s+/g, ' ');

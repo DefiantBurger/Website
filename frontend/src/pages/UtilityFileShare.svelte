@@ -13,6 +13,7 @@
     listFileShareFiles,
     type FileShareStatus,
     type FileShareRecord,
+    type UploadProgress,
   } from '../lib/fileshare/api';
   import { errorMessage } from '../lib/api';
   import { formatBytes, formatDuration, formatMinutes } from '../lib/format';
@@ -31,6 +32,7 @@
   let uploadPassword = $state('');
   const upload = new AsyncTask('Upload failed.');
   let uploadInput = $state<HTMLInputElement | null>(null);
+  let uploadProgress = $state<UploadProgress | null>(null);
 
   let accessPassword = $state('');
   // List and download share one task, so only one access request runs at a time.
@@ -85,7 +87,12 @@
     }
 
     await upload.run(async () => {
-      const result = await uploadFileShare(uploadFiles, uploadPassword.trim());
+      const result = await uploadFileShare(
+        uploadFiles,
+        uploadPassword.trim(),
+        (progress) => (uploadProgress = progress),
+      );
+      uploadProgress = null;
       if (result.ok) {
         const fileNames = result.uploaded.map((r) => r.originalFilename).join(', ');
         upload.success = `Stored ${result.uploaded.length} file(s): ${fileNames}.`;
@@ -216,6 +223,23 @@
       >
     </div>
 
+    {#if uploadProgress}
+      {@const { fileIndex, fileSent, sentBytes, totalBytes } = uploadProgress}
+      <div class="upload-progress">
+        <p class="progress-file">
+          {fileSent ? 'Storing' : 'Uploading'}
+          {uploadFiles.length > 1 ? `${fileIndex + 1}/${uploadFiles.length}:` : ''}
+          {uploadFiles[fileIndex]?.name}
+        </p>
+        <!-- max can't be 0, which a batch of empty files would give. -->
+        <progress aria-label="Upload progress" max={totalBytes || 1} value={sentBytes}></progress>
+        <p class="file-meta">
+          {totalBytes ? Math.floor((sentBytes / totalBytes) * 100) : 100}% ({formatBytes(sentBytes)}
+          / {formatBytes(totalBytes)})
+        </p>
+      </div>
+    {/if}
+
     <FormMessages error={upload.error} success={upload.success} />
   </Panel>
 
@@ -319,6 +343,48 @@
 
   .file-meta {
     opacity: 0.85;
+  }
+
+  .upload-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .progress-file {
+    overflow-wrap: anywhere;
+  }
+
+  progress {
+    appearance: none;
+    width: 100%;
+    height: 1rem;
+    border: 1px solid var(--color-text-primary);
+    border-radius: 3px;
+    background: var(--color-bg-dark);
+    color: var(--color-text-primary);
+  }
+
+  /* Each engine styles its own pseudo-elements, and one rule can't list both. */
+  progress::-webkit-progress-bar {
+    background: var(--color-bg-dark);
+  }
+
+  progress::-webkit-progress-value {
+    background: var(--color-text-primary);
+  }
+
+  progress::-moz-progress-bar {
+    background: var(--color-text-primary);
+  }
+
+  /* Light mode's text color is a dark slate, which reads as a gray bar. */
+  :global(:root[data-theme='light']) progress::-webkit-progress-value {
+    background: var(--color-success);
+  }
+
+  :global(:root[data-theme='light']) progress::-moz-progress-bar {
+    background: var(--color-success);
   }
 
   .file-selector {

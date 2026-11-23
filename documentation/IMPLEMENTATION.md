@@ -66,7 +66,7 @@ A terminal panel docked to the bottom of every page, opened with `` ` `` or `/` 
 
 `src/lib/api.ts` has `apiFetch` (throws `ApiError` with the backend's `{ error }` message on non-2xx), `apiJson` (also rejects non-JSON responses), and `errorMessage`; each feature's client in `src/lib/<feature>/` builds on them. Non-JSON error bodies (e.g. Nginx HTML pages) are never shown; users get a status-based message instead.
 
-Requests go through `fetchWithTimeout` (`lib/fetchTimeout.ts`), which gives up if response headers take over 15 s; bodies aren't timed, so slow downloads finish. `timeoutMs: null` waits forever, which File Share uploads need because the server answers only after the whole body arrives.
+Requests go through `fetchWithTimeout` (`lib/fetchTimeout.ts`), which gives up if response headers take over 15 s; bodies aren't timed, so slow downloads finish. File Share uploads use `postWithProgress` (`lib/postWithProgress.ts`) instead, since `fetch` can't report upload progress: it fails if no progress arrives for 30 s while sending, or if the response takes too long once the body is sent.
 
 ### Project Rendering
 

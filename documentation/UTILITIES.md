@@ -79,7 +79,7 @@ Errors: `400` missing key or file, `403` decryption failed, `404` no matching fi
 - **Limits.** 80 MB per file (under Cloudflare's 100 MB request limit), and 1 GB and 1,000 files in total; the oldest files are evicted to make room. At most 3 transfers run at once (`MAX_CONCURRENT_TRANSFERS`), leaving one of Waitress's 4 threads for other requests; a download keeps its slot until the response is fully sent.
 - **Expiry.** File-share requests delete expired files, and in production a background thread (`start_expiry_sweeper`, started in `main.py`) also sweeps every minute. Expired, evicted, and replaced files are deleted from disk immediately.
 - **Downloads** ignore the uploader's MIME type and send `nosniff`, so uploaded HTML can't run on the site's origin.
-- **UI batches.** The UI uploads one request per file, and the first sends `replace=1`, so a new batch replaces the key's previous files. If the first upload fails, the previous files stay; if a later one fails, the key keeps only the files stored before it.
+- **UI batches.** The UI uploads one request per file, with a progress bar for the whole batch, and the first sends `replace=1`, so a new batch replaces the key's previous files. If the first upload fails, the previous files stay; if a later one fails, the key keeps only the files stored before it.
 
 ## Message Board
 

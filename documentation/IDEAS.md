@@ -28,10 +28,6 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 ## Utilities
 
-### File Share: upload progress
-
-Show a progress bar while uploading. `fetch` can't report upload progress, so this needs `XMLHttpRequest` (`upload.onprogress`). Uploads currently have no timeout (`timeoutMs: null`) because a large upload can legitimately take minutes; with progress events, a stall timeout (no bytes sent for ~30 s) could replace that.
-
 ### File Share: encryption in the browser and QR codes
 
 **Encrypt in the browser** so the server only ever stores ciphertext and can't read uploaded files.
