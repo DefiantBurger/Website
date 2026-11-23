@@ -74,16 +74,16 @@ export function structuredData(origin: string): string {
       {
         '@type': 'WebSite',
         '@id': `${origin}/#website`,
-        url: `${origin}/`,
-        name: SITE_NAME,
-        publisher: { '@id': person },
+        'url': `${origin}/`,
+        'name': SITE_NAME,
+        'publisher': { '@id': person },
       },
       {
         '@type': 'Person',
         '@id': person,
-        name: OWNER_NAME,
-        url: `${origin}/`,
-        sameAs: [GITHUB_URL, LINKEDIN_URL],
+        'name': OWNER_NAME,
+        'url': `${origin}/`,
+        'sameAs': [GITHUB_URL, LINKEDIN_URL],
       },
     ],
   };

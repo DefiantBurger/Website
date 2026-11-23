@@ -5,4 +5,5 @@ import type { DemoId } from './ids';
 export const DEMOS: Record<DemoId, () => Promise<{ default: Component }>> = {
   'wavepacket-2d': () => import('./Wavepacket2D.svelte'),
   'boundary-conditions': () => import('./BoundaryConditions.svelte'),
+  'tfsf': () => import('./Tfsf.svelte'),
 };

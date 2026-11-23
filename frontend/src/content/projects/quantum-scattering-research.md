@@ -132,7 +132,11 @@ $$
 
 The source term only lives where the mask changes ($\nabla\zeta \neq 0$), so the incident wave appears inside the total-field region and is invisible outside it. Outside, you see only the purely scattered wave, which is exactly the signal an inverse-problem model should learn from. The source is added each step by scaling it by $dt$ and adding it to $\psi$.
 
-> **Interactive demo coming soon** (`tfsf`): a plane wave masked into a total-field region, then hitting a triangle or polygon scatterer, with the scattered field visible outside the box.
+```demo
+tfsf
+```
+
+Drag the corners to reshape the scatterer while the wave keeps running, and untick the checkbox to put the incident wave back outside the box. The demo makes one change to the source. Adding $S\,dt$ each step is only first-order accurate in $dt$, so a little of the incident wave leaks out of the box. Instead, the demo adds $\zeta\psi_\text{inc}(t + dt) - U\,\zeta\psi_\text{inc}(t)$, where $U$ is one solver step without the scatterer. That makes $\zeta\psi_\text{inc}$ an exact solution of the stepped equation, so with no scatterer, nothing appears outside the box but rounding error. For small steps it's the same source.
 
 ## Solving the Inverse Problem
 

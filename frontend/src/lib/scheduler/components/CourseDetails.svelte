@@ -39,10 +39,10 @@
   );
 
   const STATUS_LABELS: Record<RequirementCheck['status'], string> = {
-    met: 'met',
-    concurrent: 'concurrent',
+    'met': 'met',
+    'concurrent': 'concurrent',
     'out-of-order': 'too late',
-    missing: 'missing',
+    'missing': 'missing',
   };
 
   function matchedBy(check: RequirementCheck): string {

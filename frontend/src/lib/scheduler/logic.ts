@@ -21,15 +21,15 @@ function indexOf(semesterToIndex: Record<string, number>, semester: string): num
 }
 
 const STATUS_RANK: Record<CheckStatus, number> = {
-  met: 3,
-  concurrent: 2,
+  'met': 3,
+  'concurrent': 2,
   'out-of-order': 1,
-  missing: 0,
+  'missing': 0,
 };
 
 const EDGE_STATUS: Record<Exclude<CheckStatus, 'missing'>, RequirementStatus> = {
-  met: 'valid',
-  concurrent: 'concurrent',
+  'met': 'valid',
+  'concurrent': 'concurrent',
   'out-of-order': 'invalid',
 };
 

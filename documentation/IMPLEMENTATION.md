@@ -116,6 +116,7 @@ Interactive demos live in `src/lib/demos/`.
 - **Colors.** Build canvas colors from the `--color-*` variables with `demos/colormap.ts`, redrawing when `theme.current` changes. The `--color-*` variables a demo reads must be written as hex or `rgb()` in `app.css`: `colormap.ts` parses them as written, and throws on anything else.
 - **`wavepacket-2d`** (`Wavepacket2D.svelte`) is a 2D split-operator Schrödinger solver (`demos/wavepacket.ts`) on a 128×128 grid with a hand-written FFT (`demos/fft.ts`).
 - **`boundary-conditions`** (`BoundaryConditions.svelte`) runs a free packet in a 128×128 box under periodic, Dirichlet, Neumann, or absorbing boundaries (`demos/boundaries.ts`), sharing one clock so switching keeps the current moment. Dirichlet and Neumann run as an FFT on the box mirrored across its walls, which matches a DST-II/DCT-II solver exactly.
+- **`tfsf`** (`Tfsf.svelte`) scatters a plane wave off a polygon with draggable corners, using total-field/scattered-field (`demos/tfsf.ts`) on the same stepper as `wavepacket-2d`. The absorbing layer is cropped out of view, and the toggle shows the solver's raw field or adds the incident wave back outside the box.
 
 The reasoning behind each demo's numerics is in its files' comments.
 

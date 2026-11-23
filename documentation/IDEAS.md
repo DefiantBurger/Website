@@ -6,7 +6,7 @@ Features and improvements worth building, none of them started. Bugs and tech de
 
 ### Interactive demos in the research write-up
 
-`quantum-scattering-research.md` marks each future demo with a "coming soon" blockquote naming an id (`tfsf`, `inverse-problem`, `som-vs-fdtd`, `wigner`). Replace those with live demos embedded the same way as `wavepacket-2d` (see [Demos](./IMPLEMENTATION.md#demos)).
+`quantum-scattering-research.md` marks each future demo with a "coming soon" blockquote naming an id (`inverse-problem`, `som-vs-fdtd`, `wigner`). Replace those with live demos embedded the same way as `wavepacket-2d` (see [Demos](./IMPLEMENTATION.md#demos)).
 
 ### Robotics hardware showcase (maybe)
 

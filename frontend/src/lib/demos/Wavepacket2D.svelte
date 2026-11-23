@@ -32,9 +32,9 @@
   const K_DECADES = 4;
 
   const SCATTERER_LABELS: Record<Scatterer, string> = {
-    disk: 'Disk',
-    square: 'Square',
-    triangle: 'Triangle',
+    'disk': 'Disk',
+    'square': 'Square',
+    'triangle': 'Triangle',
     'double-slit': 'Double slit',
   };
 
