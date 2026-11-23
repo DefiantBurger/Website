@@ -31,7 +31,7 @@ icons:
     scripts/gen-icons.sh
 
 # Deploy origin/main to production
-[confirm("Deploy origin/main to production? [y/N]")]
+[confirm("Deploy origin/main to production? [Y/n]")]
 deploy:
     scripts/deploy.sh
 
