@@ -52,9 +52,21 @@ Show a progress bar while uploading. `fetch` can't report upload progress, so th
 
 ## Infrastructure
 
-### Remote Terraform state
+### Infrastructure off the operator's machine
 
-Terraform state is local to the operator's machine (gitignored): no remote backend, encryption, or locking, and it contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. a GCS bucket, which also gives locking). Low priority while there's only one developer.
+Infrastructure is run from one machine today: Terraform state lives there, and its checks are `just test-infra` and `just tf plan`. Both halves below matter only once someone else (or CI) touches `infrastructure/`, so do them together then.
+
+**Remote state.** Terraform state is local and gitignored: no remote backend, encryption, or locking, and it contains the tunnel secret (`random_id.tunnel_secret`). Move it to an encrypted remote backend (e.g. a GCS bucket, which also gives locking).
+
+**Checks in CI.** Nothing in CI runs `terraform fmt -check` or `terraform validate`, so a typo in `infrastructure/` surfaces only at `just tf plan`. Neither needs credentials: `init -backend=false` downloads the providers from `.terraform.lock.hcl` and `validate` never calls an API. They catch syntax, schema, and reference errors only; whether a change swaps the VM still shows only in `plan`.
+
+New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_request` with `paths: ['infrastructure/**', 'scripts/**', '.github/workflows/infra.yaml']` and `permissions: contents: read`:
+
+1. `actions/checkout` (same SHA pin and `persist-credentials: false` as `test.yaml`).
+2. `hashicorp/setup-terraform`, pinned to a commit SHA, with `terraform_version` set to the exact version used to apply (not `versions.tf`'s range), since `swap-order.test.sh` exists to catch Terraform upgrades changing swap behavior.
+3. In `infrastructure/`: `terraform fmt -check -recursive -diff` (warn, like the other format checks), then `terraform init -backend=false -input=false` and `terraform validate` (fail: these are build errors, like `pnpm check`).
+4. `shellcheck scripts/*.sh infrastructure/*.sh infrastructure/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. The nvm `source` lines in `scripts/` raise SC1091 notes; silence them with `# shellcheck source=/dev/null`. The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `infrastructure/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, which remote state would give CI (along with GCP credentials, e.g. through the deploy workflow's Workload Identity pool).
+5. `infrastructure/test/swap-order.test.sh` and `wait-for-vm.test.sh` need only Terraform and bash, so they can run here too (fail).
 
 ### Cloudflare provider v5
 
@@ -63,18 +75,6 @@ Upgrade `cloudflare/cloudflare` from 4.52 to 5.x. v4 will stop getting updates e
 - **Breaking changes:** `cloudflare_record` becomes `cloudflare_dns_record` (`moved` blocks handle state); nested blocks become attributes (tunnel config, ruleset rules, CAA `data`); `cloudflare_managed_headers` becomes `cloudflare_managed_transforms`; the `cloudflare_record` data sources change shape. Cloudflare's `tf-migrate` tool does most of the rewrite.
 - **Main risk:** `tunnel_token` moves off the tunnel resource to the `cloudflare_zero_trust_tunnel_cloudflared_token` data source, and it feeds the Secret Manager version the VM reads. `plan` must show no replacement of the tunnel or the VM, or the site goes down until a redeploy.
 - **Email Routing:** import `cloudflare_email_routing_settings` and `cloudflare_email_routing_dns` (both by zone ID). The repo is public, so rule destination addresses either go in a tfvars variable or stay in the dashboard.
-
-### Terraform and shell checks in CI
-
-Nothing runs `terraform fmt -check` or `terraform validate`, so a typo in `infrastructure/` surfaces only at `./tf.sh plan` with a live Cloudflare token. Neither needs credentials: `init -backend=false` downloads the providers from `.terraform.lock.hcl` and `validate` never calls an API.
-
-New workflow `.github/workflows/infra.yaml`, triggered on `push` and `pull_request` with `paths: ['infrastructure/**', 'scripts/**', '.github/workflows/infra.yaml']` and `permissions: contents: read`:
-
-1. `actions/checkout` (same SHA pin and `persist-credentials: false` as `test.yaml`).
-2. `hashicorp/setup-terraform`, pinned to a commit SHA, with `terraform_version` matching `versions.tf`.
-3. In `infrastructure/`: `terraform fmt -check -recursive -diff` (warn, like the other format checks), then `terraform init -backend=false -input=false` and `terraform validate` (fail: these are build errors, like `pnpm check`).
-4. `shellcheck scripts/*.sh infrastructure/*.sh infrastructure/test/*.sh` from the repo root (warn). `shellcheck` is preinstalled on `ubuntu-latest`. Fix any findings locally first (`apt install shellcheck`). The `.tftpl` files can't be linted as-is because of the `$${}` template escapes; `infrastructure/test/run.sh` lints their rendered output instead, but rendering needs Terraform state, so CI can't.
-5. `infrastructure/test/swap-order.test.sh` and `wait-for-vm.test.sh` need only Terraform and bash, so they can run here too (fail).
 
 ### Shielded VM
 
