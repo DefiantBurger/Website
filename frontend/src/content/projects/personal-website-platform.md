@@ -66,7 +66,6 @@ flowchart TB
     CFD --> NX[Nginx on loopback]
     NX -->|/| FE[Svelte static build]
     NX -->|/api/*| BE[Flask / Waitress]
-    BE --> PC[Scheduler JSON]
     BE --> FS[File share: encrypted files on disk]
     BE --> MB[Message board: in-memory store]
 ```
@@ -80,7 +79,7 @@ All traffic enters through Cloudflare, which forwards it over an outbound-only t
 
 Project pages need no API call: their HTML is rendered at build time and ships as one small JavaScript chunk per write-up.
 
-For utilities, the scheduler's logic runs entirely in the browser, while File Share and Message Board keep their state on the backend.
+For utilities, the scheduler runs entirely in the browser, on a course catalog that ships with the build as a static asset, while File Share and Message Board keep their state on the backend.
 
 This split keeps backend logic simple while still enabling complex interaction in the UI.
 
@@ -141,7 +140,6 @@ I intentionally moved logic toward the client for responsiveness and lower backe
 
 #### Backend Responsibilities
 
-- Serve the scheduler's course catalog and default plan as JSON
 - Store, encrypt, and expire shared files
 - Sanitize, rate-limit, and expire message-board posts
 - Report request context (IP, Cloudflare location headers, request headers) for the About You page
@@ -350,7 +348,7 @@ Observed strengths:
 - simple request path,
 - low coordination overhead,
 - small initial bundle: each write-up is its own chunk, and Mermaid loads only on pages with diagrams,
-- hashed assets cached for a year and responses gzipped (the course catalog is about 3 MB uncompressed),
+- hashed assets cached for a year and gzipped at build time, so Nginx sends a stored copy instead of compressing per request (the course catalog shrinks from about 3 MB to 250 KB),
 - fast local iteration with a single `start-dev.sh` script, and every check in one `test.sh` run.
 
 Current constraints:
