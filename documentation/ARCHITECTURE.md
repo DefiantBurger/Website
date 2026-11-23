@@ -47,7 +47,7 @@ flowchart LR
 ## Security and Trust Boundaries
 
 1. **No open web ports.** All traffic arrives through the Cloudflare Tunnel; Nginx and Flask listen only on loopback. Cloudflare-set headers (`CF-Connecting-IP`, visitor location headers) are therefore trustworthy.
-2. **HTTPS** is enforced by Cloudflare plus an Nginx redirect and HSTS. Nginx also sets security headers and rate-limits `/api/` per visitor IP ([details](./INFRASTRUCTURE.md#runtime-on-the-vm); CSP is currently report-only).
+2. **HTTPS** is enforced by Cloudflare plus an Nginx redirect and HSTS. Nginx also sets security headers and rate-limits `/api/` per visitor IP ([details](./INFRASTRUCTURE.md#runtime-on-the-vm)).
 3. **CORS** is enabled only when `FLASK_ENV=development`; production is same-origin.
 4. **Untrusted content.** Project Markdown is sanitized at build time; message-board text has control and invisible characters stripped and is rendered as plain text; file-share downloads are always `application/octet-stream`.
 5. **Secrets** are fetched from Secret Manager by the VM at boot, never templated into Terraform output ([Secrets](./INFRASTRUCTURE.md#secrets)).

@@ -90,7 +90,7 @@ Anonymous board where messages expire 60 seconds after posting.
 | GET | `/api/messageboard/messages/` | | `{messages, serverTime, retentionSeconds, maxMessageLength}`, messages newest first |
 | POST | `/api/messageboard/messages/` | JSON: `{"text": "..."}` | `201` with the message |
 
-A message is `{id, text, createdAt, expiresAt}`. Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` rate limit.
+A message is `{id, text, createdAt, expiresAt}`. Errors: `400` empty, non-string, or over 280 characters after sanitizing; `413` body over 16 KB; `429` over 5 posts in 10 seconds from one IPv4 address or IPv6 /64.
 
 - **Sanitizing.** Normalizes line endings to `\n`, turns tabs into spaces, NFC-normalizes, and drops control, format (zero-width, bidi overrides), surrogate, private-use, unassigned, and line/paragraph-separator characters, except the joiner and tag characters emoji sequences need. Markup is stored as typed; the frontend renders text, never HTML. Runs of 3+ newlines collapse to 2.
 - **Storage.** In-process memory behind a lock: at most 200 messages (oldest evicted), expired ones purged on every read and write, all lost on restart.

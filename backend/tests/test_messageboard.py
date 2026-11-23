@@ -10,6 +10,7 @@ from app.messageboard import (
 	MessageBoardError,
 	MessageBoardStore,
 	RateLimiter,
+	rate_limit_key,
 	sanitize_message_text,
 )
 
@@ -69,6 +70,29 @@ def test_rate_limiter_window():
 	assert not limiter.check_and_record('192.168.1.1', now=now + 3.0)
 	assert limiter.check_and_record('192.168.1.2', now=now + 3.0)  # Limits are per IP.
 	assert limiter.check_and_record('192.168.1.1', now=now + 11.0)  # Window has passed.
+
+
+def test_rate_limiter_buckets_ipv6_by_64():
+	limiter = RateLimiter(window_seconds=10.0, max_requests=2)
+	assert limiter.check_and_record('2001:db8:1:2::1', now=0.0)
+	assert limiter.check_and_record('2001:db8:1:2:ffff::9', now=0.0)
+	assert not limiter.check_and_record('2001:db8:1:2:abcd::', now=0.0)  # Same /64.
+	assert limiter.check_and_record('2001:db8:1:3::1', now=0.0)  # Next /64.
+
+
+@pytest.mark.parametrize(
+	('client_ip', 'key'),
+	[
+		('203.0.113.7', '203.0.113.7'),
+		(' 203.0.113.7 ', '203.0.113.7'),
+		('2001:DB8:1:2:3:4:5:6', '2001:db8:1:2::/64'),
+		('::ffff:203.0.113.7', '203.0.113.7'),
+		('not-an-ip', 'not-an-ip'),
+		('', 'unknown'),
+	],
+)
+def test_rate_limit_key(client_ip, key):
+	assert rate_limit_key(client_ip) == key
 
 
 def _active_ids(store, now):

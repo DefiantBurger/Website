@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
 import threading
 import time
@@ -89,8 +90,21 @@ def sanitize_message_text(raw_text: object) -> str:
 	return cleaned
 
 
+def rate_limit_key(client_ip: str) -> str:
+	"""The client's IPv4 address, or its IPv6 /64, which one subscriber typically controls in full."""
+	try:
+		ip = ipaddress.ip_address((client_ip or '').strip())
+	except ValueError:
+		return (client_ip or '').strip() or 'unknown'
+	if ip.version == 4:
+		return str(ip)
+	if ip.ipv4_mapped:
+		return str(ip.ipv4_mapped)
+	return str(ipaddress.ip_network(f'{ip}/64', strict=False))
+
+
 class RateLimiter:
-	"""Thread-safe sliding-window limiter: at most `max_requests` per `window_seconds` per client IP."""
+	"""Thread-safe sliding-window limiter: at most `max_requests` per `window_seconds` per client (see `rate_limit_key`)."""
 
 	def __init__(
 		self,
@@ -104,7 +118,7 @@ class RateLimiter:
 
 	def check_and_record(self, client_ip: str, now: float | None = None) -> bool:
 		current_time = _now(now)
-		key = (client_ip or 'unknown').strip()
+		key = rate_limit_key(client_ip)
 		cutoff = current_time - self.window_seconds
 
 		with self._lock:

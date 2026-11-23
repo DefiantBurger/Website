@@ -51,10 +51,10 @@ server {
 	add_header X-Frame-Options "DENY" always;
 	add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 	add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
-	# Report-only until verified: check the browser console on each page for
-	# violations, then rename this header to Content-Security-Policy.
-	# style-src needs 'unsafe-inline' for Mermaid diagrams and Svelte transitions.
-	add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
+	add_header Cross-Origin-Opener-Policy "same-origin" always;
+	# style-src needs 'unsafe-inline' for Mermaid diagrams and Svelte transitions;
+	# img-src allows the About You map's tiles.
+	add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
 
 	# Rate-limit the API only: a page load requests ~20 assets at once, which
 	# would trip the limit on a cold Cloudflare cache.
