@@ -10,6 +10,7 @@ from flask import (
 	request,
 	send_from_directory,
 )
+from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.http import dump_options_header
 
 from . import uptime
@@ -23,7 +24,7 @@ from .fileshare import (
 	save_upload,
 	transfer_slot,
 )
-from .messageboard import board_rate_limiter, board_store
+from .messageboard import MAX_POST_BYTES, board_rate_limiter, board_store
 
 views = Blueprint('views', __name__)
 
@@ -219,8 +220,14 @@ def messageboard_post_message():
 	if not board_rate_limiter.check_and_record(raw_ip):
 		raise ApiError('You are posting too quickly. Please wait a few seconds.', 429)
 
-	# Measure the body itself: a chunked request has no Content-Length to check.
-	if len(request.get_data()) > 16384:
+	# Capped while reading, so an oversized body is never read in full. Werkzeug cuts a
+	# chunked body off at the cap instead of rejecting it, so read one byte past it.
+	request.max_content_length = MAX_POST_BYTES + 1
+	try:
+		too_large = len(request.get_data()) > MAX_POST_BYTES
+	except RequestEntityTooLarge:  # Content-Length alone was over the cap.
+		too_large = True
+	if too_large:
 		raise ApiError('Payload exceeds maximum allowed size.', 413)
 
 	data = request.get_json(silent=True)

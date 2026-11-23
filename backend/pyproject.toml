@@ -1,7 +1,3 @@
-[build-system]
-requires = ["setuptools>=84.2.1", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "backend"
 version = "0.1.0"
@@ -10,28 +6,26 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "flask>=3.1.3",
-    "flask-cors>=6.0.2",
     "cryptography>=42.0.0",
-    "python-dotenv>=1.2.2",
     "waitress>=3.0.2",
 ]
 
-[tool.setuptools.packages.find]
-include = ["app*"]
-exclude = ["instance*"]
-
 [dependency-groups]
 dev = [
+    "flask-cors>=6.0.2",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.4",
 ]
 
 [tool.uv]
+# Never built or installed: deploys use `uv export --no-emit-project`, and main.py runs from this directory.
+package = false
 exclude-newer = "3 days"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 python_files = ["test_*.py"]
 addopts = "-v --strict-markers"
 

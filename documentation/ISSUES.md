@@ -8,14 +8,6 @@ Items are confirmed issues unless labelled **High** (priority), **Likely**, **Po
 2. The CSP is report-only and has no `report-uri`, so it blocks nothing and nobody receives its reports. The build has no inline scripts and no `eval` or `new Function` (checked in `dist/` on 2026-11-17), so enforcing it should break nothing. To check first, run `TEST_BASE_URL=https://josephcicalese.com pnpm smoke`: it's read-only and fails on console errors, which should catch report-only violations. Also browse each page with the console open, and fix or allow what it reports. Then rename the header to `Content-Security-Policy` in `nginx.conf.tftpl`, narrow `img-src https:` to `https://tile.openstreetmap.org`, add `Cross-Origin-Opener-Policy: same-origin`, and [apply the config](./RUNBOOK.md#apply-vm-config-changes). Cloudflare features that inject scripts (Web Analytics, Rocket Loader, Zaraz) would need their domains allowed.
 3. **Minor:** Per-IP rate limits use the full `CF-Connecting-IP`, so an IPv6 client can rotate through its /64 and get around Nginx's `limit_req` and the message board's `RateLimiter`. That also weakens the guessing limit in the appendix's access-key entry. In Python, bucket IPv6 by /64 (`ipaddress.ip_network(f'{ip}/64', strict=False)`). In Nginx it takes a `map` with a regex, which is fiddly with compressed (`::`) addresses.
 
-## Backend
-
-1. **Minor:** Only 404 and 413 have JSON handlers, so other errors (a 405, or the 500 from an unhandled exception) return Flask's HTML page. The frontend copes (`readErrorMessage` shows a status-based message), but one `HTTPException` handler in `create_app` would keep the API's `{"error": ...}` shape everywhere.
-
-## Message Board
-
-1. **Minor:** The POST's 16 KB check (`len(request.get_data()) > 16384`) reads the whole body first, up to Nginx's 1 MB cap. Setting `request.max_content_length = 16_384` at the top of the view (Flask 3.1 allows it per request) rejects a larger body while it's being read, chunked ones included, and replaces the manual check. The resulting 413 goes through the app-wide handler, whose message is about the file-share limit, so that handler would need to word its message per route.
-
 ## Appendix: Non-Issues
 
 These are deliberate. Don't report or "fix" them without revisiting the decision.

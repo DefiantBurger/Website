@@ -1,15 +1,12 @@
 import logging
 import os
 
-from dotenv import load_dotenv
 from flask import request
 from flask.logging import default_handler
 from waitress import serve
 
 from app import create_app
 from app.fileshare import start_expiry_sweeper
-
-load_dotenv()
 
 # Any value other than "development" or "production" starts no server.
 env = os.getenv('FLASK_ENV', 'production')

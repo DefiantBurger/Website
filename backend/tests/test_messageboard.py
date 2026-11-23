@@ -5,6 +5,7 @@ import pytest
 
 from app.messageboard import (
 	MAX_MESSAGE_LENGTH,
+	MAX_POST_BYTES,
 	MESSAGE_TTL_SECONDS,
 	MessageBoardError,
 	MessageBoardStore,
@@ -159,13 +160,25 @@ def test_post_payload_oversized(client):
 	assert 'maximum allowed size' in res.get_json()['error']
 
 
-def test_post_payload_oversized_without_content_length(client):
+def _post_chunked(client, body: bytes):
 	# Servers set wsgi.input_terminated for chunked bodies, which carry no usable Content-Length.
-	res = client.post(
+	return client.post(
 		MESSAGES_URL,
-		input_stream=BytesIO(json.dumps({'text': 'x' * 17000}).encode()),
+		input_stream=BytesIO(body),
 		content_type='application/json',
 		headers={'Transfer-Encoding': 'chunked'},
 		environ_overrides={'wsgi.input_terminated': True},
 	)
+
+
+def test_post_payload_oversized_without_content_length(client):
+	res = _post_chunked(client, json.dumps({'text': 'x' * 17000}).encode())
 	assert res.status_code == 413
+
+
+@pytest.mark.parametrize(('size', 'status'), [(MAX_POST_BYTES, 201), (MAX_POST_BYTES + 1, 413)])
+def test_post_chunked_size_boundary(client, size, status):
+	# Valid JSON padded with whitespace: a body cut off at the cap would still parse.
+	message = b'{"text": "hi"}'
+	res = _post_chunked(client, message.ljust(size))
+	assert res.status_code == status

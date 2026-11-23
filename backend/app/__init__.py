@@ -1,7 +1,7 @@
 import os
 
 from flask import Flask, current_app, jsonify, request
-from flask_cors import CORS
+from werkzeug.exceptions import HTTPException
 
 from . import fileshare
 from .fileshare import MAX_FILE_BYTES
@@ -16,6 +16,8 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 	# Production serves the frontend from the same origin, so CORS is only needed
 	# for the Vite dev server, which runs on a different port.
 	if os.getenv('FLASK_ENV') == 'development':
+		from flask_cors import CORS  # A dev dependency, so production never imports it.
+
 		CORS(app, resources={r'/api/*': {'origins': '*'}})
 
 	# The file cap plus headroom for multipart overhead. Kept below nginx's 81M so
@@ -36,6 +38,11 @@ def create_app(test_config: dict | None = None, instance_path: str | None = None
 	@app.errorhandler(413)
 	def request_too_large(e):
 		return jsonify({'error': f'File exceeds the {MAX_FILE_BYTES // 1_000_000} MB limit.'}), 413
+
+	# Every other HTTP error (405, the 500 for an unhandled exception, ...) keeps the API's JSON shape.
+	@app.errorhandler(HTTPException)
+	def http_error(e: HTTPException):
+		return jsonify({'error': e.name}), e.code
 
 	fileshare.init_app(app)
 	app.register_blueprint(views, url_prefix='/')

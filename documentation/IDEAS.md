@@ -158,15 +158,6 @@ resource "cloudflare_zone_settings_override" "website" {
 - Keep the Nginx `CF-Visitor` redirect and HSTS header: they're redundant once the edge settings are on, but they still work if the zone settings are ever lost.
 - Provider v5 replaces this resource with one `cloudflare_zone_setting` per setting, so either do this as part of the v5 upgrade above or accept rewriting it then.
 
-### Trim the production venv
-
-`flask-cors` and `python-dotenv` only matter under `FLASK_ENV=development`, yet both ship in every release. `backend/pyproject.toml` also still carries the setuptools `[build-system]` block, although `uv export --no-emit-project` means the package is never built.
-
-- **Drop `python-dotenv`.** `start-dev.sh` already exports every variable, the README shows them inline, and uv can load a file itself: `uv run --env-file .env main.py`. Remove `load_dotenv()` from `backend/main.py` and the dependency from `pyproject.toml`. The alternative, if the owner wants `.env` to keep working with a bare `uv run main.py`, is to move it to the `dev` group and guard the import with `try: from dotenv import load_dotenv / except ImportError`.
-- **Move `flask-cors` to the `dev` group** and import it where it's used, inside the `development` branch of `create_app` in `backend/app/__init__.py` (`from flask_cors import CORS`), so production never imports it. Ruff doesn't flag function-level imports with the current rule set.
-- **Stop treating the backend as a package:** delete `[build-system]` and `[tool.setuptools.packages.find]`, and add `[tool.uv]` with `package = false`. Tests then no longer get `app` from an installed package, so add `pythonpath = ["."]` to `[tool.pytest.ini_options]`. `main.py` is unaffected: it's run from `backend/`, which puts the script's directory on `sys.path`.
-- Run `uv lock` after each manifest change (never hand-edit `uv.lock`), then `uv run pytest` and the Ruff checks. Confirm the release still builds: `uv export --frozen --no-dev --no-emit-project --format requirements-txt` must list neither package.
-
 ### Edge rate limit for uploads
 
 Cloudflare's free plan includes one rate-limiting rule. Pointing it at `/api/fileshare/upload/` (a few requests per IP per 10 s) would drop upload floods at the edge, before they cross the tunnel. It complements Nginx's per-visitor and total caps on concurrent uploads (`limit_conn`), since the edge counts requests, not concurrent ones.

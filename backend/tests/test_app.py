@@ -47,6 +47,24 @@ def test_oversized_body_returns_json_413(app, client):
 	assert 'MB limit' in res.get_json()['error']
 
 
+def test_405_returns_json(client):
+	res = client.delete('/api/messageboard/messages/')
+	assert res.status_code == 405
+	assert res.get_json() == {'error': 'Method Not Allowed'}
+
+
+def test_unhandled_exception_returns_json_500(app):
+	app.config['PROPAGATE_EXCEPTIONS'] = False  # TESTING would otherwise re-raise it.
+
+	def boom():
+		raise RuntimeError('boom')
+
+	app.add_url_rule('/api/boom/', view_func=boom)
+	res = app.test_client().get('/api/boom/')
+	assert res.status_code == 500
+	assert res.get_json() == {'error': 'Internal Server Error'}
+
+
 @pytest.mark.parametrize(
 	('flask_env', 'allowed_origins'),
 	[('production', [None]), ('development', ['*', 'https://example.com'])],

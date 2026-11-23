@@ -24,7 +24,7 @@ Setup is in the [README](../README.md#quick-start); how the code is organized is
 | `SECRET_KEY` | `local-dev-secret` | Required by the backend; also the file-share label pepper. |
 | `VITE_BACKEND_URL` | `http://localhost:$PORT` | API base URL. If unset, dev builds use `http://localhost:5000` and production builds use the page's own origin. |
 
-`backend/main.py` also loads `backend/.env` if present.
+Nothing reads a `.env` file automatically; to use one, run `uv run --env-file .env main.py` from `backend/`.
 
 ## Checks
 
