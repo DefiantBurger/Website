@@ -31,15 +31,6 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 ## Utilities
 
-### Scheduler: catalog as a static asset
-
-The 3 MB course catalog goes through Flask (`/api/scheduler/course-data/`) and is gzipped again by Nginx on every scheduler visit, and browsers revalidate it every time (Flask sends `no-cache` with an ETag). It changes only with a deploy, so it can be a build asset:
-
-- Import it with Vite's `?url` suffix, so the build emits `assets/course_data-<hash>.json`, which Nginx serves from `/assets/` with `expires max`. A plain JSON import would inline 3 MB into a JS chunk. `my_courses.json` (1 KB) can be a plain import.
-- Precompress it at build time (a `.gz` next to it, written by a small plugin with `node:zlib`, no dependency) and turn on `gzip_static` in Nginx, so the VM never compresses it per request. The Nginx change reaches the VM only through an in-place update or a replacement.
-- Cloudflare doesn't cache `.json` by default; a Cache Rule for `/assets/*` would let the edge serve it.
-- The scheduler then needs nothing from the backend. Remove both routes, their tests, and `backend/app/static/json/`, and update the `course_data.json` rule in CLAUDE.md.
-
 ### File Share: upload progress
 
 Show a progress bar while uploading. `fetch` can't report upload progress, so this needs `XMLHttpRequest` (`upload.onprogress`). Uploads currently have no timeout (`timeoutMs: null`) because a large upload can legitimately take minutes; with progress events, a stall timeout (no bytes sent for ~30 s) could replace that.
@@ -157,6 +148,10 @@ resource "cloudflare_zone_settings_override" "website" {
 - The API token needs an extra permission, Zone → Zone Settings → Edit.
 - Keep the Nginx `CF-Visitor` redirect and HSTS header: they're redundant once the edge settings are on, but they still work if the zone settings are ever lost.
 - Provider v5 replaces this resource with one `cloudflare_zone_setting` per setting, so either do this as part of the v5 upgrade above or accept rewriting it then.
+
+### Edge cache for JSON assets
+
+Cloudflare doesn't cache `.json` by default, so each browser's first scheduler visit fetches the catalog (`assets/course_data-<hash>.json`, ~250 KB precompressed) through the tunnel. A Cache Rule for `/assets/*` (a `cloudflare_ruleset` with phase `http_request_cache_settings`; the API token needs Zone → Cache Rules → Edit) would let the edge serve it. The gain is small, so do it with the provider v5 upgrade, which changes ruleset syntax anyway.
 
 ### Edge rate limit for uploads
 

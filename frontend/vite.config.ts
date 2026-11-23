@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
+import { precompress } from './plugins/precompress.ts';
 import { projectsPlugin, readPublishedProjects } from './plugins/projects.ts';
 import { routeHtml } from './plugins/routeHtml.ts';
 import { SITE_ORIGIN } from './src/lib/site.ts';
@@ -30,5 +31,6 @@ export default defineConfig({
     svelte(),
     projectsPlugin(PROJECTS_DIR),
     routeHtml(SITE_ORIGIN, () => readPublishedProjects(PROJECTS_DIR)),
+    precompress(),
   ],
 });

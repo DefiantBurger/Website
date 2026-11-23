@@ -2,8 +2,6 @@ import threading
 from io import BytesIO
 from unittest.mock import patch
 
-import pytest
-
 from app.fileshare import FileShareError
 
 
@@ -31,17 +29,6 @@ def test_health(client):
 	res = client.get('/api/health/')
 	assert res.status_code == 200
 	assert res.get_json() == {'status': 'ok'}
-
-
-@pytest.mark.parametrize('path', ['course-data', 'default-schedule'])
-def test_scheduler_data(client, path):
-	res = client.get(f'/api/scheduler/{path}/')
-	assert res.status_code == 200
-	assert isinstance(res.get_json(), (dict, list))
-
-
-def test_static_folder_is_not_served(client):
-	assert client.get('/static/json/course_data.json').status_code == 404
 
 
 def test_about_you_request_context(client):

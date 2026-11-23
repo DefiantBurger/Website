@@ -15,7 +15,6 @@ flowchart LR
     CFD --> Nginx[Nginx on 127.0.0.1:80]
     Nginx -->|/| FE[Svelte static build]
     Nginx -->|/api/*| Flask[Flask/Waitress on 127.0.0.1:5000]
-    Flask --> Files[Scheduler JSON]
     Flask --> Disk[File share: encrypted files on local disk]
     Flask --> Mem[Message board: in-memory store]
     Flask -.->|footer uptime, cached| BS[Better Stack status page]
@@ -32,8 +31,8 @@ flowchart LR
 
 ## Repository Layout
 
-- `frontend/`: SPA, page components, per-utility logic in `src/lib/<utility>/`, project Markdown in `src/content/projects/`, build-time Vite plugins in `plugins/`.
-- `backend/`: Flask app (`app/`), scheduler data (`app/static/json/`), tests.
+- `frontend/`: SPA, page components, per-utility logic in `src/lib/<utility>/`, site content in `src/content/` (project Markdown, scheduler data), build-time Vite plugins in `plugins/`.
+- `backend/`: Flask app (`app/`), tests.
 - `infrastructure/`: Terraform and the VM startup script. `infrastructure/vm/` holds the files the script installs: the release deploy script, systemd units, Nginx config, sudoers rule, apt, sysctl and rsyslog settings, and the guest agent config.
 - `.github/workflows/`: `test.yaml` ([Development](./DEVELOPMENT.md#ci)) and the manual `deploy.yaml` ([Infrastructure](./INFRASTRUCTURE.md#deploy-workflow)).
 - `documentation/`: these docs.
@@ -42,7 +41,7 @@ flowchart LR
 ## Runtime Flows
 
 - **Navigation.** The router maps the URL to a page; pages that need data fetch it on mount. Unknown paths, including unknown project slugs, render a 404 page with a closest-match suggestion. The interactive shell navigates through the same router.
-- **Utilities.** Each utility page calls its `/api/<utility>/` endpoints. Scheduler logic runs entirely in the browser; File Share and Message Board state lives on the backend ([Utilities](./UTILITIES.md)).
+- **Utilities.** The Scheduler runs entirely in the browser, on data that ships with the build. File Share and Message Board call their `/api/<utility>/` endpoints, and their state lives on the backend ([Utilities](./UTILITIES.md)).
 - **Project content.** Write-ups are rendered to sanitized HTML at build time and loaded per project as a JS chunk; no API call is involved, so content ships with the next deploy ([Implementation](./IMPLEMENTATION.md#project-rendering)).
 
 ## Security and Trust Boundaries

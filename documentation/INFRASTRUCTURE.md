@@ -82,7 +82,7 @@ A swap takes about 6–8 minutes, and the overlap is its only cost beyond the fr
   - Page paths with a trailing slash get a `301` to the path without it. (API paths are the reverse: Flask `308`s requests missing the slash.)
   - No SPA fallback: the build writes `<route>/index.html` for every route, so other paths return a real `404` whose body is the SPA shell, and the app renders its not-found page.
   - HTML is `Cache-Control: no-cache`; hashed `/assets/` are cached for a year, and a missing one gets a `404` (never the page shell with a `200`).
-  - gzip for HTML, JSON, CSS, JS, and SVG, including API responses (the course catalog is ~3 MB raw).
+  - gzip for HTML, JSON, CSS, JS, and SVG. Text files in `/assets/` are sent from the `.gz` copies the build writes next to them (`plugins/precompress.ts`, `gzip_static`); everything else, API responses included, is compressed per request.
   - Rate limit 10 req/s per `CF-Connecting-IP`, burst 10 (`/api/fileshare/` with `nodelay`; other `/api/` delays requests past 5 instead), answered with `429`. Body limit 1 MB, except 81 MiB on `/api/fileshare/upload/`.
   - At most 2 uploads in flight per `CF-Connecting-IP` and 6 in total (`limit_conn`, also `429`). Each one can sit on disk about four times while it's in flight, so this keeps uploads from filling the boot disk.
   - Security headers: HSTS (with `includeSubDomains`, so every subdomain, `status` included, must serve HTTPS), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, and a **report-only** CSP ([Issues](./ISSUES.md#infrastructure) has the plan to enforce it).

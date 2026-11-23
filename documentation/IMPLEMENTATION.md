@@ -14,7 +14,7 @@ How the code is organized. Running and testing it is in [Development](./DEVELOPM
 | `app/messageboard.py` | Message sanitizing, in-memory store, rate limiter. |
 | `app/uptime.py` | Footer uptime: fetches the public status page's `index.json` (undocumented, no token), sums the last 30 days of downtime, caches 15 min (2 min after a failure, keeping the last good value). |
 
-Data: `app/static/json/course_data.json` and `my_courses.json` (scheduler catalog and default plan). File-share uploads go to `instance/fileshare/` locally (gitignored) and under `PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite` in production; the directory is emptied whenever the app starts.
+File-share uploads go to `instance/fileshare/` locally (gitignored) and under `PERSONALWEBSITE_INSTANCE_PATH=/var/lib/personalwebsite` in production; the directory is emptied whenever the app starts.
 
 ## Frontend
 
@@ -128,6 +128,5 @@ All routes end in a trailing slash; requests without one get a `308`. Errors are
 | GET | `/api/health/` | `{"status": "ok"}`; used by deploy health checks |
 | GET | `/api/site-info/` | `{"uptime": {"percent", "days"} \| null}` for the footer; `days` counts only monitored days in the 30-day window |
 | GET | `/api/about-you/request-context/` | Request metadata for About You |
-| GET | `/api/scheduler/...` | Scheduler data ([Utilities](./UTILITIES.md#class-scheduler)) |
 | GET, POST | `/api/fileshare/...` | File share ([Utilities](./UTILITIES.md#file-share)) |
 | GET, POST | `/api/messageboard/...` | Message board ([Utilities](./UTILITIES.md#message-board)) |

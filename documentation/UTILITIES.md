@@ -2,7 +2,7 @@
 
 | Utility | Route | Frontend | Backend |
 | --- | --- | --- | --- |
-| [Class Scheduler](#class-scheduler) | `/utilities/scheduler` | `lib/scheduler/`, `UtilityScheduler.svelte` | static JSON via `views.py` |
+| [Class Scheduler](#class-scheduler) | `/utilities/scheduler` | `lib/scheduler/`, `UtilityScheduler.svelte` | none |
 | [File Share](#file-share) | `/utilities/fileshare` | `lib/fileshare/`, `UtilityFileShare.svelte` | `app/fileshare.py` |
 | [Message Board](#message-board) | `/utilities/message-board` | `lib/messageboard/`, `UtilityMessageBoard.svelte` | `app/messageboard.py` |
 
@@ -10,8 +10,7 @@
 
 Semester planner that validates prerequisites and draws them as a dependency graph.
 
-- `GET /api/scheduler/default-schedule/` → `backend/app/static/json/my_courses.json`
-- `GET /api/scheduler/course-data/` → `backend/app/static/json/course_data.json`
+Its data ships with the build, from `frontend/src/content/scheduler/`: `course_data.json` (the ~3 MB catalog) becomes a hashed asset that browsers cache for good, and `my_courses.json` (the default plan) is bundled into the JS. A catalog update reaches the site with the next deploy.
 
 ### Data Model
 
@@ -35,8 +34,8 @@ The catalog is a snapshot of [guide.wisc.edu/courses](https://guide.wisc.edu/cou
 ```bash
 uv run main.py fetch --refresh     # re-download the subject pages
 uv run main.py build               # writes output/course_data.json and output/report.md
-uv run main.py diff ../PersonalWebsite/backend/app/static/json/course_data.json output/course_data.json -v
-cp output/course_data.json ../PersonalWebsite/backend/app/static/json/
+uv run main.py diff ../PersonalWebsite/frontend/src/content/scheduler/course_data.json output/course_data.json -v
+cp output/course_data.json ../PersonalWebsite/frontend/src/content/scheduler/
 ```
 
 - Requisite text is parsed by a rule parser that refuses anything ambiguous; refused strings get hand-written entries in its `data/overrides.json`, and until then export with no requirements. `report.md` lists unresolved strings, stale overrides, and dropped references; check it before copying the file over.

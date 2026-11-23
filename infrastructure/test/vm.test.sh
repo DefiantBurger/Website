@@ -77,6 +77,10 @@ make_release() {
 	printf '%s\n' "$3" > "$src/backend/main.py"
 	: > "$src/backend/requirements.txt" # pip accepts an empty hash-pinned file.
 	echo '<!doctype html><title>test release</title>' > "$src/frontend/dist/index.html"
+	# The .gz differs from the file, so a check can tell gzip_static from on-the-fly gzip.
+	mkdir -p "$src/frontend/dist/assets"
+	echo plain > "$src/frontend/dist/assets/app.js"
+	echo precompressed | gzip > "$src/frontend/dist/assets/app.js.gz"
 	tar -czf "$OUT/$1/release.tar.gz" -C "$src" backend frontend
 	echo "$2 $(sha256sum "$OUT/$1/release.tar.gz" | cut -d' ' -f1) 1" > "$OUT/$1/fields"
 }
@@ -257,6 +261,7 @@ group_swap() {
 	check "exit 0 (got $RC)" '[[ $RC == 0 ]]'
 	check "installs the published release" 'logged "Now serving $GOOD"'
 	check "serves it through Nginx" '[[ "$(http_code /api/health/)" == 200 ]]'
+	check "sends the build's .gz for assets" '[[ "$(x "curl -s --compressed -H \"Via: 1.1 test\" http://127.0.0.1/assets/app.js")" == precompressed ]]'
 	check "joins the tunnel only after the app is up" '(( $(started_at cloudflared) > $(started_at flaskapp) && $(started_at flaskapp) > 0 ))'
 	check "marks itself ready with the release" '[[ "$(ready_attr)" == "$GOOD" ]]'
 

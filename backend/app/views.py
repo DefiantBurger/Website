@@ -1,5 +1,4 @@
 import unicodedata
-from pathlib import Path
 from urllib.parse import quote
 
 from flask import (
@@ -8,7 +7,6 @@ from flask import (
 	current_app,
 	jsonify,
 	request,
-	send_from_directory,
 )
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.http import dump_options_header
@@ -33,8 +31,6 @@ views = Blueprint('views', __name__)
 def _api_error(exc: ApiError):
 	return jsonify({'error': exc.message}), exc.status_code
 
-
-_JSON_DATA_DIR = Path(__file__).resolve().parent / 'static' / 'json'
 
 # Stand-in location for the local dev server, which never sees Cloudflare headers.
 _DEV_GEOLOCATION = {
@@ -116,16 +112,6 @@ def site_info():
 	response = jsonify({'uptime': uptime.uptime_cache.get()})
 	response.headers['Cache-Control'] = 'public, max-age=300'
 	return response
-
-
-@views.route('/api/scheduler/course-data/', methods=['GET'])
-def scheduler_course_data():
-	return send_from_directory(_JSON_DATA_DIR, 'course_data.json')
-
-
-@views.route('/api/scheduler/default-schedule/', methods=['GET'])
-def scheduler_default_schedule():
-	return send_from_directory(_JSON_DATA_DIR, 'my_courses.json')
 
 
 @views.route('/api/fileshare/status/', methods=['GET'])
