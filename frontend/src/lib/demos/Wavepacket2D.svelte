@@ -1,7 +1,17 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { theme } from '../theme.svelte';
-  import { cyclicTable, parseColor, rampTable, type Rgb } from './colormap';
+  import { parseColor, type Rgb } from './colormap';
+  import './demo.css';
+  import {
+    paintField,
+    peakDensity,
+    readFieldPalette,
+    tintPixel,
+    type FieldPalette,
+    type FieldView,
+  } from './fieldImage';
+  import { runFrames, watchVisibility } from './playback';
   import {
     DOUBLE_SLIT,
     SCATTERERS,
@@ -34,7 +44,7 @@
   let sigma = $state(DEFAULTS.sigma);
   let barrier = $state(DEFAULTS.barrier);
   let scatterer = $state(DEFAULTS.scatterer);
-  let view = $state<'density' | 'phase'>('density');
+  let view = $state<FieldView>('density');
   let playing = $state(false);
   let visible = $state(false);
   let time = $state(0);
@@ -52,10 +62,7 @@
   let momentumImage: ImageData | undefined;
   let realContext: CanvasRenderingContext2D | null = null;
   let momentumContext: CanvasRenderingContext2D | null = null;
-  interface Palette {
-    background: Rgb;
-    ramp: Uint8ClampedArray;
-    phase: Uint8ClampedArray;
+  interface Palette extends FieldPalette {
     wall: Rgb;
     well: Rgb;
   }
@@ -70,18 +77,8 @@
   function readColors() {
     const style = getComputedStyle(root);
     const color = (name: string) => parseColor(style.getPropertyValue(name));
-    const background = color('--color-bg-surface');
     colors = {
-      background,
-      ramp: rampTable(background, color('--color-accent')),
-      // A loop through the theme's hues stands in for a hue wheel.
-      phase: cyclicTable([
-        color('--color-accent'),
-        color('--color-concurrent'),
-        color('--color-error'),
-        color('--color-warning'),
-        color('--color-success'),
-      ]),
+      ...readFieldPalette(style),
       wall: color('--color-text-muted'),
       well: color('--color-warning'),
     };
@@ -101,42 +98,17 @@
 
   function drawReal(pixels: Uint8ClampedArray, palette: Palette) {
     const { re, im, shape } = sim;
-    let peak = 0;
-    for (let i = 0; i < re.length; i++) {
-      peak = Math.max(peak, re[i] * re[i] + im[i] * im[i]);
-    }
+    let peak = peakDensity(re, im);
     // Every reset is followed by a draw at time 0, which is where the starting peak is captured.
     if (sim.time === 0) {
       startPeak = peak;
     }
     peak = Math.max(peak, REAL_FLOOR * startPeak);
-    const scale = peak > 0 ? 1 / Math.sqrt(peak) : 0;
-    const { background, ramp, phase, wall, well } = palette;
-    for (let i = 0; i < re.length; i++) {
-      // Square-root scale (|ψ| rather than |ψ|²) so faint scattered waves stay visible.
-      const level = Math.min(1, Math.hypot(re[i], im[i]) * scale);
-      let r: number;
-      let g: number;
-      let b: number;
-      if (view === 'density') {
-        const j = Math.round(level * 255) * 3;
-        r = ramp[j];
-        g = ramp[j + 1];
-        b = ramp[j + 2];
-      } else {
-        const j =
-          (Math.floor(((Math.atan2(im[i], re[i]) + Math.PI) / (2 * Math.PI)) * 256) & 255) * 3;
-        r = background[0] + (phase[j] - background[0]) * level;
-        g = background[1] + (phase[j + 1] - background[1]) * level;
-        b = background[2] + (phase[j + 2] - background[2]) * level;
+    paintField(pixels, re, im, peak, view, palette);
+    for (let i = 0; i < shape.length; i++) {
+      if (shape[i] !== 0) {
+        tintPixel(pixels, i, shape[i] > 0 ? palette.wall : palette.well, 0.45 * Math.abs(shape[i]));
       }
-      const tint = shape[i] >= 0 ? wall : well;
-      const alpha = 0.45 * Math.abs(shape[i]);
-      const p = i * 4;
-      pixels[p] = r + (tint[0] - r) * alpha;
-      pixels[p + 1] = g + (tint[1] - g) * alpha;
-      pixels[p + 2] = b + (tint[2] - b) * alpha;
-      pixels[p + 3] = 255;
     }
   }
 
@@ -181,19 +153,12 @@
     realContext = realCanvas.getContext('2d');
     momentumContext = momentumCanvas.getContext('2d');
 
-    // Play once on first scroll into view, unless the reader prefers reduced motion.
-    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let autoplayed = reduceMotion;
-    const observer = new IntersectionObserver((entries) => {
-      // A fast scroll can batch several entries, oldest first; only the last is current.
-      visible = entries[entries.length - 1].isIntersecting;
-      if (visible && !autoplayed) {
-        autoplayed = true;
-        playing = true;
-      }
-    });
-    observer.observe(root);
-    return () => observer.disconnect();
+    // Play once on first scroll into view.
+    return watchVisibility(
+      root,
+      (onScreen) => (visible = onScreen),
+      () => (playing = true),
+    );
   });
 
   // Any parameter change starts the packet over. Untracked so a view switch
@@ -227,27 +192,14 @@
     if (!playing || !visible) {
       return;
     }
-    let previous: number | undefined;
-    let owed = 0;
-    let frame = requestAnimationFrame(function tick(now) {
-      frame = requestAnimationFrame(tick);
-      // Paced by elapsed time, not display frames, so every refresh rate runs at the same speed.
-      owed += previous === undefined ? FRAME_MS : Math.min(now - previous, 100);
-      previous = now;
-      // 2 ms of slack so a 60 Hz display lands on every other frame despite timer jitter.
-      if (owed < FRAME_MS - 2) {
-        return;
-      }
-      // Capped so a slow device or a stall doesn't queue a burst of catch-up frames.
-      owed = Math.min(owed - FRAME_MS, FRAME_MS);
+    return runFrames(FRAME_MS, () => {
       sim.step(STEPS_PER_FRAME);
       draw();
     });
-    return () => cancelAnimationFrame(frame);
   });
 </script>
 
-<div class="wavepacket" bind:this={root}>
+<div class="demo" bind:this={root}>
   <div class="panels">
     <figure>
       <div
@@ -322,32 +274,10 @@
 </div>
 
 <style>
-  .wavepacket {
-    border: 1px solid var(--color-text-primary);
-    border-radius: 3px;
-    background: var(--color-bg-surface);
-    padding: 1rem;
-    margin-bottom: 1rem;
-  }
-
   .panels {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
-  }
-
-  figure {
-    min-width: 0;
-  }
-
-  .view {
-    border: 1px solid var(--color-primary-opacity-40);
-  }
-
-  canvas {
-    display: block;
-    width: 100%;
-    aspect-ratio: 1;
   }
 
   .momentum {
@@ -370,79 +300,8 @@
     vector-effect: non-scaling-stroke;
   }
 
-  figcaption {
-    margin-top: 0.4rem;
-    font-size: 0.85rem;
-    color: var(--color-text-muted);
-  }
-
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    margin-block: 1rem;
-  }
-
-  .actions button {
-    padding: 0.4rem 1rem;
-    font-size: 0.9rem;
-  }
-
-  .readout {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--color-text-muted);
-  }
-
-  .controls {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-    gap: 0.75rem 1.5rem;
-    font-size: 0.9rem;
-  }
-
-  .controls label:not(.inline) {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  fieldset {
-    border: 0;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.25rem 1rem;
-  }
-
-  legend {
-    width: 100%;
-    margin-bottom: 0.25rem;
-  }
-
-  select {
-    padding: 0.3rem 0.5rem;
-  }
-
-  /* Drop the global text-input box; the native track and thumb are clear enough. */
-  input[type='range'] {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    accent-color: var(--color-accent);
-  }
-
-  input[type='radio'] {
-    accent-color: var(--color-accent);
-  }
-
   /* Side by side, each view would be only ~150px wide on a phone. */
   @media (max-width: 520px) {
-    .wavepacket {
-      padding: 0.75rem;
-    }
-
     .panels {
       grid-template-columns: minmax(0, 1fr);
     }

@@ -78,10 +78,17 @@ The FFT implicitly makes the simulation box periodic: a wave leaving the right e
 | Fourier (FFT)         | Periodic                       | Wraps around                      |
 | Discrete sine (DST)   | Dirichlet ($\psi = 0$)         | Hard wall, reflection flips phase |
 | Discrete cosine (DCT) | Neumann ($\partial_n\psi = 0$) | Soft wall, no phase flip          |
+| FFT + absorbing layer | Absorbing                      | Drained, with little reflection   |
 
-The difference is visible in the simulation: Dirichlet walls show a dark destructive-interference line along the edge, and Neumann walls don't. To stop waves from reflecting back into the region of interest at all, the solver also has an absorbing layer near the edges.
+The difference is visible in the simulation: Dirichlet walls show a dark destructive-interference line along the edge, and Neumann walls don't.
 
-> **Interactive demo coming soon** (`boundary-conditions`): the same packet hitting the box wall under periodic, Dirichlet, and Neumann boundaries.
+For scattering, none of the first three is what you want: whether the wave reflects or wraps around, it comes back and corrupts the region of interest. So the solver can also add an absorbing layer, a strip along the edges (the outer 10% of the grid) where the potential gets a negative imaginary part, $V \to V - i\eta(\mathbf{r})$. The potential step $e^{-iV\,dt/\hbar}$ then picks up a real factor $e^{-\eta\,dt/\hbar}$ there, so the wave drains away instead of bouncing back. The hard part is the strength profile. An abrupt layer reflects the wave like a potential step, and one that's too weak or thin lets it reach the edge and return. So $\eta$ ramps up smoothly with depth into the layer (as depth cubed in my solver). Slow, long-wavelength waves are the hardest to absorb, since they need the thickest layer.
+
+```demo
+boundary-conditions
+```
+
+The sine and cosine transforms are the FFT in disguise: each equals an FFT of the box mirrored across its walls, with the mirror image's sign flipped (sine) or kept (cosine). That's how this demo runs them, and it explains the walls. A Dirichlet wall behaves like a mirror with an upside-down copy of the packet behind it. When the copy comes through, it's the reflected wave, sign flipped, and it cancels the incoming wave along the wall. Switching boundaries keeps the current moment, so you can pause while the packet is at the wall and compare. With the absorbing layer, the "in box" readout shows how much of the packet the layer has drained.
 
 ### The solver and GUI
 

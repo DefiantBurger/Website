@@ -1,0 +1,97 @@
+/* Shared layout for the project demos. Imported by each demo component, so it loads
+   only with a demo; every rule is scoped under .demo. */
+
+.demo {
+  border: 1px solid var(--color-text-primary);
+  border-radius: 3px;
+  background: var(--color-bg-surface);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.demo figure {
+  min-width: 0;
+}
+
+.demo .view {
+  border: 1px solid var(--color-primary-opacity-40);
+}
+
+.demo canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
+.demo figcaption {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.demo .actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: 1rem;
+}
+
+.demo .actions button {
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+}
+
+.demo .readout {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.demo .controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+}
+
+.demo .controls label:not(.inline) {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.demo fieldset {
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 1rem;
+}
+
+.demo legend {
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+
+.demo select {
+  padding: 0.3rem 0.5rem;
+}
+
+/* Drop the global text-input box; the native track and thumb are clear enough. */
+.demo input[type='range'] {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  accent-color: var(--color-accent);
+}
+
+.demo input[type='radio'] {
+  accent-color: var(--color-accent);
+}
+
+@media (max-width: 520px) {
+  .demo {
+    padding: 0.75rem;
+  }
+}

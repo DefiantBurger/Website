@@ -3,7 +3,7 @@
  * wave-packet demo in the quantum scattering write-up. Units: ħ = m = 1, grid
  * spacing 1. Positions and sizes are fractions of the grid so any size works.
  */
-import { Fft2D } from './fft';
+import { Fft2D, multiplyComplex, waveNumber } from './fft';
 
 export const SCATTERERS = ['disk', 'square', 'triangle', 'double-slit'] as const;
 export type Scatterer = (typeof SCATTERERS)[number];
@@ -169,15 +169,15 @@ export class WavepacketSim {
       return;
     }
     const { re, im, fft } = this;
-    multiply(re, im, this.halfRe, this.halfIm);
+    multiplyComplex(re, im, this.halfRe, this.halfIm);
     for (let s = 0; s < count; s++) {
       fft.transform(re, im, false);
-      multiply(re, im, this.kinRe, this.kinIm);
+      multiplyComplex(re, im, this.kinRe, this.kinIm);
       fft.transform(re, im, true);
       if (s < count - 1) {
-        multiply(re, im, this.fullRe, this.fullIm);
+        multiplyComplex(re, im, this.fullRe, this.fullIm);
       } else {
-        multiply(re, im, this.halfRe, this.halfIm);
+        multiplyComplex(re, im, this.halfRe, this.halfIm);
       }
     }
     this.time += count * this.dt;
@@ -236,20 +236,6 @@ export class WavepacketSim {
       total += p;
     }
     return { kinetic: kinetic / spectral, potential: potential / total };
-  }
-}
-
-/** Angular wave number of FFT bin `i` on an n-point grid with unit spacing. */
-export function waveNumber(i: number, n: number): number {
-  return (2 * Math.PI * (i < n / 2 ? i : i - n)) / n;
-}
-
-function multiply(re: Float64Array, im: Float64Array, mRe: Float64Array, mIm: Float64Array): void {
-  for (let i = 0; i < re.length; i++) {
-    const a = re[i];
-    const b = im[i];
-    re[i] = a * mRe[i] - b * mIm[i];
-    im[i] = a * mIm[i] + b * mRe[i];
   }
 }
 

@@ -112,8 +112,12 @@ Interactive demos live in `src/lib/demos/`.
 
 - **Embedding.** A write-up embeds one with a fence whose body is the demo id (` ```demo ` / `wavepacket-2d` / ` ``` `). The pipeline turns it into `<div class="project-demo" data-demo="…">` (the build fails on an id missing from `demos/ids.ts`), and `ProjectDetail.svelte` mounts the component from `demos/registry.ts` into it, imported on demand so the demo code loads only on that page.
 - **Adding one.** Add its id to `ids.ts` and its loader to `registry.ts`; the type check fails if one is missing. Keep the simulation math in plain `.ts` modules so it can be unit-tested.
+- **Shared pieces.** `demo.css` holds the frame, controls, and readout styles (scoped under `.demo`, imported by each demo). `playback.ts` paces frames and starts a demo once when first scrolled into view (not under `prefers-reduced-motion`); demos pause while offscreen. `fieldImage.ts` paints a complex wave function as density or phase.
 - **Colors.** Build canvas colors from the `--color-*` variables with `demos/colormap.ts`, redrawing when `theme.current` changes. The `--color-*` variables a demo reads must be written as hex or `rgb()` in `app.css`: `colormap.ts` parses them as written, and throws on anything else.
-- **`wavepacket-2d`** (`Wavepacket2D.svelte`) is a 2D split-operator Schrödinger solver (`demos/wavepacket.ts`) on a 128×128 grid with a hand-written FFT (`demos/fft.ts`). It plays once when first scrolled into view (not under `prefers-reduced-motion`) and pauses while offscreen. The reasoning behind its numerics is in those files' comments.
+- **`wavepacket-2d`** (`Wavepacket2D.svelte`) is a 2D split-operator Schrödinger solver (`demos/wavepacket.ts`) on a 128×128 grid with a hand-written FFT (`demos/fft.ts`).
+- **`boundary-conditions`** (`BoundaryConditions.svelte`) runs a free packet in a 128×128 box under periodic, Dirichlet, Neumann, or absorbing boundaries (`demos/boundaries.ts`), sharing one clock so switching keeps the current moment. Dirichlet and Neumann run as an FFT on the box mirrored across its walls, which matches a DST-II/DCT-II solver exactly.
+
+The reasoning behind each demo's numerics is in its files' comments.
 
 ### About You
 

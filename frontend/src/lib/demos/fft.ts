@@ -97,3 +97,23 @@ function transpose(a: Float64Array, n: number): void {
     }
   }
 }
+
+/** Angular wave number of FFT bin `i` on an n-point grid with unit spacing. */
+export function waveNumber(i: number, n: number): number {
+  return (2 * Math.PI * (i < n / 2 ? i : i - n)) / n;
+}
+
+/** Pointwise complex multiply of (re, im) by (mRe, mIm), in place. */
+export function multiplyComplex(
+  re: Float64Array,
+  im: Float64Array,
+  mRe: Float64Array,
+  mIm: Float64Array,
+): void {
+  for (let i = 0; i < re.length; i++) {
+    const a = re[i];
+    const b = im[i];
+    re[i] = a * mRe[i] - b * mIm[i];
+    im[i] = a * mIm[i] + b * mRe[i];
+  }
+}
