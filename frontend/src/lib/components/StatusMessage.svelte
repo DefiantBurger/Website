@@ -5,11 +5,14 @@
     kind = 'loading',
     message = '',
     compact = false,
+    quiet = false,
   }: {
     kind?: 'loading' | 'error' | 'success';
     message?: string;
     // Smaller box for sidebars and forms.
     compact?: boolean;
+    // Colored text without the box, for forms with several messages close together.
+    quiet?: boolean;
   } = $props();
 
   // Screen readers announce changes to a live region, not the content it is
@@ -25,6 +28,7 @@
 <div
   class="status-message prompt status-message--{kind}"
   class:compact
+  class:quiet
   role={kind === 'error' ? 'alert' : 'status'}
   aria-live={kind === 'error' ? 'assertive' : 'polite'}
 >
@@ -60,6 +64,12 @@
   .status-message--success {
     color: var(--color-success);
     background-color: var(--color-success-opacity-05);
+  }
+
+  .status-message.quiet {
+    border: none;
+    background: none;
+    padding: 0;
   }
 
   .compact {

@@ -2,27 +2,33 @@ import threading
 from io import BytesIO
 from unittest.mock import patch
 
+from test_fileshare import SALT, ciphertext, encrypted_name, token
+
 from app.fileshare import FileShareError
 
 
-def _upload(client, name='file.txt', content=b'abc', password='pass', mimetype=None, **fields):
-	file = (BytesIO(content), name, mimetype) if mimetype else (BytesIO(content), name)
+def _upload(client, content=None, seed='key', name='n', mimetype=None, **fields):
+	content = ciphertext() if content is None else content
+	file = (
+		(BytesIO(content), 'encrypted', mimetype) if mimetype else (BytesIO(content), 'encrypted')
+	)
+	form = {'token': token(seed), 'salt': SALT, 'encryptedName': encrypted_name(name)}
 	return client.post(
 		'/api/fileshare/upload/',
-		data={'file': file, 'password': password, **fields},
+		data={'file': file, **form, **fields},
 		content_type='multipart/form-data',
 	)
 
 
-def _access(client, file_id, password='pass', **kwargs):
+def _access(client, file_id, seed='key', **kwargs):
 	return client.post(
-		'/api/fileshare/access/', data={'password': password, 'id': file_id}, **kwargs
+		'/api/fileshare/access/', data={'token': token(seed), 'id': file_id}, **kwargs
 	)
 
 
-def _list_names(client, password='pass'):
-	files = client.post('/api/fileshare/list/', data={'password': password}).get_json()['files']
-	return [f['originalFilename'] for f in files]
+def _list_names(client, seed='key'):
+	res = client.post('/api/fileshare/list/', data={'token': token(seed)})
+	return [f['encryptedName'][0] for f in res.get_json()['files']]
 
 
 def test_health(client):
@@ -69,71 +75,51 @@ def test_fileshare_status_endpoint(client):
 
 
 def test_fileshare_upload_and_download_flow(client):
-	res = client.post('/api/fileshare/upload/', data={'password': 'mypassword'})
+	res = client.post('/api/fileshare/upload/', data={'token': token()})
 	assert res.status_code == 400
 	assert 'A file is required' in res.get_json()['error']
 
-	res = _upload(client, password='')
+	# What a page loaded before browser encryption shipped would send.
+	res = client.post('/api/fileshare/list/', data={'password': 'mypassword'})
 	assert res.status_code == 400
-	assert 'Access key is required' in res.get_json()['error']
+	assert 'reload the page' in res.get_json()['error']
 
-	content = b'Hello secret fileshare!'
-	res = _upload(client, 'hello.txt', content, password='mypassword')
+	content = ciphertext(23)
+	res = _upload(client, content)
 	assert res.status_code == 200
 	uploaded = res.get_json()
-	assert set(uploaded) == {'id', 'originalFilename', 'sizeBytes', 'uploadedAt', 'expiresAt'}
-	assert uploaded['originalFilename'] == 'hello.txt'
-	assert uploaded['sizeBytes'] == len(content)
+	assert set(uploaded) == {'id', 'salt', 'encryptedName', 'sizeBytes', 'uploadedAt', 'expiresAt'}
+	assert (uploaded['salt'], uploaded['encryptedName']) == (SALT, encrypted_name())
+	assert uploaded['sizeBytes'] == 23
 
-	res = client.post('/api/fileshare/list/', data={'password': 'wrong-password'})
+	res = client.post('/api/fileshare/list/', data={'token': token('wrong')})
 	assert res.status_code == 404
 
-	res = client.post('/api/fileshare/list/', data={'password': 'mypassword'})
+	res = client.post('/api/fileshare/list/', data={'token': token()})
 	assert res.status_code == 200
 	assert res.get_json() == {'files': [uploaded]}
 
-	assert _access(client, 'no-such-id', 'mypassword').status_code == 404
-	assert _access(client, uploaded['id'], 'wrong-password').status_code == 404
+	assert _access(client, 'no-such-id').status_code == 404
+	assert _access(client, uploaded['id'], 'wrong').status_code == 404
 
-	res = _access(client, uploaded['id'], 'mypassword')
+	res = _access(client, uploaded['id'])
 	assert res.status_code == 200
 	assert res.data == content
-	assert res.headers['Content-Disposition'] == 'attachment; filename=hello.txt'
+	assert res.headers['Content-Disposition'] == 'attachment'
 	assert res.headers['Content-Length'] == str(len(content))
 	assert res.headers['Cache-Control'] == 'no-store'
 
 
 def test_fileshare_replace_flow(client):
-	# What the UI does: the first file of a batch replaces the key's earlier files.
-	_upload(client, 'old.txt', b'old')
-	_upload(client, 'a.txt', b'new', replace='1')
-	_upload(client, 'b.txt', b'new')
-	assert _list_names(client) == ['a.txt', 'b.txt']
-
-
-def test_fileshare_download_sends_unicode_names_as_filename_star(client):
-	file_id = _upload(client, 'résumé 日本.pdf').get_json()['id']
-	disposition = _access(client, file_id).headers['Content-Disposition']
-	assert disposition == (
-		'attachment; filename="resume .pdf"; filename*=UTF-8\'\'r%C3%A9sum%C3%A9%20%E6%97%A5%E6%9C%AC.pdf'
-	)
-
-
-def test_fileshare_access_decryption_error(client):
-	file_id = _upload(client).get_json()['id']
-	with patch(
-		'app.views.open_record_payload',
-		side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
-	):
-		res = _access(client, file_id)
-	assert res.status_code == 403
-	assert res.get_json() == {'error': 'Incorrect access key or corrupted file.'}
+	# What the UI does: the first file of a batch replaces the token's earlier files.
+	_upload(client, name='o')
+	_upload(client, name='a', replace='1')
+	_upload(client, name='b')
+	assert _list_names(client) == ['a', 'b']
 
 
 def test_fileshare_download_ignores_uploaded_mime_type(client):
-	file_id = _upload(
-		client, 'x.html', b'<script>alert(1)</script>', mimetype='text/html'
-	).get_json()['id']
+	file_id = _upload(client, mimetype='text/html').get_json()['id']
 	res = _access(client, file_id)
 	assert res.status_code == 200
 	assert res.mimetype == 'application/octet-stream'
@@ -156,7 +142,7 @@ def test_fileshare_download_holds_slot_until_response_closes(client):
 		assert res.status_code == 200
 		assert not slots.acquire(blocking=False)
 
-		assert b''.join(res.response) == b'abc'
+		assert len(b''.join(res.response)) == len(ciphertext())
 		res.close()
 		assert slots.acquire(blocking=False)
 		slots.release()
@@ -169,9 +155,9 @@ def test_fileshare_download_error_releases_slot(client):
 		patch('app.fileshare._transfer_slots', slots),
 		patch(
 			'app.views.open_record_payload',
-			side_effect=FileShareError('Incorrect access key or corrupted file.', 403),
+			side_effect=FileShareError('The requested file is no longer available.', 404),
 		),
 	):
-		assert _access(client, file_id).status_code == 403
+		assert _access(client, file_id).status_code == 404
 		assert slots.acquire(blocking=False)
 		slots.release()

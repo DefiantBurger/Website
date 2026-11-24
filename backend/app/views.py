@@ -1,6 +1,3 @@
-import unicodedata
-from urllib.parse import quote
-
 from flask import (
 	Blueprint,
 	Response,
@@ -9,14 +6,13 @@ from flask import (
 	request,
 )
 from werkzeug.exceptions import RequestEntityTooLarge
-from werkzeug.http import dump_options_header
 
 from . import uptime
 from .errors import ApiError
 from .fileshare import (
 	acquire_transfer_slot,
-	get_all_records_for_password,
-	get_record_for_password,
+	get_record_for_token,
+	get_records_for_token,
 	get_storage_status,
 	open_record_payload,
 	save_upload,
@@ -61,18 +57,6 @@ def _parse_coordinate(raw: str) -> float | None:
 		return float(raw)
 	except ValueError:
 		return None
-
-
-def _attachment_header(filename: str) -> str:
-	"""Content-Disposition for a download, built the way Werkzeug's send_file does: the
-	name as `filename`, or for a non-ASCII name an ASCII fallback plus the real one in `filename*`."""
-	if filename.isascii():
-		return dump_options_header('attachment', {'filename': filename})
-	fallback = unicodedata.normalize('NFKD', filename).encode('ascii', 'ignore').decode('ascii')
-	encoded = quote(filename, safe='!#$&+-.^_`|~')
-	return dump_options_header(
-		'attachment', {'filename': fallback, 'filename*': f"UTF-8''{encoded}"}
-	)
 
 
 def _cloudflare_geolocation() -> dict:
@@ -121,41 +105,44 @@ def fileshare_status():
 
 @views.route('/api/fileshare/upload/', methods=['POST'])
 def fileshare_upload():
-	# Form fields: file, password, and replace=1 on a batch's first file, which then
-	# replaces the key's earlier files once it's stored.
-	password = request.form.get('password', '')
-	replace = request.form.get('replace') == '1'
+	# Form fields: file (ciphertext), token, salt, encryptedName, and replace=1 on a batch's
+	# first file, which then replaces the token's earlier files once it's stored.
+	form = request.form
 	with transfer_slot():
-		record = save_upload(request.files.get('file'), password, replace=replace)
+		record = save_upload(
+			request.files.get('file'),
+			form.get('token', ''),
+			form.get('salt', ''),
+			form.get('encryptedName', ''),
+			replace=form.get('replace') == '1',
+		)
 
 	return jsonify(record.to_json())
 
 
 @views.route('/api/fileshare/access/', methods=['POST'])
 def fileshare_access():
-	# Form fields: password, id (which of the key's files, from the list or upload response).
-	password = request.form.get('password', '')
-	record = get_record_for_password(password, request.form.get('id', ''))
+	# Form fields: token, id (which of the token's files, from the list).
+	record = get_record_for_token(request.form.get('token', ''), request.form.get('id', ''))
 	if record is None:
-		raise ApiError('No active file matched that password.', 404)
+		raise ApiError('No active file matched that access key.', 404)
 
-	# Decryption runs while the body is sent, so the slot is held until the response closes.
+	# The body streams from disk, so the slot is held until the response closes.
 	release_slot = acquire_transfer_slot()
 	try:
-		chunks = open_record_payload(record, password)
+		chunks = open_record_payload(record)
 	except BaseException:
 		release_slot()
 		raise
 
-	# Never echo the uploader-supplied MIME type: serving e.g. text/html from this
-	# origin would let an uploaded file run scripts if a browser rendered it.
+	# The body is ciphertext the browser decrypts; still never serve it as anything a
+	# browser would render on this origin.
 	response = Response(
 		chunks,
 		mimetype='application/octet-stream',
 		headers={
-			'Content-Disposition': _attachment_header(record.original_filename),
-			# Lets the client detect a stream cut short by a corrupt later chunk.
-			'Content-Length': str(record.size_bytes),
+			'Content-Disposition': 'attachment',
+			'Content-Length': str(record.stored_bytes),
 			'Cache-Control': 'no-store',
 			'X-Content-Type-Options': 'nosniff',
 		},
@@ -166,9 +153,7 @@ def fileshare_access():
 
 @views.route('/api/fileshare/list/', methods=['POST'])
 def fileshare_list():
-	password = request.form.get('password', '')
-
-	records = get_all_records_for_password(password)
+	records = get_records_for_token(request.form.get('token', ''))
 	if not records:
 		raise ApiError('No active files matched that access key.', 404)
 

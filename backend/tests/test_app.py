@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from app import create_app
-from app.fileshare import MAX_FILE_BYTES
+from app.fileshare import MAX_FILE_BYTES, _ciphertext_size
 
 
 def test_create_app_without_secret_key_raises_error(monkeypatch):
@@ -42,7 +42,7 @@ def test_404_handler_returns_json(client):
 
 def test_oversized_body_returns_json_413(app, client):
 	app.config['MAX_CONTENT_LENGTH'] = 10  # Stand-in for the real ~81 MB cap.
-	res = client.post('/api/fileshare/upload/', data={'password': 'x' * 100})
+	res = client.post('/api/fileshare/upload/', data={'token': 'x' * 100})
 	assert res.status_code == 413
 	assert 'MB limit' in res.get_json()['error']
 
@@ -86,4 +86,5 @@ def test_flask_body_limit_fits_under_nginx_upload_limit(app):
 	conf = (Path(__file__).parents[2] / 'infrastructure' / 'vm' / 'nginx.conf.tftpl').read_text()
 	block = conf.split('location /api/fileshare/upload/', 1)[1].split('}', 1)[0]
 	mebibytes = int(re.search(r'client_max_body_size (\d+)M;', block).group(1))
-	assert MAX_FILE_BYTES < app.config['MAX_CONTENT_LENGTH'] < mebibytes * 1024 * 1024
+	largest_upload = _ciphertext_size(MAX_FILE_BYTES)
+	assert largest_upload < app.config['MAX_CONTENT_LENGTH'] < mebibytes * 1024 * 1024

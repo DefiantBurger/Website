@@ -6,435 +6,87 @@
 
 <script lang="ts">
   import { onMount } from 'svelte';
-  import {
-    fetchFileShareStatus,
-    downloadFileShare,
-    uploadFileShare,
-    listFileShareFiles,
-    type FileShareStatus,
-    type FileShareRecord,
-    type UploadProgress,
-  } from '../lib/fileshare/api';
-  import { errorMessage } from '../lib/api';
-  import { formatBytes, formatDuration, formatMinutes } from '../lib/format';
-  import { AsyncTask } from '../lib/asyncTask.svelte';
-  import { saveBlob } from '../lib/download';
   import FormMessages from '../lib/components/FormMessages.svelte';
   import PageHeader from '../lib/components/PageHeader.svelte';
   import Panel from '../lib/components/Panel.svelte';
-  import { routeDefinitions } from '../lib/routeDefinitions';
   import StatusMessage from '../lib/components/StatusMessage.svelte';
+  import FilePicker from '../lib/fileshare/components/FilePicker.svelte';
+  import FileRows from '../lib/fileshare/components/FileRows.svelte';
+  import KeyField from '../lib/fileshare/components/KeyField.svelte';
+  import UploadProgressBar from '../lib/fileshare/components/UploadProgressBar.svelte';
+  import { FileShareController } from '../lib/fileshare/controller.svelte';
+  import { routeDefinitions } from '../lib/routeDefinitions';
 
-  let status = $state<FileShareStatus | null>(null);
-  const statusTask = new AsyncTask('Failed to load storage status.');
-
-  let uploadFiles = $state<File[]>([]);
-  let uploadPassword = $state('');
-  const upload = new AsyncTask('Upload failed.');
-  let uploadInput = $state<HTMLInputElement | null>(null);
-  let uploadProgress = $state<UploadProgress | null>(null);
-
-  let accessPassword = $state('');
-  // List and download share one task, so only one access request runs at a time.
-  const access = new AsyncTask("Couldn't retrieve files.");
-  let accessFiles = $state<FileShareRecord[]>([]);
-  // Downloads use the key the list came from, so editing the box afterwards doesn't break them.
-  let listedKey = '';
-  let selectedFileId = $state('');
-
-  // Limits come from the backend, so the page can't drift from it; '—' until loaded.
-  const STAT_ROWS: [label: string, value: (status: FileShareStatus) => string][] = [
-    ['Active files', (s) => String(s.activeFileCount)],
-    ['Retention', (s) => formatDuration(s.retentionSeconds)],
-    ['Per-file cap', (s) => formatBytes(s.maxFileBytes)],
-    ['Storage used', (s) => `${formatBytes(s.usedBytes)} / ${formatBytes(s.maxTotalBytes)}`],
-  ];
-  const stats = $derived(STAT_ROWS.map(([label, value]) => [label, status ? value(status) : '—']));
-
-  const limitsIntro = $derived(
-    status
-      ? `Limit: ${formatBytes(status.maxFileBytes, { trim: true })} per file. Files expire after ${formatMinutes(status.retentionSeconds)}. When active storage approaches the ${formatBytes(status.maxTotalBytes, { trim: true })} cap,`
-      : 'When active storage is nearly full,',
-  );
-
-  async function loadStatus(): Promise<void> {
-    await statusTask.run(async () => {
-      status = await fetchFileShareStatus();
-    });
-  }
-
-  async function handleUploadSubmit(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-
-    if (uploadFiles.length === 0) {
-      upload.fail('Choose at least one file to upload.');
-      return;
-    }
-
-    if (!uploadPassword.trim()) {
-      upload.fail('Enter an access key for the file.');
-      return;
-    }
-
-    // Without the status yet, skip the early check; the server still rejects with a 413.
-    const maxFileBytes = status?.maxFileBytes ?? Infinity;
-    const oversizedCount = uploadFiles.filter((f) => f.size > maxFileBytes).length;
-    if (oversizedCount > 0) {
-      upload.fail(
-        `Files must be ${formatBytes(maxFileBytes, { trim: true })} or smaller. ${oversizedCount} file(s) exceeded the limit.`,
-      );
-      return;
-    }
-
-    await upload.run(async () => {
-      const result = await uploadFileShare(
-        uploadFiles,
-        uploadPassword.trim(),
-        (progress) => (uploadProgress = progress),
-      );
-      uploadProgress = null;
-      if (result.ok) {
-        const fileNames = result.uploaded.map((r) => r.originalFilename).join(', ');
-        upload.success = `Stored ${result.uploaded.length} file(s): ${fileNames}.`;
-        uploadPassword = '';
-        uploadFiles = [];
-        // The input keeps its own FileList, so clear it to match `uploadFiles`.
-        if (uploadInput) {
-          uploadInput.value = '';
-        }
-      } else {
-        const reason = errorMessage(result.error, 'Upload failed.');
-        const outcome =
-          result.uploaded.length === 0
-            ? 'Nothing was replaced; the key still has its previous files.'
-            : `The key's previous files were replaced; it now holds only the ${result.uploaded.length} file(s) stored before this one.`;
-        upload.error = `Upload failed on ${result.failedFile}: ${reason}\n${outcome}`;
-      }
-    });
-    await loadStatus();
-  }
-
-  async function handleListSubmit(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    const key = accessPassword.trim();
-    if (!key) {
-      access.fail('Enter the access key to retrieve files.');
-      accessFiles = [];
-      return;
-    }
-
-    await access.run(async () => {
-      accessFiles = []; // so a failed lookup doesn't leave the previous key's files listed
-      // The API answers 404 when there are none, so this list is never empty.
-      accessFiles = (await listFileShareFiles(key)).files;
-      listedKey = key;
-      selectedFileId = accessFiles[0].id;
-      access.success = `Found ${accessFiles.length} file(s) for this access key.`;
-    });
-  }
-
-  async function startDownloads(files: FileShareRecord[]): Promise<void> {
-    if (files.length === 0) {
-      access.fail('No files available for download.');
-      return;
-    }
-
-    await access.run(async () => {
-      const failures: string[] = [];
-      for (const file of files) {
-        try {
-          saveBlob(await downloadFileShare(listedKey, file.id), file.originalFilename);
-        } catch (error) {
-          failures.push(`- ${file.originalFilename}: ${errorMessage(error, 'Download failed.')}`);
-        }
-      }
-
-      const succeeded = files.length - failures.length;
-      if (succeeded > 0) {
-        access.success = `Started ${succeeded} download${succeeded === 1 ? '' : 's'}.`;
-      }
-      if (failures.length > 0) {
-        access.error = `${succeeded} succeeded, ${failures.length} failed:\n${failures.join('\n')}`;
-      }
-    });
-  }
+  const fs = new FileShareController();
 
   onMount(() => {
-    void loadStatus();
+    void fs.loadStatus();
   });
 </script>
 
-{#snippet accessKeyInput(getValue: () => string, setValue: (value: string) => void)}
-  <label>
-    <span>Access Key</span>
-    <input
-      type="text"
-      bind:value={getValue, setValue}
-      placeholder="Access key to unlock files"
-      maxlength="128"
-      autocomplete="off"
-    />
-  </label>
-{/snippet}
-
 <PageHeader
   title="Utilities / {routeDefinitions.fileShare.meta.title}"
-  description="Upload one or more files with an access key. The access key is hashed into the file label, and the stored file contents are encrypted at rest with a key derived from that same access key. Anyone with the same access key can retrieve all files until they expire."
+  description="Send files to anyone who has the access key. Your browser encrypts each file and its name before upload, so the server only stores ciphertext. Files expire after a few minutes, and uploading again with the same key replaces its earlier files."
 />
 
-{#if statusTask.error}
-  <StatusMessage kind="error" message={statusTask.error} />
+{#if fs.statusTask.error}
+  <StatusMessage kind="error" message={fs.statusTask.error} />
 {/if}
 
-<section class="auto-grid" style:--grid-min="25rem">
-  <Panel element="form" title="Upload Files" onsubmit={handleUploadSubmit}>
-    <p>
-      {limitsIntro} the backend evicts oldest files to free space before accepting new uploads. Uploading
-      with an existing access key replaces all previous files for that key.
-    </p>
-
-    <label>
-      <span>Files (select one or more)</span>
-      <input
-        type="file"
-        multiple
-        bind:this={uploadInput}
-        onchange={(event) => (uploadFiles = Array.from(event.currentTarget.files ?? []))}
-      />
-    </label>
-
-    {@render accessKeyInput(
-      () => uploadPassword,
-      (value) => (uploadPassword = value),
-    )}
-
-    {#if uploadFiles.length > 0}
-      <p class="file-meta">Selected: {uploadFiles.length} file(s)</p>
-      <ul class="file-list">
-        <!-- Keyed by index: picked files can share a name (iOS calls every photo image.jpg). -->
-        {#each uploadFiles as file, index (index)}
-          <li>{file.name} ({formatBytes(file.size)})</li>
-        {/each}
-      </ul>
+<section class="auto-grid" style:--grid-min="22rem">
+  <Panel
+    element="form"
+    title="Upload"
+    onsubmit={(event) => {
+      event.preventDefault();
+      void fs.sendFiles();
+    }}
+  >
+    <FilePicker id="upload-files" files={fs.files} onchange={(files) => fs.setFiles(files)} />
+    <KeyField
+      id="upload-key"
+      placeholder="Your own key, or Generate one"
+      bind:value={fs.sendKey}
+      generated={fs.showGeneratedKey ? fs.generatedKey : null}
+    >
+      <button type="button" onclick={() => fs.generateKey()}>Generate</button>
+    </KeyField>
+    <button type="submit" class="upload" disabled={fs.send.busy}>
+      {fs.send.busy ? 'Uploading...' : 'Upload'}
+    </button>
+    {#if fs.progress}
+      <UploadProgressBar progress={fs.progress} files={fs.files} />
     {/if}
-
-    <div>
-      <button type="submit" disabled={upload.busy}>{upload.busy ? 'Uploading...' : 'Upload'}</button
-      >
-    </div>
-
-    {#if uploadProgress}
-      {@const { fileIndex, fileSent, sentBytes, totalBytes } = uploadProgress}
-      <div class="upload-progress">
-        <p class="progress-file">
-          {fileSent ? 'Storing' : 'Uploading'}
-          {uploadFiles.length > 1 ? `${fileIndex + 1}/${uploadFiles.length}:` : ''}
-          {uploadFiles[fileIndex]?.name}
-        </p>
-        <!-- max can't be 0, which a batch of empty files would give. -->
-        <progress aria-label="Upload progress" max={totalBytes || 1} value={sentBytes}></progress>
-        <p class="file-meta">
-          {totalBytes ? Math.floor((sentBytes / totalBytes) * 100) : 100}% ({formatBytes(sentBytes)}
-          / {formatBytes(totalBytes)})
-        </p>
-      </div>
-    {/if}
-
-    <FormMessages error={upload.error} success={upload.success} />
+    <FormMessages error={fs.send.error} success={fs.send.success} quiet />
   </Panel>
 
-  <Panel element="form" title="Access Files" onsubmit={handleListSubmit}>
-    <p>
-      Enter the access key used for upload. The backend hashes it to locate all matching active
-      files.
-    </p>
-
-    {@render accessKeyInput(
-      () => accessPassword,
-      (value) => (accessPassword = value),
-    )}
-
-    <div>
-      <button type="submit" disabled={access.busy}
-        >{access.busy ? 'Fetching...' : 'List Files'}</button
-      >
-    </div>
-
-    {#if accessFiles.length > 0}
-      <div class="file-selector">
-        <label>
-          <span>Select file to download</span>
-          <select bind:value={selectedFileId}>
-            {#each accessFiles as file (file.id)}
-              <option value={file.id}>
-                {file.originalFilename} ({formatBytes(file.sizeBytes)})
-              </option>
-            {/each}
-          </select>
-        </label>
-        <button
-          type="button"
-          onclick={() => startDownloads(accessFiles.filter((file) => file.id === selectedFileId))}
-          disabled={access.busy}
-        >
-          {access.busy ? 'Fetching...' : 'Download'}
-        </button>
-        <button type="button" onclick={() => startDownloads(accessFiles)} disabled={access.busy}>
-          {access.busy ? 'Fetching...' : 'Download All'}
-        </button>
-      </div>
-    {/if}
-
-    <FormMessages error={access.error} success={access.success} />
+  <Panel
+    element="form"
+    title="Download"
+    onsubmit={(event) => {
+      event.preventDefault();
+      void fs.list();
+    }}
+  >
+    <KeyField id="download-key" placeholder="The key you were given" bind:value={fs.receiveKey}>
+      <button type="submit" disabled={fs.receive.busy}>List files</button>
+    </KeyField>
+    <FileRows files={fs.listed} busy={fs.receive.busy} ondownload={(files) => fs.download(files)} />
+    <FormMessages error={fs.receive.error} success={fs.receive.success} quiet />
   </Panel>
 </section>
 
-<Panel title="Storage Info" class="info-panel">
-  <dl class="stats">
-    {#each stats as [label, value] (label)}
-      <div>
-        <dt>{label}</dt>
-        <dd>{value}</dd>
-      </div>
-    {/each}
-  </dl>
-</Panel>
+<p class="status-line">{fs.statusLine}</p>
 
 <style>
-  label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  input,
-  select {
-    padding: 0.85rem 0.9rem;
-  }
-
-  input[type='file']::file-selector-button {
-    margin-right: 1rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-text-primary);
-    background: var(--color-bg-surface);
-    color: var(--color-text-primary);
-    font: inherit;
-  }
-
-  .file-list {
-    list-style: none;
-    border: 1px dashed var(--color-text-primary);
-    border-radius: 3px;
-    background: var(--color-bg-surface);
-    padding: 0.75rem;
-  }
-
-  .file-list li {
-    padding: 0.4rem 0;
-    font-size: 0.9rem;
-    opacity: 0.9;
-    overflow-wrap: break-word;
-  }
-
-  .file-list li:not(:last-child) {
-    border-bottom: var(--divider);
-    margin-bottom: 0.4rem;
-  }
-
-  .file-meta {
-    opacity: 0.85;
-  }
-
-  .upload-progress {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .progress-file {
-    overflow-wrap: anywhere;
-  }
-
-  progress {
-    appearance: none;
+  .upload {
     width: 100%;
-    height: 1rem;
-    border: 1px solid var(--color-text-primary);
-    border-radius: 3px;
-    background: var(--color-bg-dark);
-    color: var(--color-text-primary);
   }
 
-  /* Each engine styles its own pseudo-elements, and one rule can't list both. */
-  progress::-webkit-progress-bar {
-    background: var(--color-bg-dark);
-  }
-
-  progress::-webkit-progress-value {
-    background: var(--color-text-primary);
-  }
-
-  progress::-moz-progress-bar {
-    background: var(--color-text-primary);
-  }
-
-  /* Light mode's text color is a dark slate, which reads as a gray bar. */
-  :global(:root[data-theme='light']) progress::-webkit-progress-value {
-    background: var(--color-success);
-  }
-
-  :global(:root[data-theme='light']) progress::-moz-progress-bar {
-    background: var(--color-success);
-  }
-
-  .file-selector {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: var(--divider);
-  }
-
-  :global(.info-panel) {
-    margin-top: 1.5rem;
-    container-type: inline-size;
-  }
-
-  /* Explicit 1/2/4 steps so a stat is never left alone on a row; 4 columns need
-     ~80rem for the longest row ("999.9 MB / 1.00 GB") to stay on one line. */
-  .stats {
-    display: grid;
-    grid-template-columns: 1fr;
-    column-gap: 2rem;
-    margin: 0;
-  }
-
-  @container (min-width: 40rem) {
-    .stats {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @container (min-width: 80rem) {
-    .stats {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-  }
-
-  .stats div {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 0 1rem;
-    padding: 0.4rem 0;
-    border-bottom: var(--divider);
-  }
-
-  .stats dt {
-    opacity: 0.75;
-  }
-
-  .stats dd {
-    margin: 0;
+  .status-line {
+    margin-top: 1rem;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    text-align: center;
   }
 </style>

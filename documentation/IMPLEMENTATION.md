@@ -10,7 +10,7 @@ How the code is organized. Running and testing it is in [Development](./DEVELOPM
 | `app/__init__.py` | `create_app()`: requires `SECRET_KEY`, caps request bodies at `MAX_FILE_BYTES` + 1 MiB (~81 MB), enables CORS in development (`flask-cors` is a dev dependency), registers the `views` blueprint, and returns every HTTP error, 500s included, as JSON `{"error": ...}`. |
 | `app/views.py` | All routes and the client-IP/Cloudflare-header helpers. Turns any `ApiError` into a JSON `{error}` response. |
 | `app/errors.py` | `ApiError(message, status_code)`, the base for `FileShareError` and `MessageBoardError`. |
-| `app/fileshare.py` | File-share storage, encryption, expiry, and eviction. |
+| `app/fileshare.py` | File-share storage, expiry, and eviction (the browser encrypts; see [Utilities](./UTILITIES.md#file-share)). |
 | `app/messageboard.py` | Message sanitizing, in-memory store, rate limiter. |
 | `app/uptime.py` | Footer uptime: fetches the public status page's `index.json` (undocumented, no token), sums the last 30 days of downtime, caches 15 min (2 min after a failure, keeping the last good value). |
 

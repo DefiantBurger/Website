@@ -133,14 +133,14 @@ I intentionally moved logic toward the client for responsiveness and lower backe
 
 - Flask application factory + a single blueprint
 - Waitress in production; CORS enabled only in development
-- Separate modules for file-share storage/encryption and message-board logic, with a shared `ApiError` base that the blueprint turns into JSON error responses
+- Separate modules for file-share storage and message-board logic, with a shared `ApiError` base that the blueprint turns into JSON error responses
 - A background thread that sweeps expired file-share files every minute
 - A `/api/health/` endpoint used by deploys
 - pytest suite with coverage reported to Codecov, using a temporary instance directory per test; Ruff for linting and formatting
 
 #### Backend Responsibilities
 
-- Store, encrypt, and expire shared files
+- Store and expire shared files, which arrive already encrypted
 - Sanitize, rate-limit, and expire message-board posts
 - Report request context (IP, Cloudflare location headers, request headers) for the About You page
 - Return consistent JSON errors (`{"error": "..."}`) for the frontend to display
@@ -222,7 +222,7 @@ Better Stack monitors uptime externally. The site footer links its public status
 The platform hosts several interactive utilities that showcase different engineering challenges:
 
 - **Class Scheduler** (`/utilities/scheduler`): a drag-and-drop semester planner for UW–Madison courses. It checks nested prerequisite rules (all-of, any-of, at-least-k-of, and concurrent enrollment), draws them as a dependency graph with auto-detangling to reduce edge crossings, flags pairs of courses that can't both count for credit, warns when a course is planned in a season it rarely runs in, and supports variable-credit courses, undo/redo, and JSON import/export. Plans are saved in the URL fragment, compressed, so a link shares a plan without it ever reaching the server. The catalog comes from a separate scraper I wrote that parses the university's requisite text into structured rules.
-- **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. Files are encrypted at rest with scrypt + AES-256-GCM in 1 MiB chunks streamed to and from disk, so memory use doesn't grow with file size and a truncated or reordered file fails to decrypt. Files are looked up by an HMAC of the key, limited to 80 MB each and 1 GB (and 1,000 files) in total, and expire after 10 minutes. The file index lives only in memory, so a restart deletes every file.
+- **File Share** (`/utilities/fileshare`): temporary file sharing under an access key. The browser encrypts each file and its name before upload (WebCrypto: PBKDF2 into HKDF, then AES-256-GCM in 1 MiB chunks, so a truncated or reordered file fails to decrypt), so the server and Cloudflare only ever see ciphertext and a lookup token derived from the key, never the key itself. A Generate button offers six random words from EFF's short word list. Files are looked up by an HMAC of the token, limited to 80 MB each and 1 GB (and 1,000 files) in total, and expire after 10 minutes. The file index lives only in memory, so a restart deletes every file.
 - **Message Board** (`/utilities/message-board`): an anonymous board where posts expire 60 seconds after posting. Text is Unicode-sanitized (control, zero-width, and bidi-override characters are stripped while emoji sequences survive), capped at 280 characters, and rate-limited per IP. The page polls while visible and times each countdown from the server's clock, so a wrong local clock doesn't hide or keep messages.
 
 There's also an **About You** page that shows what the site can observe about a visit: request headers, Cloudflare's location headers (with a map of the approximate location), browser properties, and in-session navigation history (kept in memory, never sent to the server).
@@ -318,7 +318,7 @@ This project demonstrates full-stack architecture in a cohesive, deployable syst
 
 **Frontend Architecture**: Route-driven SPA design with a custom router, shared API and UI primitives, state management across multiple utilities, safe HTML rendering, build-time Markdown rendering with diagram support, and accessibility checked on every route.
 
-**Backend Design**: API-first thinking, streamed authenticated encryption and expiry for user uploads, input sanitization and rate limiting, and a tested API surface.
+**Backend Design**: API-first thinking, client-side authenticated encryption and server-side expiry for user uploads, input sanitization and rate limiting, and a tested API surface.
 
 **Infrastructure as Code**: A tunnel-only VM topology, boot-time provisioning that applies config changes in place and restores the last good release, runtime secret retrieval, and least-privilege service configuration.
 
@@ -381,6 +381,6 @@ Areas to strengthen:
 ## What I Would Improve Next
 
 1. Run the browser smoke test and accessibility scan in CI, not just locally.
-2. Encrypt file-share uploads in the browser so the server only ever stores ciphertext, and add a QR code for moving the access key to a phone.
+2. Add a QR code to File Share for moving the access key to a phone.
 3. Move Terraform state to a remote encrypted backend and upgrade to Cloudflare provider v5, which can also manage Email Routing.
 4. Expand write-ups with screenshots, interactive demos embedded in the text, and deeper implementation notes per project.

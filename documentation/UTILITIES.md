@@ -54,32 +54,34 @@ cp output/course_data.json ../PersonalWebsite/frontend/src/content/scheduler/
 
 ## File Share
 
-Temporary file sharing keyed by an access key: files are encrypted at rest and expire after 10 minutes.
+Temporary file sharing keyed by an access key: the browser encrypts each file and its name before uploading, and files expire after 10 minutes.
 
 ### API
 
-`POST` bodies are `multipart/form-data`; `password` is the access key.
+`POST` bodies are `multipart/form-data`. `token` is the lookup token the browser derives from the access key (see Encryption below); the server never receives the key itself.
 
 | Method | Path | Fields | Response |
 | --- | --- | --- | --- |
 | GET | `/api/fileshare/status/` | | `{activeFileCount, usedBytes, maxFileBytes, maxTotalBytes, retentionSeconds}` |
-| POST | `/api/fileshare/upload/` | `file`, `password`, optional `replace=1` | file record; `replace=1` deletes the key's earlier files once this one is stored |
-| POST | `/api/fileshare/list/` | `password` | `{"files": [<file record>]}`, oldest first; 404 if none |
-| POST | `/api/fileshare/access/` | `password`, `id` | the file as an `application/octet-stream` attachment |
+| POST | `/api/fileshare/upload/` | `file` (ciphertext), `token`, `salt`, `encryptedName`, optional `replace=1` | file record; `replace=1` deletes the token's earlier files once this one is stored |
+| POST | `/api/fileshare/list/` | `token` | `{"files": [<file record>]}`, oldest first; 404 if none |
+| POST | `/api/fileshare/access/` | `token`, `id` | the stored ciphertext as an `application/octet-stream` attachment |
 
-A file record is `{id, originalFilename, sizeBytes, uploadedAt, expiresAt}`; `id` is random.
+A file record is `{id, salt, encryptedName, sizeBytes, uploadedAt, expiresAt}`. `id` is random; `sizeBytes` is the plaintext size, worked out from the ciphertext's.
 
-Errors: `400` missing key or file, `403` decryption failed, `404` no matching file, `413` file over 80 MB, `429` too many uploads in flight (Nginx: 2 per visitor, 6 in total), `503` too many concurrent transfers.
+Errors: `400` missing file, malformed token, salt, or name, or a body whose size no encryption produces; `404` no matching file; `413` file over 80 MB; `429` too many uploads in flight (Nginx: 2 per visitor, 6 in total); `503` too many concurrent transfers.
 
 ### Behavior
 
-- **Storage.** The index of files lives in memory (`FileShareStore`, one per app); each file's ciphertext is `<instance>/fileshare/<id>`. Nothing survives a restart (deploy, reboot, or crash): creating the store empties that directory, since without the index, which holds each file's salt, the payloads could never be found or decrypted. This assumes one process, as Waitress runs it.
-- **Lookup.** A file belongs to the key whose HMAC-SHA256, keyed with `SECRET_KEY`, matches its label, so the key itself is never stored.
-- **Encryption.** scrypt (n=2¹⁴, r=8, p=1, random salt per file) derives an AES-256-GCM key from the access key. Files are encrypted and decrypted in 1 MiB chunks, streamed to and from disk, so a transfer's memory use doesn't grow with file size. Each chunk's nonce is its index plus a last-chunk flag, so truncated, extended, or reordered payloads fail to decrypt. A download checks the first chunk before responding; a bad later chunk ends the stream short of its `Content-Length`.
+- **Encryption** (`lib/fileshare/crypto.ts`, in the browser). PBKDF2-SHA256 (600,000 iterations, with a fixed site-wide salt, since whoever downloads has only the key) turns the trimmed, NFC-normalized access key into a master key. HKDF derives the lookup token from it and, with a random 16-byte salt per file, separate AES-256-GCM keys for the file's content and its name. Content is encrypted in 1 MiB chunks; each chunk's nonce is its index plus a last-chunk flag, so truncated, extended, or reordered payloads fail to decrypt. Names are padded to 256 bytes so their length doesn't show, and cleaned (directories and control characters removed) by both uploader and downloader. Files are encrypted and decrypted whole in memory, which the 80 MB cap keeps reasonable. WebCrypto exists only in a secure context, so the page needs HTTPS or `localhost` (the dev server opened by LAN IP fails).
+- **What the server sees.** The token, ciphertext, and each file's salt, encrypted name, size, and upload time; never the key, a filename, or contents. Cloudflare, which terminates TLS, sees the same. A weak key can still be brute-forced from its token at one PBKDF2 run per guess, and the encryption is only as trustworthy as the JavaScript the server sends.
+- **Generated keys.** Generate fills in six words from EFF's short word list (`lib/fileshare/wordlist.ts`, 1,295 words, so ~62 bits), loaded on demand, and shows it in full with a copy button, since six words overflow the field on a phone.
+- **Storage.** The index of files lives in memory (`FileShareStore`, one per app); each file's ciphertext is `<instance>/fileshare/<id>`. Nothing survives a restart (deploy, reboot, or crash): creating the store empties that directory, since without the index, which holds each file's salt and encrypted name, the payloads could never be found or decrypted. This assumes one process, as Waitress runs it.
+- **Lookup.** A file belongs to the token whose HMAC-SHA256, keyed with `SECRET_KEY`, matches its label, so the index never holds a usable token.
 - **Limits.** 80 MB per file (under Cloudflare's 100 MB request limit), and 1 GB and 1,000 files in total; the oldest files are evicted to make room. At most 3 transfers run at once (`MAX_CONCURRENT_TRANSFERS`), leaving one of Waitress's 4 threads for other requests; a download keeps its slot until the response is fully sent.
 - **Expiry.** File-share requests delete expired files, and in production a background thread (`start_expiry_sweeper`, started in `main.py`) also sweeps every minute. Expired, evicted, and replaced files are deleted from disk immediately.
-- **Downloads** ignore the uploader's MIME type and send `nosniff`, so uploaded HTML can't run on the site's origin.
-- **UI batches.** The UI uploads one request per file, with a progress bar for the whole batch, and the first sends `replace=1`, so a new batch replaces the key's previous files. If the first upload fails, the previous files stay; if a later one fails, the key keeps only the files stored before it.
+- **Downloads** are always `application/octet-stream` with `nosniff`, so nothing uploaded can run on the site's origin.
+- **UI batches.** The UI derives the key once, then encrypts and uploads one request per file, with a progress bar for the whole batch, and the first sends `replace=1`, so a new batch replaces the key's previous files. If the first upload fails, the previous files stay; if a later one fails, the key keeps only the files stored before it.
 
 ## Message Board
 

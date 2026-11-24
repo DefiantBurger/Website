@@ -1,4 +1,5 @@
 import { apiFetch, apiJson, apiPostJsonWithProgress } from '../api';
+import { decryptFile, decryptName, encryptFile, type FileShareKey } from './crypto';
 
 export interface FileShareStatus {
   activeFileCount: number;
@@ -8,25 +9,37 @@ export interface FileShareStatus {
   retentionSeconds: number;
 }
 
-export interface FileShareRecord {
+/** A file as the server describes it; it never sees the name. */
+interface FileShareRecord {
   id: string;
-  originalFilename: string;
+  salt: string;
+  encryptedName: string;
   sizeBytes: number;
   uploadedAt: string;
   expiresAt: string;
 }
 
-/** `uploaded` holds the files stored before a failure; any of them means the key's earlier files are gone. */
+/** A listed file with its name decrypted. */
+export interface FileShareFile {
+  id: string;
+  salt: string;
+  name: string;
+  sizeBytes: number;
+  uploadedAt: string;
+  expiresAt: string;
+}
+
+/** `uploaded` names the files stored before a failure; any of them means the key's earlier files are gone. */
 export type UploadResult =
-  | { ok: true; uploaded: FileShareRecord[] }
-  | { ok: false; uploaded: FileShareRecord[]; failedFile: string; error: unknown };
+  | { ok: true; uploaded: string[] }
+  | { ok: false; uploaded: string[]; failedFile: string; error: unknown };
 
 /** Progress through a batch, counted in file bytes so it doesn't jump between files. */
 export interface UploadProgress {
-  /** Index into the uploaded files of the one being sent. */
+  /** Index into the uploaded files of the one being worked on. */
   fileIndex: number;
-  /** Whether that file is fully sent and its response is pending. */
-  fileSent: boolean;
+  /** `storing` means the file is fully sent and its response is pending. */
+  phase: 'encrypting' | 'uploading' | 'storing';
   sentBytes: number;
   totalBytes: number;
 }
@@ -53,46 +66,46 @@ export function fetchFileShareStatus(): Promise<FileShareStatus> {
   return apiJson<FileShareStatus>('/api/fileshare/status/');
 }
 
-/** Upload `files` one per request (the 80 MB cap is per request); the first replaces the key's earlier files once stored. */
+/** Encrypt and upload `files` one per request (the 80 MB cap is per request); the first replaces the key's earlier files once stored. */
 export async function uploadFileShare(
   files: File[],
-  password: string,
+  key: FileShareKey,
   onProgress?: (progress: UploadProgress) => void,
 ): Promise<UploadResult> {
   // Fail before touching the server if a selected file was moved or deleted since it was picked.
   for (const file of files) {
-    await readFile(file.slice(0, 1), file.name);
+    await readable(file.slice(0, 1).arrayBuffer(), file.name);
   }
 
   const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
   let doneBytes = 0;
-  const uploaded: FileShareRecord[] = [];
+  const uploaded: string[] = [];
   for (const [fileIndex, file] of files.entries()) {
-    const report = (fraction: number) =>
-      onProgress?.({
-        fileIndex,
-        fileSent: fraction >= 1,
-        sentBytes: doneBytes + file.size * fraction,
-        totalBytes,
-      });
-    report(0);
+    const report = (phase: UploadProgress['phase'], fraction: number) =>
+      onProgress?.({ fileIndex, phase, sentBytes: doneBytes + file.size * fraction, totalBytes });
+    report('encrypting', 0);
     try {
-      // Send an in-memory copy: some browsers leave the request hanging when a disk-backed
-      // body file disappears, which would only surface as a stall instead of the real cause.
-      const copy = new File([await readFile(file, file.name)], file.name, { type: file.type });
+      // Encrypting reads the whole file into memory, which also protects against browsers that
+      // leave the request hanging when a disk-backed body file disappears mid-upload.
+      const encrypted = await readable(encryptFile(key, file, file.name), file.name);
       const replace = uploaded.length === 0 ? '1' : undefined;
-      uploaded.push(
-        await apiPostJsonWithProgress<FileShareRecord>('/api/fileshare/upload/', {
-          body: formData({ file: copy, password, replace }),
-          // Scaled to the file's size, since the multipart body is a little bigger.
-          onProgress: (loaded, total) => {
-            if (total > 0) {
-              report(loaded / total);
-            }
-          },
-          responseTimeoutMs: UPLOAD_RESPONSE_TIMEOUT_MS,
+      await apiPostJsonWithProgress<FileShareRecord>('/api/fileshare/upload/', {
+        body: formData({
+          file: new File([encrypted.body], 'encrypted'),
+          token: key.token,
+          salt: encrypted.salt,
+          encryptedName: encrypted.encryptedName,
+          replace,
         }),
-      );
+        // Scaled to the file's size, since the multipart body is a little bigger.
+        onProgress: (loaded, total) => {
+          if (total > 0) {
+            report(loaded >= total ? 'storing' : 'uploading', loaded / total);
+          }
+        },
+        responseTimeoutMs: UPLOAD_RESPONSE_TIMEOUT_MS,
+      });
+      uploaded.push(file.name);
       doneBytes += file.size;
     } catch (error) {
       return { ok: false, uploaded, failedFile: file.name, error };
@@ -101,9 +114,9 @@ export async function uploadFileShare(
   return { ok: true, uploaded };
 }
 
-async function readFile(blob: Blob, name: string): Promise<ArrayBuffer> {
+async function readable<T>(read: Promise<T>, name: string): Promise<T> {
   try {
-    return await blob.arrayBuffer();
+    return await read;
   } catch {
     throw new Error(
       `Couldn't read ${name}; it may have been moved or deleted. Choose the files again.`,
@@ -111,11 +124,23 @@ async function readFile(blob: Blob, name: string): Promise<ArrayBuffer> {
   }
 }
 
-export async function downloadFileShare(password: string, id: string): Promise<Blob> {
-  const response = await apiFetch('/api/fileshare/access/', postForm({ password, id }));
-  return response.blob();
+export async function downloadFileShare(key: FileShareKey, file: FileShareFile): Promise<Blob> {
+  const response = await apiFetch(
+    '/api/fileshare/access/',
+    postForm({ token: key.token, id: file.id }),
+  );
+  return decryptFile(key, file.salt, await response.blob());
 }
 
-export function listFileShareFiles(password: string): Promise<{ files: FileShareRecord[] }> {
-  return apiJson<{ files: FileShareRecord[] }>('/api/fileshare/list/', postForm({ password }));
+export async function listFileShareFiles(key: FileShareKey): Promise<FileShareFile[]> {
+  const { files } = await apiJson<{ files: FileShareRecord[] }>(
+    '/api/fileshare/list/',
+    postForm({ token: key.token }),
+  );
+  return Promise.all(
+    files.map(async ({ encryptedName, ...file }) => ({
+      ...file,
+      name: await decryptName(key, file.salt, encryptedName),
+    })),
+  );
 }

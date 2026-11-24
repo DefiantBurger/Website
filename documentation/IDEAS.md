@@ -28,17 +28,9 @@ Link previews (Discord, Slack, iMessage, LinkedIn) use the page's `og:image`, wh
 
 ## Utilities
 
-### File Share: encryption in the browser and QR codes
+### File Share: QR codes
 
-**Encrypt in the browser** so the server only ever stores ciphertext and can't read uploaded files.
-
-- **Why:** today's encryption at rest only protects against a leak of the disk alone. The server sees every access key in its requests, and anyone with `SECRET_KEY` can test key guesses against the labels at HMAC speed, skipping scrypt. So tuning scrypt's cost isn't worth it; this is the real fix.
-- Today the server uses the access key both to find a batch (HMAC label) and to encrypt it. With browser encryption, the browser derives two separate values from the access key (e.g. HKDF): a lookup token sent to the server, and an AES-GCM key that never leaves the browser. Otherwise the server still sees what it needs to decrypt.
-- Reuse the server's chunk format (1 MiB chunks, nonce = chunk index + last-chunk flag; see [Utilities](./UTILITIES.md#file-share)) so large files never need to fit in memory.
-- File names should be encrypted too, or the server still learns something about the files.
-- WebCrypto (`crypto.subtle`) covers all of this without dependencies.
-
-**QR code** for the access key, so a file can go from laptop to phone without typing the key.
+Show a QR code for the access key, so a file can go from laptop to phone without typing the key.
 
 - Encode a link with the key in the fragment (`/utilities/fileshare#key=...`), so scanning it opens the page with the key filled in, and the key never reaches the server or its logs.
 - QR encoding is a few hundred lines to write by hand. A small, dependency-free library (e.g. `qrcode-generator`) is a reasonable exception to the no-new-dependencies rule.
@@ -107,7 +99,7 @@ SystemCallArchitectures=native
 UMask=077
 ```
 
-- Leave out `MemoryDenyWriteExecute`: `cryptography` still depends on cffi, and libffi trampolines can need writable-and-executable memory.
+- `MemoryDenyWriteExecute=yes` is now worth trying too: it was left out because `cryptography` pulled in cffi, whose libffi trampolines can need writable-and-executable memory, and the backend no longer depends on it.
 - `UMask=077` makes file-share files mode 600, which is fine because only `flaskapp` reads them.
 - `vm/cloudflared.service.tftpl` already gets most of this from `DynamicUser=yes`; the `Protect*`, `Restrict*`, `LockPersonality`, `CapabilityBoundingSet=`, and `SystemCallFilter` lines apply there too. It needs `AF_INET AF_INET6 AF_UNIX` for the QUIC tunnel.
 - **Test on the VM first:** edit `/etc/systemd/system/flaskapp.service`, `systemctl daemon-reload && systemctl restart flaskapp`, then `systemd-analyze security flaskapp`, `curl http://127.0.0.1:5000/api/health/`, and a file-share upload and download through the site. Only then commit the same lines to the templates and [apply them](./RUNBOOK.md#apply-vm-config-changes), which overwrites the hand edit.
